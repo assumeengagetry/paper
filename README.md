@@ -2,7 +2,7 @@
 
 这是按研究主题归档的本地论文、书籍和研究笔记库。完整文件列表见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
 
-更新日期：2026-10-07。
+更新日期：2026-10-10。
 
 ## 主题入口
 
@@ -12,13 +12,28 @@
 | [Generative-Models](Generative-Models/) | 图像扩散、扩散语言模型、语音生成、科学应用、变分推断及语言模型训练 | 15 |
 | [LLM-Systems](LLM-Systems/) | 模型架构、推理性能分析、服务与 KV Cache | 9 |
 | [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式训练、GPU 编程、加速器性能与 Roofline | 6 |
-| [Computer-Vision](Computer-Vision/) | 视觉语言预训练 | 1 |
+| [Computer-Vision](Computer-Vision/) | 视觉语言预训练、实时与开放词汇目标检测、图像与视频分割 | 27 |
 | [Explainable-and-Responsible-AI](Explainable-and-Responsible-AI/) | 可解释性、公平性与偏差 | 14 |
 | [ML-Security-and-Robustness](ML-Security-and-Robustness/) | 后门、水印与模型压缩鲁棒性 | 3 |
 | [Medical-AI](Medical-AI/) | 内窥镜与息肉分析 | 5 |
 | [Research-Landscapes](Research-Landscapes/) | 团队、研究机构与研究信息源笔记 | — |
 
-PDF 总数为 86，包含已有书籍、学位论文和保留的重复副本。
+PDF 总数为 112，包含已有书籍、学位论文和保留的重复副本。
+
+## 实时目标检测论文（2026-10-10 新增）
+
+新增 10 篇 arXiv 论文 PDF：RT-DETR、RT-DETRv2／v3／v4、DEIM、DEIMv2、D-FINE、YOLOv10／v12／v13，统一归档至 [Computer-Vision/Object-Detection](Computer-Vision/Object-Detection/)。完整标题、本地文件和来源版本见 [下载清单](Computer-Vision/Object-Detection/README.md)。
+
+全部使用下载时的最新版本，总大小约 32.00 MiB，已核对标题、版本、页数和归档前后的校验和。截图中的 `ultralytics/ultralytics` 是 GitHub 仓库，不作为论文下载。
+
+## Ultralytics 相关模型原论文补齐（2026-10-10）
+
+按 Ultralytics 官方模型列表、原论文引用及 YOLO 基础谱系另新增 16 篇 PDF，共约 109.29 MiB：
+
+- **检测相关 11 篇**：YOLOv1／v2／v3／v4、YOLOv6 初版与 v3.0、YOLOv7、YOLOv9、Ultralytics YOLO26、YOLO-World、YOLOE，放在 `Computer-Vision/Object-Detection/`。
+- **分割相关 5 篇**：SAM、SAM 2／3、MobileSAM、FastSAM，放在 `Computer-Vision/Image-and-Video-Segmentation/`。
+
+完整标题、本地文件、版本及排除项见 [Ultralytics 原论文清单](Computer-Vision/Ultralytics-Papers.md)。YOLOv5／v8／11 的官方页面明确说明没有正式研究论文；YOLO27 仍为预告，YOLO-NAS 的官方引用指向软件项目，未用第三方论文替代。YOLO26 的官方原论文已确认并下载。原有 96 份 PDF 均未改变。
 
 ## 本次所需项目与论文
 

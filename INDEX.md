@@ -1,10 +1,50 @@
 # 论文与资料目录
 
-更新：2026-10-07。按主要研究贡献分类，保留原文件名。
+更新：2026-10-10。按主要研究贡献分类，保留原文件名。
 
-共 86 份 PDF（含书籍、学位论文和保留的副本）。项目对应关系和来源见 [README](README.md)。
+共 112 份 PDF（含书籍、学位论文和保留的副本）。项目对应关系和来源见 [README](README.md)。
 
 已核对本次归档的全部原始 PDF 校验和；`Additional-Copies` 中存放此前根目录已有的完整副本。
+
+## Computer-Vision/Image-and-Video-Segmentation
+
+Ultralytics 支持的分割模型原论文，来源与版本见 [Ultralytics 原论文清单](Computer-Vision/Ultralytics-Papers.md)。
+
+| 文件 | 标题／识别信息 | 页数 |
+| --- | --- | ---: |
+| [2304.02643v1.pdf](Computer-Vision/Image-and-Video-Segmentation/2304.02643v1.pdf) | Segment Anything（SAM） | 30 |
+| [2306.12156v1.pdf](Computer-Vision/Image-and-Video-Segmentation/2306.12156v1.pdf) | Fast Segment Anything（FastSAM） | 11 |
+| [2306.14289v2.pdf](Computer-Vision/Image-and-Video-Segmentation/2306.14289v2.pdf) | Faster Segment Anything: Towards Lightweight SAM for Mobile Applications（MobileSAM） | 10 |
+| [2408.00714v2.pdf](Computer-Vision/Image-and-Video-Segmentation/2408.00714v2.pdf) | SAM 2: Segment Anything in Images and Videos | 42 |
+| [2511.16719v2.pdf](Computer-Vision/Image-and-Video-Segmentation/2511.16719v2.pdf) | SAM 3: Segment Anything with Concepts | 78 |
+
+## Computer-Vision/Object-Detection
+
+2026-10-10 首批新增 10 篇实时目标检测论文，随后补齐 11 篇 Ultralytics 相关原论文；共 21 篇。来源与版本见 [首批清单](Computer-Vision/Object-Detection/README.md)及 [Ultralytics 原论文清单](Computer-Vision/Ultralytics-Papers.md)。
+
+| 文件 | 标题／识别信息 | 页数 |
+| --- | --- | ---: |
+| [1506.02640v5.pdf](Computer-Vision/Object-Detection/1506.02640v5.pdf) | You Only Look Once: Unified, Real-Time Object Detection（YOLOv1） | 10 |
+| [1612.08242v1.pdf](Computer-Vision/Object-Detection/1612.08242v1.pdf) | YOLO9000: Better, Faster, Stronger（YOLOv2） | 9 |
+| [1804.02767v1.pdf](Computer-Vision/Object-Detection/1804.02767v1.pdf) | YOLOv3: An Incremental Improvement | 6 |
+| [2004.10934v1.pdf](Computer-Vision/Object-Detection/2004.10934v1.pdf) | YOLOv4: Optimal Speed and Accuracy of Object Detection | 17 |
+| [2207.02696v1.pdf](Computer-Vision/Object-Detection/2207.02696v1.pdf) | YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors | 15 |
+| [2209.02976v1.pdf](Computer-Vision/Object-Detection/2209.02976v1.pdf) | YOLOv6: A Single-Stage Object Detection Framework for Industrial Applications | 17 |
+| [2301.05586v1.pdf](Computer-Vision/Object-Detection/2301.05586v1.pdf) | YOLOv6 v3.0: A Full-Scale Reloading | 7 |
+| [2304.08069v3.pdf](Computer-Vision/Object-Detection/2304.08069v3.pdf) | DETRs Beat YOLOs on Real-time Object Detection（RT-DETR） | 14 |
+| [2401.17270v3.pdf](Computer-Vision/Object-Detection/2401.17270v3.pdf) | YOLO-World: Real-Time Open-Vocabulary Object Detection | 15 |
+| [2402.13616v2.pdf](Computer-Vision/Object-Detection/2402.13616v2.pdf) | YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information | 18 |
+| [2405.14458v2.pdf](Computer-Vision/Object-Detection/2405.14458v2.pdf) | YOLOv10: Real-Time End-to-End Object Detection | 21 |
+| [2407.17140v1.pdf](Computer-Vision/Object-Detection/2407.17140v1.pdf) | RT-DETRv2: Improved Baseline with Bag-of-Freebies for Real-Time Detection Transformer | 4 |
+| [2409.08475v3.pdf](Computer-Vision/Object-Detection/2409.08475v3.pdf) | RT-DETRv3: Real-time End-to-End Object Detection with Hierarchical Dense Positive Supervision | 9 |
+| [2410.13842v1.pdf](Computer-Vision/Object-Detection/2410.13842v1.pdf) | D-FINE: Redefine Regression Task in DETRs as Fine-grained Distribution Refinement | 18 |
+| [2412.04234v3.pdf](Computer-Vision/Object-Detection/2412.04234v3.pdf) | DEIM: DETR with Improved Matching for Fast Convergence | 13 |
+| [2502.12524v1.pdf](Computer-Vision/Object-Detection/2502.12524v1.pdf) | YOLOv12: Attention-Centric Real-Time Object Detectors | 13 |
+| [2503.07465v2.pdf](Computer-Vision/Object-Detection/2503.07465v2.pdf) | YOLOE: Real-Time Seeing Anything | 15 |
+| [2506.17733v2.pdf](Computer-Vision/Object-Detection/2506.17733v2.pdf) | YOLOv13: Real-Time Object Detection with Hypergraph-Enhanced Adaptive Visual Perception | 12 |
+| [2509.20787v4.pdf](Computer-Vision/Object-Detection/2509.20787v4.pdf) | Real-Time Object Detection Meets DINOv3（DEIMv2） | 7 |
+| [2510.25257v2.pdf](Computer-Vision/Object-Detection/2510.25257v2.pdf) | RT-DETRv4: Painlessly Furthering Real-Time Object Detection with Vision Foundation Models | 25 |
+| [2606.03748v1.pdf](Computer-Vision/Object-Detection/2606.03748v1.pdf) | Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models | 31 |
 
 ## Computer-Vision/Vision-Language-Pretraining
 
@@ -239,6 +279,8 @@
 
 ## 笔记、项目说明与演示资料
 
+- [Computer-Vision/Ultralytics-Papers.md](Computer-Vision/Ultralytics-Papers.md)
+- [Computer-Vision/Object-Detection/README.md](Computer-Vision/Object-Detection/README.md)
 - [Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_2023.acl-long.797_2047131288981532672.md](Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_2023.acl-long.797_2047131288981532672.md)
 - [Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_35038-Article_Text-39105-1-2-20250410_(1)_2047131233369255936.md](Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_35038-Article_Text-39105-1-2-20250410_%281%29_2047131233369255936.md)
 - [Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_35038-Article_Text-39105-1-2-20250410_2047131102465032192.md](Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_35038-Article_Text-39105-1-2-20250410_2047131102465032192.md)
