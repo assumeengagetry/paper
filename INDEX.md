@@ -1,8 +1,18 @@
 # 论文与资料目录
 
-更新：2026-10-10。按主要研究贡献分类，保留原文件名。
+更新：2026-11-05。按主要研究贡献分类，保留原文件名。
 
-共 112 份 PDF（含书籍、学位论文和保留的副本）。项目对应关系和来源见 [README](README.md)。
+共 565 份 PDF（含书籍、学位论文、公开技术报告和保留的副本）。项目对应关系和来源见 [README](README.md)。
+
+## 当前完整目录与本次归档
+
+本索引保留此前的逐文件条目和笔记入口。**本次新增 433 份 PDF，以及全库全部 565 份 PDF 的完整逐文件列表，统一见 [CATALOG-20261105.md](CATALOG-20261105.md)**，按实际主题目录分组，可直接打开每个文件。
+
+- [Zotero 压缩包与 profiler 引用整理报告](IMPORT-20261105.md)：范围、查重、版本、阅读方法及 13 条未取得全文／原始来源待核实的书目。
+- [来源、关联类型、版本与 SHA-256 机器清单](IMPORT-20261105.manifest.json)。
+- [实际文件完整性与 PDF 格式验证](VERIFY-20261105.json)：565 份页数与校验和核对，原有 132 份不变，新增文件 421 份 qpdf 清洁通过、12 份仅原始格式警告、0 个致命错误。
+
+新主题入口包括 [自然语言处理](Natural-Language-Processing/)、[机器学习基础](Machine-Learning-Foundations/)、[计算机科学基础](Computer-Science-Foundations/)、[音频与音乐](Audio-and-Speech/)、[计算机图形学](Computer-Graphics/)及 [推荐系统](Recommender-Systems/)。既有主题的新论文同样列在完整目录中，不在这里重复维护第二份清单。
 
 已核对本次归档的全部原始 PDF 校验和；`Additional-Copies` 中存放此前根目录已有的完整副本。
 
@@ -206,11 +216,28 @@ Ultralytics 支持的分割模型原论文，来源与版本见 [Ultralytics 原
 
 ## Robotics-and-Embodied-AI/Benchmarks-and-Datasets
 
+2026-10-19 补齐的 VLA benchmark 论文及版本说明见 [下载清单](Robotics-and-Embodied-AI/VLA-Benchmark-Papers-20261019.md)。
+
 | 文件 | 标题／识别信息 | 页数 |
 | --- | --- | ---: |
+| [1909.12271v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/1909.12271v1.pdf) | RLBench: The Robot Learning Benchmark & Learning Environment | 8 |
+| [2112.03227v4.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2112.03227v4.pdf) | CALVIN: A Benchmark for Language-Conditioned Policy Learning for Long-Horizon Robot Manipulation Tasks | 10 |
 | [2306.03310v2.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2306.03310v2.pdf) | LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning | 44 |
+| [2402.08191v2.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2402.08191v2.pdf) | THE COLOSSEUM: A Benchmark for Evaluating Generalization for Robotic Manipulation | 33 |
+| [2403.09227v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2403.09227v1.pdf) | BEHAVIOR-1K: A Human-Centered, Embodied AI Benchmark with 1,000 Everyday Activities and Realistic Simulation | 43 |
+| [2405.05941v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2405.05941v1.pdf) | Evaluating Real-World Robot Manipulation Policies in Simulation（SIMPLER） | 22 |
+| [2406.02523v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2406.02523v1.pdf) | RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots | 16 |
+| [2410.24185v2.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2410.24185v2.pdf) | DexMimicGen: Automated Data Generation for Bimanual Dexterous Manipulation via Imitation Learning | 10 |
+| [2412.18194v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2412.18194v1.pdf) | VLABench: A Large-Scale Benchmark for Language-Conditioned Robotics Manipulation with Long-Horizon Reasoning Tasks | 34 |
 | [2504.13059v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2504.13059v1.pdf) | RoboTwin: Dual-Arm Robot Benchmark with Generative Digital Twins | 22 |
 | [2506.18088v2.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2506.18088v2.pdf) | RoboTwin 2.0: A Scalable Data Generator and Benchmark with Strong Domain Randomization for Robust Bimanual Robotic Manipulation | 24 |
+| [2506.18123v2.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2506.18123v2.pdf) | RoboArena: Distributed Real-World Evaluation of Generalist Robot Policies | 29 |
+| [2510.03827v2.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2510.03827v2.pdf) | LIBERO-PRO: Towards Robust and Fair Evaluation of Vision-Language-Action Models Beyond Memorization | 10 |
+| [2510.13626v3.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2510.13626v3.pdf) | LIBERO-Plus: In-depth Robustness Analysis of Vision-Language-Action Models | 32 |
+| [2510.17950v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2510.17950v1.pdf) | RoboChallenge: Large-scale Real-robot Evaluation of Embodied Policies | 12 |
+| [2603.04356v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2603.04356v1.pdf) | RoboCasa365: A Large-Scale Simulation Framework for Training and Benchmarking Generalist Robots | 25 |
+| [2604.09860v4.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2604.09860v4.pdf) | RoboLab: A High-Fidelity Simulation Benchmark for Analysis of Task Generalist Policies | 20 |
+| [2607.04434v3.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2607.04434v3.pdf) | RoboDojo: A Unified Sim-and-Real Benchmark for Comprehensive Evaluation of Generalist Robot Manipulation Policies | 46 |
 | [2609.37771v1.pdf](Robotics-and-Embodied-AI/Benchmarks-and-Datasets/2609.37771v1.pdf) | Faster and Better? Benchmark Bugs and Design Limitations Distort the Evaluation of Vision-Language-Action Acceleration | 19 |
 
 ## Robotics-and-Embodied-AI/Diffusion-Policies
@@ -245,9 +272,14 @@ Ultralytics 支持的分割模型原论文，来源与版本见 [Ultralytics 原
 
 | 文件 | 标题／识别信息 | 页数 |
 | --- | --- | ---: |
+| [2210.06407v1.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2210.06407v1.pdf) | Interactive Language: Talking to Robots in Real Time（Language Table 来源论文） | 11 |
 | [2501.09747v1.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2501.09747v1.pdf) | FAST: Efficient Action Tokenization for Vision-Language-Action Models | 19 |
+| [2503.14734v2.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2503.14734v2.pdf) | GR00T N1: An Open Foundation Model for Generalist Humanoid Robots | 36 |
 | [2504.16054v1.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2504.16054v1.pdf) | π0.5: a Vision-Language-Action Model with Open-World Generalization | 19 |
+| [2505.23705v1.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2505.23705v1.pdf) | Knowledge Insulating Vision-Language-Action Models: Train Fast, Run Fast, Generalize Better | 18 |
 | [2509.06932v2.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2509.06932v2.pdf) | LLaDA-VLA: Vision Language Diffusion Action Models | 11 |
+| [2604.15483v1.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2604.15483v1.pdf) | π0.7: a Steerable Generalist Robotic Foundation Model with Emergent Capabilities | 25 |
+| [2606.14409v2.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/2606.14409v2.pdf) | Hy-Embodied-0.5-VLA: From Vision-Language-Action Models to a Real-World Robot Learning Stack | 26 |
 | [pi0.pdf](Robotics-and-Embodied-AI/Vision-Language-Action-Models/pi0.pdf) | π0: A Vision-Language-Action Flow Model for General Robot Control | 17 |
 
 ## Robotics-and-Embodied-AI/World-Action-Models
@@ -279,6 +311,7 @@ Ultralytics 支持的分割模型原论文，来源与版本见 [Ultralytics 原
 
 ## 笔记、项目说明与演示资料
 
+- [VLA 模型与机器人 Benchmark 论文下载清单（2026-10-19）](Robotics-and-Embodied-AI/VLA-Benchmark-Papers-20261019.md)
 - [Computer-Vision/Ultralytics-Papers.md](Computer-Vision/Ultralytics-Papers.md)
 - [Computer-Vision/Object-Detection/README.md](Computer-Vision/Object-Detection/README.md)
 - [Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_2023.acl-long.797_2047131288981532672.md](Explainable-and-Responsible-AI/Fairness-and-Bias/Mitigation-and-Evaluation/MinerU_markdown_2023.acl-long.797_2047131288981532672.md)

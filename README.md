@@ -1,24 +1,51 @@
 # Paper Library
 
-这是按研究主题归档的本地论文、书籍和研究笔记库。完整文件列表见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
+这是按研究主题归档的本地论文、书籍和研究笔记库。当前完整 PDF 文件目录见 [CATALOG-20261105.md](CATALOG-20261105.md)，历史逐文件索引与笔记入口见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
 
-更新日期：2026-10-10。
+更新日期：2026-11-05。
 
 ## 主题入口
 
 | 目录 | 主要内容 | PDF 数量 |
 | --- | --- | ---: |
-| [Robotics-and-Embodied-AI](Robotics-and-Embodied-AI/) | 世界动作模型、VLA 模型、扩散策略、推理系统、机器人评测与学习框架 | 33 |
-| [Generative-Models](Generative-Models/) | 图像扩散、扩散语言模型、语音生成、科学应用、变分推断及语言模型训练 | 15 |
-| [LLM-Systems](LLM-Systems/) | 模型架构、推理性能分析、服务与 KV Cache | 9 |
-| [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式训练、GPU 编程、加速器性能与 Roofline | 6 |
-| [Computer-Vision](Computer-Vision/) | 视觉语言预训练、实时与开放词汇目标检测、图像与视频分割 | 27 |
-| [Explainable-and-Responsible-AI](Explainable-and-Responsible-AI/) | 可解释性、公平性与偏差 | 14 |
+| [Robotics-and-Embodied-AI](Robotics-and-Embodied-AI/) | 世界动作模型、VLA、扩散策略、部署、评测、运动控制与自动驾驶 | 72 |
+| [Generative-Models](Generative-Models/) | 图像／视频扩散、扩散语言模型、语音生成、多模态模型、推理与训练 | 43 |
+| [LLM-Systems](LLM-Systems/) | 模型架构、推测解码、推理内核、服务、KV Cache 与性能分析 | 101 |
+| [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式／高效训练、GPU 与加速器编程、编译器、框架与硬件性能 | 50 |
+| [Machine-Learning-Foundations](Machine-Learning-Foundations/) | 蒸馏与模型合并、优化、校准、量化、强化学习与概率采样 | 30 |
+| [Natural-Language-Processing](Natural-Language-Processing/) | 数据集与基准、文本编码器、分类抽取、逻辑推理、分词与翻译 | 153 |
+| [Computer-Vision](Computer-Vision/) | 视觉语言预训练、高效视觉架构、目标检测、图像与视频分割 | 32 |
+| [Audio-and-Speech](Audio-and-Speech/) | 音乐模型与数据集、神经音频编解码 | 4 |
+| [Recommender-Systems](Recommender-Systems/) | 生成式推荐模型 | 1 |
+| [Computer-Graphics](Computer-Graphics/) | 神经辐射缓存与路径追踪 | 1 |
+| [Computer-Science-Foundations](Computer-Science-Foundations/) | 字符串与数据结构、并发验证、数值计算、数据库与语言基础 | 31 |
+| [Explainable-and-Responsible-AI](Explainable-and-Responsible-AI/) | 可解释性、公平性、事实可靠性、安全、伦理与可持续性 | 33 |
 | [ML-Security-and-Robustness](ML-Security-and-Robustness/) | 后门、水印与模型压缩鲁棒性 | 3 |
-| [Medical-AI](Medical-AI/) | 内窥镜与息肉分析 | 5 |
+| [Medical-AI](Medical-AI/) | 内窥镜与息肉分析、临床语言理解与医学问答 | 11 |
 | [Research-Landscapes](Research-Landscapes/) | 团队、研究机构与研究信息源笔记 | — |
 
-PDF 总数为 112，包含已有书籍、学位论文和保留的重复副本。
+PDF 总数为 565，包含书籍、学位论文、公开技术报告及保留的同文出版版本／副本；不等同于 565 篇互异的已发表论文。
+
+## Zotero 压缩包与 profiler 引用归档（2026-11-05）
+
+整理 `storage.zip` 并核查 `~/profiler/` 中的研究文档、代码引用和归档资料，**本次新增 433 份 PDF，共约 1213.82 MiB**；工作树开始时已有的 132 份 PDF 校验和全部保持不变。
+
+- 压缩包 90 个 PDF 条目：新增 87 份，复用原库完全相同文件 1 份，包内完全重复 2 份映射到已归档文件；原始文件名与压缩包保留。
+- 71 个网页快照中，69 个论文快照均关联到可用 PDF，其中两篇此前只有网页的论文已补下载；另保存 ReplaySSM 公开技术文章说明，私人工作网页不发布。
+- profiler 来源另复用／复制本地论文、补齐公开原论文，区分项目引用、具名数据集／模型映射及第三方依赖书目，不递归扩展外部论文的全部参考文献。
+- **仍有 13 条全文或原始出处尚未补齐的书目**，受订阅、403、源站不可达或原始来源不明等限制；已明确列出，不将摘要页或错误响应冒充 PDF。
+
+完整结果、范围与未取得全文的名单见 [整理报告](IMPORT-20261105.md)；全部 565 份 PDF 的逐文件入口见 [完整目录](CATALOG-20261105.md)，来源、版本和 SHA-256 见 [机器清单](IMPORT-20261105.manifest.json)，实际文件验证结果见 [VERIFY-20261105.json](VERIFY-20261105.json)。
+
+原始 `storage.zip`、精确的 profiler 内部出处和无公开身份的待核实信息仅留本地，不进入 Git 提交。此前未提交的 20 份 VLA benchmark 论文及对应清单继续保留，属于本次提交范围。
+
+## VLA 与机器人 Benchmark 论文补齐（2026-10-19）
+
+按 π、GR00T、Hy-VLA 与相关 benchmark 调研补齐 25 篇对应论文：新增 20 篇 PDF，共 269.93 MiB；复用已有 5 篇，不覆盖或重命名既有文件。
+
+包含 Knowledge Insulation、π₀.₇、GR00T N1、Hy-VLA，以及 CALVIN、RoboCasa／365、SIMPLER、RLBench、DexMimicGen、VLABench、LIBERO-Plus／PRO、The Colosseum、RoboLab、RoboDojo、BEHAVIOR-1K、RoboArena、RoboChallenge 和 Language Table 来源论文。
+
+标题、本地文件、来源版本、页数及无独立论文的项目说明见 [下载清单](Robotics-and-Embodied-AI/VLA-Benchmark-Papers-20261019.md)；校验和见 [JSON 清单](Robotics-and-Embodied-AI/VLA-Benchmark-Papers-20261019.manifest.json)。
 
 ## 实时目标检测论文（2026-10-10 新增）
 
