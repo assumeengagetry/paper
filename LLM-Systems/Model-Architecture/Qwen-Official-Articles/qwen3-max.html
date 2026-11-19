@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Qwen3-Max: Just Scale it</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Qwen3-Max: Just Scale it</h1>
+</header>
+<h1 id="qwen3-max-just-scale-it">Qwen3-Max: Just Scale it</h1>
+<blockquote>
+<p>官方来源：<a
+href="https://qwen.ai/blog?id=qwen3-max">https://qwen.ai/blog?id=qwen3-max</a>
+转存日期：2026-11-19。类型：官方技术博客正文，不是独立论文 PDF。
+这是正文的静态格式转换，不是原站逐字节打包；不含网站登录、Cookie、跟踪脚本或互动
+Demo
+的可执行逻辑。图片、视频及其他资源保留外链，未打包媒体；懒加载代码块、图表及互动示例可能仍需回到原网页查看。文中命令为来源原文，未执行。</p>
+</blockquote>
+<hr />
+<p><img
+src="https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/qwen3max-banner.png"
+alt="Qwen3 Main Image" /></p>
+<p>Qwen3 Main Image</p>
+<p><a href="https://chat.qwen.ai">QWEN CHAT</a></p>
+<p><a
+href="https://www.alibabacloud.com/help/en/model-studio/models#c2d5833ae4jmo">API</a></p>
+<p><a href="https://discord.gg/yPEP2vHTu4">DISCORD</a></p>
+<h2 id="introduction">Introduction</h2>
+<p>Following the release of the Qwen3-2507 series, we are thrilled to
+introduce Qwen3-Max — our largest and most capable model to date. The
+preview version of Qwen3-Max-Instruct currently ranks third on the Text
+Arena leaderboard, surpassing GPT-5-Chat. The official release further
+enhances performance in coding and agent capabilities, achieving
+state-of-the-art results across a comprehensive suite of benchmarks —
+including knowledge, reasoning, coding, instruction following, human
+preference alignment, agent tasks, and multilingual understanding. We
+invite you to try Qwen3-Max-Instruct via its API on Alibaba Cloud or
+explore it directly on Qwen Chat. Meanwhile, Qwen3-Max-Thinking — still
+under active training — is already demonstrating remarkable potential.
+When augmented with tool usage and scaled test-time compute, the
+Thinking variant has achieved 100% on challenging reasoning benchmarks
+such as AIME 25 and HMMT. We look forward to releasing it publicly in
+the near future.</p>
+<h2 id="qwen3-max-base">Qwen3-Max-Base</h2>
+<p>The Qwen3-Max model has over 1 trillion parameters and was pretrained
+on 36 trillion tokens. Its architecture follows the design paradigm of
+the Qwen3 series, incorporating our proposed global-batch load balancing
+loss.</p>
+<ul>
+<li><p>Training Stability: Thanks to the MoE (Mixture of Experts)
+architecture design of Qwen3, the pretraining loss curve of Qwen3-Max
+remains consistently smooth and stable throughout training. The entire
+training process proceeded seamlessly without any loss spikes,
+eliminating the need for strategies such as training rollback or
+adjustments to data distribution.</p></li>
+<li><p>Training Efficiency: Optimized by PAI-FlashMoE’s efficient
+multi-level pipeline parallelism strategy, the training efficiency of
+Qwen3-Max-Base significantly improved, achieving a 30% relative increase
+in MFU (Model FLOPs Utilization) compared to Qwen2.5-Max-Base. For
+long-context training scenarios, we further employed our ChunkFlow
+strategy, which delivered a 3x throughput improvement over context
+parallelism, enabling training with a 1M-token context length for
+Qwen3-Max. Additionally, through multiple techniques including
+SanityCheck, EasyCheckpoint, and scheduling pipeline optimizations, the
+time loss caused by hardware failures on ultra-large-scale clusters was
+reduced to one-fifth of that observed during Qwen2.5-Max
+training.</p></li>
+</ul>
+<h2 id="qwen3-max-instruct">Qwen3-Max-Instruct</h2>
+<p>The preview version of Qwen3-Max-Instruct has secured a top-three
+global ranking on LMArena text leaderboard. The official release further
+elevates its capabilities — particularly in coding and agent
+performance. On SWE-Bench Verified, a benchmark focused on solving
+real-world coding challenges, Qwen3-Max-Instruct achieves an impressive
+score of 69.6, placing it firmly among the world’s top-performing
+models. Moreover, on Tau2-Bench — a rigorous evaluation of agent
+tool-calling proficiency — Qwen3-Max-Instruct delivers a breakthrough
+score of 74.8, surpassing both Claude Opus 4 and DeepSeek V3.1.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3-Max/Qwen3-Max-Instruct-text_arena.png" /></p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3-Max/Qwen3-Max-Instruct.png" /></p>
+<h2 id="qwen3-max-thinking-heavy">Qwen3-Max-Thinking (Heavy)</h2>
+<p>The reasoning variant of Qwen3-Max, named Qwen3-Max-Thinking, is
+demonstrating extraordinary performance. By integrating a code
+interpreter and leveraging parallel test-time compute techniques, it
+achieves unprecedented reasoning capabilities — most notably attaining
+perfect 100-point scores on the challenging mathematical reasoning
+benchmarks AIME 25 and HMMT. We are currently engaged in intensive
+training of Qwen3-Max-Thinking and look forward to delivering it to you
+soon.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3-Max/Qwen3-Max-Thinking-blog.jpg" /></p>
+<h2 id="develop-with-qwen3-max">Develop with Qwen3-Max</h2>
+<p>Now Qwen3-Max-Instruct is available in <a
+href="https://chat.qwen.ai">Qwen Chat</a>, and you can directly chat
+with the powerful model. Meanwhile, the API of Qwen3-Max-Instruct (whose
+model name is <code>qwen3-max</code>) is available. You can first <a
+href="https://account.alibabacloud.com/register/intl_register.htm">register
+an Alibaba Cloud account</a> and activate Alibaba Cloud Model Studio
+service, and then navigate to the console and create an API key.</p>
+<p>Since the APIs of Qwen are OpenAI-API compatible, we can directly
+follow the common practice of using OpenAI APIs. Below is an example of
+using Qwen3-Max-Instruct in Python:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> openai <span class="im">import</span> OpenAI</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> OpenAI(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    api_key<span class="op">=</span>os.getenv(<span class="st">&quot;API_KEY&quot;</span>),</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    base_url<span class="op">=</span><span class="st">&quot;https://dashscope-intl.aliyuncs.com/compatible-mode/v1&quot;</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>completion <span class="op">=</span> client.chat.completions.create(</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">&quot;qwen3-max&quot;</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    messages<span class="op">=</span>[</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      {<span class="st">&#39;role&#39;</span>: <span class="st">&#39;user&#39;</span>, <span class="st">&#39;content&#39;</span>: <span class="st">&#39;Give me a short introduction to large language model.&#39;</span>}</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(completion.choices[<span class="dv">0</span>].message)</span></code></pre></div>
+<p>}}</p>
+<h2 id="references">References</h2>
+<hr />
+<h2 id="citation">Citation</h2>
+<p>Feel free to cite the following article if you find Qwen3-Max
+helpful.</p>
+<pre><code>@misc{qwen3max,
+    title = {Qwen3-Max: Just Scale it},
+    author = {Qwen Team},
+    month = {September},
+    year = {2025}
+}</code></pre>
+<p>}}</p>
+</body>
+</html>

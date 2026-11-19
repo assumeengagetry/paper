@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Qwen3.7: The Agent Frontier</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Qwen3.7: The Agent Frontier</h1>
+</header>
+<h1 id="qwen37-the-agent-frontier">Qwen3.7: The Agent Frontier</h1>
+<blockquote>
+<p>官方来源：<a
+href="https://qwen.ai/blog?id=qwen3.7">https://qwen.ai/blog?id=qwen3.7</a>
+转存日期：2026-11-19。类型：官方技术博客正文，不是独立论文 PDF。
+这是正文的静态格式转换，不是原站逐字节打包；不含网站登录、Cookie、跟踪脚本或互动
+Demo
+的可执行逻辑。图片、视频及其他资源保留外链，未打包媒体；懒加载代码块、图表及互动示例可能仍需回到原网页查看。文中命令为来源原文，未执行。</p>
+</blockquote>
+<hr />
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.7/Figures/qwen3.7-max-banner.png"
+alt="Qwen3.7 Main Image" /></p>
+<p><a href="https://discord.gg/yPEP2vHTu4">DISCORD</a></p>
+<p>Today we introduce <strong>Qwen3.7-Max</strong>, our latest
+proprietary model designed for the agent era. Qwen3.7-Max is built to be
+a versatile agent foundation — equally capable of writing and debugging
+code, automating office workflows, and sustaining autonomous execution
+across hundreds or thousands of steps.</p>
+<p>What sets Qwen3.7-Max apart is the breadth and depth of its agent
+capabilities. It excels as a coding agent, from frontend prototyping to
+complex multi-file engineering. It serves as a reliable office and
+productivity assistant through MCP integrations and multi-agent
+orchestration. It sustains coherent reasoning across extremely long
+horizons — as demonstrated by a 35-hour, fully autonomous kernel
+optimization run comprising over 1,000 tool calls. It generalizes across
+agent scaffolds, performing consistently whether deployed through Claude
+Code, OpenClaw, Qwen Code, or other frameworks.</p>
+<ul>
+<li><strong>Qwen3.7-Max</strong> — now available via <a
+href="https://modelstudio.alibabacloud.com/">Alibaba Cloud Model
+Studio</a>:
+<ul>
+<li>frontier coding agent: from frontend prototyping to complex software
+engineering</li>
+<li>office productivity and workflow automation via MCP and multi-agent
+orchestration</li>
+<li>sustained autonomous execution across long-horizon tasks</li>
+<li>cross-scaffold generalization across diverse agent frameworks</li>
+</ul></li>
+<li>Call via API on <a
+href="https://modelstudio.alibabacloud.com/">Alibaba Cloud Model
+Studio</a>.</li>
+</ul>
+<h2 id="performance">Performance<a href="#performance">#</a></h2>
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.7/Figures/Qwen3.7-Max-Score.png" /></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Opus-4.6 Max</th>
+<th>K2.6 Thinking</th>
+<th>GLM-5.1 Thinking</th>
+<th>DS-V4-Pro Max</th>
+<th>Qwen3.6-Plus</th>
+<th>Qwen3.7-Max</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Coding Agent</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Terminal Bench 2.0-Terminus</td>
+<td>65.4</td>
+<td>66.7</td>
+<td>63.5</td>
+<td>67.9</td>
+<td>61.6</td>
+<td>69.7</td>
+</tr>
+<tr>
+<td>SWE-Verified</td>
+<td>80.8</td>
+<td>80.2</td>
+<td>--</td>
+<td>80.6</td>
+<td>78.8</td>
+<td>80.4</td>
+</tr>
+<tr>
+<td>SWE-Pro</td>
+<td>57.3</td>
+<td>59.5</td>
+<td>58.8</td>
+<td>59.0</td>
+<td>56.6</td>
+<td>60.6</td>
+</tr>
+<tr>
+<td>SWE-Multilingual</td>
+<td>77.5</td>
+<td>76.7</td>
+<td>--</td>
+<td>76.2</td>
+<td>73.8</td>
+<td>78.3</td>
+</tr>
+<tr>
+<td>NL2repo</td>
+<td>47.6</td>
+<td>42.8</td>
+<td>41.0</td>
+<td>35.5</td>
+<td>34.4</td>
+<td>47.2</td>
+</tr>
+<tr>
+<td>SciCode</td>
+<td>51.9</td>
+<td>52.2</td>
+<td>45.1</td>
+<td>--</td>
+<td>41.4</td>
+<td>53.5</td>
+</tr>
+<tr>
+<td>QwenWebDev</td>
+<td>1617</td>
+<td>--</td>
+<td>1564</td>
+<td>1570</td>
+<td>1500</td>
+<td>1568</td>
+</tr>
+<tr>
+<td>QwenSVG</td>
+<td>1541</td>
+<td>1325</td>
+<td>1605</td>
+<td>1506</td>
+<td>1432</td>
+<td>1608</td>
+</tr>
+<tr>
+<td>General Agent</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Qwenclaw</td>
+<td>65.5</td>
+<td>54.7</td>
+<td>58.7</td>
+<td>59.2</td>
+<td>57.2</td>
+<td>64.3</td>
+</tr>
+<tr>
+<td>CoWorkBench</td>
+<td>68.2</td>
+<td>58.2</td>
+<td>66.0</td>
+<td>66.3</td>
+<td>64.5</td>
+<td>67.2</td>
+</tr>
+<tr>
+<td>ClawEval</td>
+<td>70.4</td>
+<td>61.5</td>
+<td>62.7</td>
+<td>58.4</td>
+<td>57.1</td>
+<td>65.2</td>
+</tr>
+<tr>
+<td>Skillsbench</td>
+<td>--</td>
+<td>56.2</td>
+<td>53.1</td>
+<td>52.3</td>
+<td>45.7</td>
+<td>59.2</td>
+</tr>
+<tr>
+<td>BFCL-V4</td>
+<td>76.7</td>
+<td>71.3</td>
+<td>70.9</td>
+<td>70.6</td>
+<td>68.9</td>
+<td>75.0</td>
+</tr>
+<tr>
+<td>MCP-Mark</td>
+<td>56.7</td>
+<td>55.9</td>
+<td>57.5</td>
+<td>57.1</td>
+<td>48.2</td>
+<td>60.8</td>
+</tr>
+<tr>
+<td>MCP-Atlas</td>
+<td>75.8</td>
+<td>66.6</td>
+<td>71.8</td>
+<td>73.6</td>
+<td>74.1</td>
+<td>76.4</td>
+</tr>
+<tr>
+<td>Vitabench</td>
+<td>--</td>
+<td>39.1</td>
+<td>45.1</td>
+<td>51.9</td>
+<td>42.8</td>
+<td>47.9</td>
+</tr>
+<tr>
+<td>SpreadSheetBench-v1</td>
+<td>89.3</td>
+<td>84.5</td>
+<td>85.2</td>
+<td>84.9</td>
+<td>80.2</td>
+<td>87.0</td>
+</tr>
+<tr>
+<td>Kernel Bench L3</td>
+<td>2.63/98%</td>
+<td>1.41/80%</td>
+<td>2.00/78%</td>
+<td>1.07/54%</td>
+<td>1.03/48%</td>
+<td>1.98/96%</td>
+</tr>
+<tr>
+<td>HLE w/ tools</td>
+<td>53.0</td>
+<td>54.0</td>
+<td>52.3</td>
+<td>48.2</td>
+<td>50.2</td>
+<td>53.5</td>
+</tr>
+<tr>
+<td>QwenWorldBench</td>
+<td>56.1</td>
+<td>50.9</td>
+<td>50.2</td>
+<td>52.3</td>
+<td>47.6</td>
+<td>57.3</td>
+</tr>
+<tr>
+<td>STEM &amp; Reasoning</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>GPQA Diamond</td>
+<td>91.3</td>
+<td>90.5</td>
+<td>86.2</td>
+<td>90.1</td>
+<td>90.4</td>
+<td>92.4</td>
+</tr>
+<tr>
+<td>HLE</td>
+<td>40.0</td>
+<td>36.4</td>
+<td>34.7</td>
+<td>37.7</td>
+<td>28.8</td>
+<td>41.4</td>
+</tr>
+<tr>
+<td>LiveCodeBench</td>
+<td>88.8</td>
+<td>89.6</td>
+<td>--</td>
+<td>93.5</td>
+<td>87.1</td>
+<td>91.6</td>
+</tr>
+<tr>
+<td>HMMT 2026 Feb</td>
+<td>96.2</td>
+<td>92.7</td>
+<td>89.4</td>
+<td>95.2</td>
+<td>87.8</td>
+<td>97.1</td>
+</tr>
+<tr>
+<td>IMOAnswerBench</td>
+<td>75.3</td>
+<td>86.0</td>
+<td>83.8</td>
+<td>89.8</td>
+<td>83.8</td>
+<td>90.0</td>
+</tr>
+<tr>
+<td>CritPT</td>
+<td>12.6</td>
+<td>8.0</td>
+<td>4.6</td>
+<td>12.9</td>
+<td>2.9</td>
+<td>11.4</td>
+</tr>
+<tr>
+<td>Apex</td>
+<td>34.5</td>
+<td>24.0</td>
+<td>11.5</td>
+<td>38.3</td>
+<td>8.8</td>
+<td>44.5</td>
+</tr>
+<tr>
+<td>General Capability</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>MMLU-Pro</td>
+<td>89.7</td>
+<td>87.1</td>
+<td>86.3</td>
+<td>87.5</td>
+<td>88.5</td>
+<td>89.6</td>
+</tr>
+<tr>
+<td>MMLU-Redux</td>
+<td>95.2</td>
+<td>95.3</td>
+<td>94.3</td>
+<td>94.8</td>
+<td>94.5</td>
+<td>95.0</td>
+</tr>
+<tr>
+<td>SuperGPQA</td>
+<td>72.5</td>
+<td>71.3</td>
+<td>68.0</td>
+<td>69.9</td>
+<td>71.6</td>
+<td>73.6</td>
+</tr>
+<tr>
+<td>IFEval</td>
+<td>91.9</td>
+<td>94.5</td>
+<td>94.5</td>
+<td>91.9</td>
+<td>94.3</td>
+<td>94.3</td>
+</tr>
+<tr>
+<td>IFBench</td>
+<td>62.5</td>
+<td>76.0</td>
+<td>76.0</td>
+<td>77.0</td>
+<td>74.2</td>
+<td>79.1</td>
+</tr>
+<tr>
+<td>MRCR-v2 _(128k)</td>
+<td>84.0</td>
+<td>63.1</td>
+<td>62.0</td>
+<td>74.4</td>
+<td>85.9</td>
+<td>90.4</td>
+</tr>
+<tr>
+<td>Multilingualism</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>WMT24++</td>
+<td>82.7</td>
+<td>81.6</td>
+<td>81.8</td>
+<td>82.2</td>
+<td>84.3</td>
+<td>85.8</td>
+</tr>
+<tr>
+<td>MAXIFE</td>
+<td>81.3</td>
+<td>87.7</td>
+<td>87.7</td>
+<td>88.9</td>
+<td>88.2</td>
+<td>89.2</td>
+</tr>
+<tr>
+<td>MMMLU</td>
+<td>90.6</td>
+<td>87.5</td>
+<td>87.2</td>
+<td>87.9</td>
+<td>89.5</td>
+<td>90.3</td>
+</tr>
+<tr>
+<td>MMLU-ProX</td>
+<td>86.1</td>
+<td>83.7</td>
+<td>83.9</td>
+<td>83.9</td>
+<td>84.7</td>
+<td>87.0</td>
+</tr>
+<tr>
+<td>NOVA-63</td>
+<td>59.1</td>
+<td>56.7</td>
+<td>54.6</td>
+<td>52.8</td>
+<td>57.9</td>
+<td>59.0</td>
+</tr>
+<tr>
+<td>INCLUDE</td>
+<td>87.4</td>
+<td>84.2</td>
+<td>84.3</td>
+<td>86.1</td>
+<td>85.1</td>
+<td>86.2</td>
+</tr>
+<tr>
+<td>Global PIQA</td>
+<td>91.2</td>
+<td>89.2</td>
+<td>89.5</td>
+<td>90.5</td>
+<td>89.8</td>
+<td>91.4</td>
+</tr>
+<tr>
+<td>PolyMATH</td>
+<td>80.2</td>
+<td>82.7</td>
+<td>67.6</td>
+<td>72.0</td>
+<td>77.4</td>
+<td>86.5</td>
+</tr>
+</tbody>
+</table>
+<p>* Terminal-Bench 2.0: Harbor/Terminus-2 harness; 5h timeout, 12
+CPU/24 GB RAM; temp=1.0, top_p=0.95, top_k=20, max_tokens=80K, 256K ctx;
+avg of 5 runs. All experiments prepend a token at each turn, allowing
+the model to decide whether to engage extended thinking.<br />
+* SWE-Bench Series: Internal agent scaffold (bash + file-edit tools);
+temp=1.0, top_p=0.95, 200K context window.<br />
+* SWE-bench Pro: Problematic tasks corrected and all baselines evaluated
+on the refined benchmark.<br />
+* NL2Repo: Evaluated via Claude-code. We disable Bash commands that
+attempt to access the specific repository, such as pip download, pip
+install, and git clone.<br />
+* QwenWebDev: Internal front-end code generation benchmark; bilingual
+(EN/CN), 7 categories; auto-render + multimodal judge; BT/Elo
+rating.<br />
+* QwenClawBench: a real-user-distribution Claw agent benchmark;
+open-source: <a
+href="https://github.com/SKYLENAGE-AI/QwenClawBench"><span>https://github.com/SKYLENAGE-AI/QwenClawBench</span></a>.<br />
+* CoWorkBench: an internal cowork benchmark; long-horizon tasks across
+computer science, finance, law, medical, and other productivity
+domains.<br />
+* SkillsBench: Evaluated via OpenCode on 78 tasks (excluding 9 external
+API-dependent tasks); avg of 5 runs.<br />
+* MCP-Mark: GitHub MCP v0.30.3; Playwright responses truncated at 32K
+tokens.<br />
+* MCP-Atlas: Public set score; gemini-2.5-pro judger.<br />
+* VITA-Bench: Avg subdomain scores; using claude-4.5-sonnet as judger,
+as the older official judgers are no longer available.<br />
+* Kernel Bench L3: Metrics reported: median of per-problem speedup over
+PyTorch eager reference / fraction of problems faster than
+torch.compile, across 50 problems. Each test sample runs in an isolated
+Docker container with one H100 80GB GPU, with internet access restricted
+to the CUTLASS codebase and official CUDA documentation, limited to 500
+tool calls with early stopping after 100 non-improving turns. GPT-5.4
+(xhigh) is applied to detect potential hacking behaviors. CUPTI is used
+for kernel-level timing.<br />
+* QwenWorldBench: Internal benchmark for evaluating LLMs as world models
+for simulating agentic environments; 7 domains (Terminal, SWE, MCP,
+Search, OS, Android, Web); open-ended 5-dim rubric judge grounded in
+real-environment feedback.<br />
+* Reasoning scenarios: Recommended system prompt: "Reasoning effort is
+set to xhigh. Please think carefully through the task, validate key
+assumptions, consider plausible alternatives, and prioritize
+correctness, consistency, and clarity in the final answer."<br />
+* MRCR-v2: 128K context subset containing 8 needles utilized; evaluation
+protocol adopted from <a
+href="https://github.com/google-deepmind/eval_hub/tree/master/eval_hub/mrcr_v2.\">https://github.com/google-deepmind/eval_hub/tree/master/eval_hub/mrcr_v2.\</a>
+* WMT24++: Harder WMT24 subset; avg scores on 55 langs via
+XCOMET-XXL.<br />
+* MAXIFE: Accuracy on EN + multilingual prompts (23 settings
+total).<br />
+* MMLU-ProX: Avg accuracy across 29 languages.<br />
+* Empty cells (--) indicate scores not yet available.</p>
+<p>In <strong>coding agents</strong>, Qwen3.7-Max performs strongly on
+SWE-Pro (60.6), SWE-Multilingual (78.3), SciCode (53.5), and QwenSVG
+(1608). On Terminal Bench 2.0-Terminus (69.7), it outperforms DS-V4-Pro
+Max (67.9). On SWE-Verified (80.4), it is on par with Opus-4.6 Max
+(80.8) and DS-V4-Pro Max (80.6).</p>
+<p>In <strong>general-purpose agents</strong>, improvements are even
+more pronounced. Qwen3.7-Max performs exceptionally well on MCP-Mark
+(60.8 vs. GLM-5.1’s 57.5), MCP-Atlas (76.4 vs. Opus-4.6’s 75.8), and
+Skillsbench (59.2 vs. K2.6’s 56.2), and demonstrates strong GPU kernel
+optimization capabilities on Kernel Bench L3 (1.98x median speedup, 96%
+win rate). It also scores highly on BFCL-V4 (75.0), Qwenclaw (64.3), and
+ClawEval (65.2), closely approaching Opus-4.6 Max. On the office
+automation benchmark SpreadSheetBench-v1, it achieves a top-tier score
+of 87.</p>
+<p>In <strong>reasoning</strong>, Qwen3.7-Max achieves leading results
+on GPQA Diamond (92.4 vs. Opus-4.6’s 91.3), HLE (41.4 vs. Opus-4.6’s
+40), HMMT 2026 Feb (97.1 vs. Opus-4.6’s 96.2), IMOAnswerBench (90 vs.
+DS-V4-Pro’s 89.8), and Apex (44.5 vs. DS-V4-Pro’s 38.3), demonstrating
+exceptional strength on the hardest reasoning benchmarks.</p>
+<p>In <strong>general capabilities and multilingualism</strong>,
+Qwen3.7-Max stands out on IFBench (79.1 vs. DS-V4-Pro’s 77.0),
+demonstrating precise instruction following. It achieves leading scores
+on WMT24++ (85.8) and MAXIFE (89.2), confirming top-tier multilingual
+understanding and translation quality. It also delivers strong results
+on SuperGPQA (73.6) and QwenWorldBench (57.3).</p>
+<p>Notably, these scores are drawn from a wide variety of agent
+scaffolds. Rather than optimizing for any single framework, Qwen3.7-Max
+delivers consistently across Claude Code, OpenClaw, Qwen Code, and
+custom tool-use frameworks, making it a reliable drop-in backbone for
+any agent system.</p>
+<h2 id="cowork-productivity-assistant">Cowork Productivity Assistant<a
+href="#cowork-productivity-assistant">#</a></h2>
+<p>Qwen3.7-Max serves as your advanced coworker for real-world
+productivity. Its powerful agent capabilities fundamentally streamline
+professional workflows — synthesizing complex information, performing
+in-depth data analysis and modeling, and generating publication-ready
+documents and visualizations — to reliably handle high-complexity
+enterprise workloads.</p>
+<p>Qwen3.7-Max features native compatibility with mainstream agent
+harnesses. For long-horizon tasks, it supports autonomous planning and
+continuous execution across multi-hour sessions. Through thousands of
+tool calls and dozens of refinement iterations, it steadily improves
+output quality. Complex projects that typically require one to two weeks
+of specialized team effort can now be completed end-to-end within hours,
+delivering measurable productivity gains.</p>
+<h2 id="agent-scaling">Agent Scaling<a href="#agent-scaling">#</a></h2>
+<p>Building on the environment scaling approach introduced in Qwen3.5,
+we have continued to aggressively expand both the quality and diversity
+of agentic training environments in Qwen3.7. Just as language models
+generalize from diverse pretraining text, we find that agentic
+capabilities generalize from diverse training environments.</p>
+<p>As shown in the figure below, this environment scaling produces a
+clear and consistent improvement trajectory, with Qwen3.7-Max achieving
+a top-3 average ranking that approaches Claude-4.6-Opus-Max. Crucially,
+all benchmarks in our evaluation feature entirely unseen, out-of-domain
+environments that were never present in training.</p>
+<p>We also observe a striking predictability in the scaling behavior:
+performance gains across any subset of benchmarks are highly consistent
+and can reliably predict the relative gains on the remaining benchmarks
+or the overall average, suggesting that environment scaling drives
+genuine capability generalization rather than benchmark-specific
+improvement. Further analysis of the scaling dynamics and methodology
+will be detailed in our upcoming technical report.</p>
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.7/Figures/agent_scaling.png#center" /></p>
+<h2 id="cross-harness-generalization">Cross-Harness Generalization<a
+href="#cross-harness-generalization">#</a></h2>
+<p>Our Rollout environment infrastructure decouples each training
+instance into three orthogonal components — Task, Harness, and Verifier
+— that can be freely recombined. We support a wide range of harnesses
+and their evolving versions, and ground our environments in real-world
+settings rather than synthetic proxies. This decoupled design enables
+combinatorial scaling: the same task is paired with diverse harnesses
+(across types and versions) and verifiers at minimal marginal cost. More
+critically, it enables cross-harness and cross-verifier RL training,
+where the model encounters identical tasks under varying harness
+configurations, forcing it to learn generalizable problem-solving
+strategies rather than harness-specific shortcuts. Across QwenClawBench
+and CoWorkBench, Qwen3.7-Max delivers strong, consistent performance
+regardless of the harness used at evaluation time, confirming that the
+model has learned to solve tasks — not to exploit particular
+harnesses.</p>
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.7/Figures/harness-generalization.png#center" /></p>
+<h2 id="self-evolving-in-the-wild">Self-Evolving in the Wild<a
+href="#self-evolving-in-the-wild">#</a></h2>
+<p><a
+href="https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/layers/attention/triton_ops/extend_attention.py">Extend
+Attention</a> is a production-grade, variable-length multi-head
+attention operator in SGLang. In our test scenario, it computes
+attention scores between newly generated tokens and a prefix KV-cache of
+up to 32K entries with MTP — a memory-bound, latency-critical kernel in
+LLM serving. The reference implementation is SGLang’s official Triton
+implementation.</p>
+<p>We tasked Qwen3.7-Max with optimizing this kernel on an ECS instance
+equipped with T-Head ZW-M890 PPUs — a hardware platform <strong>never
+seen during training</strong>. The model had no prior profiling data, no
+hardware documentation, and no example kernels for this architecture. It
+started from an empty workspace containing only a task description, the
+existing SGLang implementation, and an evaluation script.</p>
+<p>Over the course of <strong>~35 hours of continuous autonomous
+execution</strong>, the model performed <strong>432 kernel evaluations
+across 1,158 tool calls</strong>. It wrote, compiled, profiled, and
+iteratively improved the Extend Attention Kernel entirely on its own —
+diagnosing compilation failures, fixing correctness bugs, identifying
+performance bottlenecks through runtime profiling, and redesigning the
+kernel architecture multiple times.</p>
+<p>The final result: <strong>10.0x geometric mean speedup</strong> over
+the Triton reference, measured across multiple workloads. The
+optimization trajectory shows sustained, non-trivial progress far beyond
+the first few hours: the model was still finding meaningful improvements
+after 30+ hours, demonstrating that long-horizon autonomous optimization
+is not just feasible but productive.</p>
+<p>Expand</p>
+<p>Key structural transitions in the optimization trajectory</p>
+<ol type="1">
+<li><p><strong>Split-KV parallelism</strong> (0.33x → 2.58x, ~2h): The
+initial kernel launched only 8 blocks (4 tokens × 2 KV heads × 1 batch)
+on 36 SMs, leaving most SMs idle. The model redesigned the kernel with
+Split-KV partitioning — dividing the prefix KV-cache across multiple
+thread blocks per query — and introduced a separate reduction kernel
+using online softmax rescaling to merge partial results.</p></li>
+<li><p><strong>Launch and allocation overhead removal</strong> (2.58x →
+5.37x, ~2.5h): The model systematically removed host-device
+synchronization overhead: replacing per-call
+<code>cudaMalloc</code>/<code>cudaFree</code> with pre-allocated
+<code>torch::empty</code> tensors, eliminating synchronous
+<code>cudaMemcpy</code> calls for prefix length queries by using tensor
+metadata instead, and unrolling the inner loop 2x to amortize loop
+control overhead and increase instruction-level parallelism.</p></li>
+<li><p><strong>Workload-adaptive split tuning</strong> (5.37x → 6.85x,
+~3h): The model evolved from a fixed split divisor to
+workload-size-dependent heuristics — applying more aggressive splitting
+for smaller inputs and tuning per-workload split counts to maximize SM
+wave occupancy on the 36-SM architecture.</p></li>
+<li><p><strong>Reduction and batching optimizations</strong> (6.85x →
+8.50x, 3h–25h): Eliminating shared memory barriers by switching to
+register-based K/V loading for higher SM occupancy, persistent static
+tensors for partial results to avoid per-call allocation, more
+aggressive split heuristics for small inputs, and a batched softmax
+update (4 <code>expf</code> calls instead of 6) to reduce per-token
+overhead. Q pre-scaling by <code>sm_scale</code> eliminated a
+per-iteration floating-point multiply after warp reduction.</p></li>
+<li><p><strong>MTP γ=4 specialized kernel</strong> (8.50x → 10.0x,
+32h–35h): The most significant architectural redesign — restructuring
+the kernel to process all 4 query tokens simultaneously per block,
+sharing K/V loads across queries to amortize memory access cost.
+Combined with <code>__ldg</code> read-only cache intrinsics for V buffer
+loads, multi-query batched attention output reduction, register pressure
+tuning, and re-tuned split heuristics, this delivered the final ~1.2x
+improvement in the last hours.</p></li>
+</ol>
+<p>We also ran the same task with several other models under identical
+conditions. GLM 5.1 reached 7.3x; Kimi K2.6 reached 5.0x; DeepSeek V4
+Pro reached 3.3x; Qwen3.6-Plus reached 1.1x. Models that stopped early
+did so because the agent issued no tool calls for five consecutive
+rounds — the model concluded it could no longer make progress and
+voluntarily ended the session.</p>
+<p>In addition to achieving strong kernel generation results on PPUs,
+Qwen3.7-Max also generates high-quality, production-grade kernels across
+a variety of NVIDIA GPUs. For example, on KernelBench L3, Qwen3.7-Max is
+able to produce accelerated kernels for 96% of the scenarios, compared
+to 98% for Opus-4.6, 78% for GLM 5.1, 80% for Kimi K2.6, 54% for
+DeepSeek V4 Pro, and 48% for Qwen3.6-Plus.</p>
+<p>This result highlights two properties of Qwen3.7-Max as a foundation
+model powering long-horizon autonomous agents: <strong>sustained
+long-horizon reasoning</strong> — the model maintains coherent
+optimization strategy across over a thousand tool calls without losing
+context or regressing — and <strong>strong in-context
+generalization</strong> — it produces competitive kernels for an
+architecture it has never encountered, relying on runtime feedback
+rather than memorized hardware knowledge.</p>
+<h2 id="reward-hacking-monitoring-for-long-horizon-training">Reward
+Hacking Monitoring for Long-Horizon Training<a
+href="#reward-hacking-monitoring-for-long-horizon-training">#</a></h2>
+<p>We integrated Qwen3.7-Max into the Reinforcement Learning (RL)
+monitoring for Software Engineering (SWE) tasks, successfully building a
+framework for reward hacking self-monitoring and rule self-evolution.
+During RL experiments exceeding 80 hours, the model autonomously
+retrieved and replayed training trajectories, executing over 10,000
+calls. The system systematically identified candidate hacking patterns
+(such as attempts to bypass constraints to access ground-truth answers
+on GitHub) while performing rule verification, counter-example mining,
+and iterative optimization.</p>
+<p>As a result, Qwen3.7-Max achieved multiple rounds of rule
+self-evolution, adding 13 new heuristic rules and accurately flagging
+1,618 hacking cases. This not only ensured the stability of RL rewards
+but also facilitated the continuous self-improvement of the model as a
+sophisticated software engineering agent.</p>
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.7/Figures/autonomous_hacking_detect.png#center" /></p>
+<h2
+id="long-horizon-planning-and-execution-in-startup-management">Long-Horizon
+Planning and Execution in Startup Management<a
+href="#long-horizon-planning-and-execution-in-startup-management">#</a></h2>
+<p>Within the framework of Dynamic Cumulative Survival Games, we have
+scaled the temporal complexity of training tasks to specifically
+reinforce long-horizon planning and execution capabilities. This
+advancement enhances the agent’s policy consistency throughout
+sequential decision-making trajectories exceeding a thousand steps,
+enabling it to continuously construct hypotheses, dynamically adjust
+strategies based on environmental feedback, and accumulate long-term
+experience and memory. Consequently, the agent maintains a stable
+execution cadence over vast time horizons, remaining resilient to the
+common pitfalls of context rot and instruction drift.</p>
+<p>In YC-Bench — a benchmark simulating the full year-long lifecycle of
+a startup — the agent must navigate hundreds of decision-making rounds
+ranging from personnel management and contract screening to malicious
+client identification, all while maintaining a profit margin against
+rising labor costs. Qwen3.7-Max achieved a total revenue of 2.08M USD,
+which is double the performance of Qwen3.6-Plus (1.05M USD) and 5.9
+times that of Qwen3.5-Plus (352K USD), successfully completing 237
+tasks. Beyond the metrics, the model demonstrated a profound capacity
+for strategic evolution across context windows: it actively explored
+potential clients, identified and blacklisted malicious traps,
+prioritized reliable revenue streams, and autonomously recovered from
+mid-term crises to eventually converge into a stable, high-efficiency
+execution loop.</p>
+<p>Expand</p>
+<h2 id="build-with-qwen37">Build with Qwen3.7<a
+href="#build-with-qwen37">#</a></h2>
+<p>Qwen3.7-Max is now available through <a
+href="https://modelstudio.alibabacloud.com/">Alibaba Cloud Model
+Studio</a>. You can integrate it with popular agent frameworks and
+coding assistants.</p>
+<h3 id="api-usage">API Usage<a href="#api-usage">#</a></h3>
+<p>Qwen3.7-Max supports the <code>preserve_thinking</code> feature:
+preserving thinking content from all preceding turns in messages, which
+is <strong>recommended for agentic tasks</strong>.</p>
+<h4 id="alibaba-cloud-model-studio">Alibaba Cloud Model Studio<a
+href="#alibaba-cloud-model-studio">#</a></h4>
+<p>Alibaba Cloud Model Studio supports industry-standard protocols,
+including chat completions and responses APIs compatible with OpenAI’s
+specification, as well as an API interface compatible with
+Anthropic.</p>
+<p>python</p>
+<p>For more information, please visit the <a
+href="https://modelstudio.console.alibabacloud.com/?tab=doc#/doc/?type=model&amp;url=2840915">API
+doc</a>.</p>
+<h3 id="frontend-coding">Frontend Coding<a
+href="#frontend-coding">#</a></h3>
+<p>Qwen3.7-Max can generate rich interactive web applications from a
+single prompt — including Three.js 3D scenes, Canvas animations, full
+page layouts, and dynamic SVG.</p>
+<p>Demo1</p>
+<p>1 / 5</p>
+<h3 id="office-assistant">Office Assistant<a
+href="#office-assistant">#</a></h3>
+<p>Qwen3.7-Max can act as an intelligent office assistant through tool
+integration. In this example, it reads a university thesis formatting
+specification and automatically reformats a messy draft — fixing page
+layout, heading styles, fonts, margins, table of contents, and reference
+formatting — all through autonomous office-cli tool calls. <em>(The
+sample thesis is AI-generated for demonstration purposes.)</em></p>
+<p>Demo1</p>
+<p>1 / 1</p>
+<h3 id="llm-powered-phyicial-world-navigation-agent">LLM-Powered
+Phyicial-World Navigation Agent<a
+href="#llm-powered-phyicial-world-navigation-agent">#</a></h3>
+<p>One more thing, Qwen3.7-Max now can operate a robot dog through
+tool-use calls — performing physical understanding, planning, memory and
+decision-making in physical environments, powered by our robotics agent
+harness Qwen-RobotClaw, navigation foundation model Qwen-RobotNav, and
+several vision tools built with Qwen-plus model. In the demo below, the
+left panel shows a 20 mins agent’s tool-call interaction flow in the
+physical-world; the center shows the quadruped robot’s first-person view
+along its trajectory, and the right shows the agent’s long-term
+memory.</p>
+<h3 id="coding-assistants">Coding Assistants<a
+href="#coding-assistants">#</a></h3>
+<p>Qwen3.7-Max integrates seamlessly with popular agent frameworks and
+coding assistants:</p>
+<h4 id="claude-code">Claude Code<a href="#claude-code">#</a></h4>
+<p>Qwen APIs support the Anthropic API protocol, enabling direct use
+with <strong>Claude Code</strong>:</p>
+<p>bash</p>
+<h4 id="openclaw">OpenClaw<a href="#openclaw">#</a></h4>
+<p>Connect to <a href="https://openclaw.ai">OpenClaw</a> via <a
+href="https://www.alibabacloud.com/help/en/model-studio/openclaw">Model
+Studio</a>:</p>
+<p>bash</p>
+<p>Configure <code>~/.openclaw/openclaw.json</code>:</p>
+<p>json</p>
+<h4 id="qwen-code">Qwen Code<a href="#qwen-code">#</a></h4>
+<p><a href="https://qwen.ai/qwencode">Qwen Code</a> is deeply optimized
+for the Qwen series:</p>
+<p>bash</p>
+<h2 id="summary">Summary<a href="#summary">#</a></h2>
+<p>Qwen3.7-Max is our most versatile and capable model for agent-driven
+workflows. From coding and office automation to long-horizon autonomous
+tasks, it combines frontier-level reasoning with robust cross-scaffold
+generalization and the ability to sustain productive execution over
+extended periods — providing a powerful foundation for building the next
+generation of AI agents. We welcome community feedback and look forward
+to seeing what you build.</p>
+<h2 id="citation">Citation<a href="#citation">#</a></h2>
+<p>bibtex</p>
+</body>
+</html>

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Qwen-Image-2.1: Compact, Efficient, and Unified Image Creation</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Qwen-Image-2.1: Compact, Efficient, and Unified Image
+Creation</h1>
+</header>
+<h1
+id="qwen-image-21-compact-efficient-and-unified-image-creation">Qwen-Image-2.1:
+Compact, Efficient, and Unified Image Creation</h1>
+<blockquote>
+<p>官方来源：<a
+href="https://qwen.ai/blog?id=qwen-image-2.1">https://qwen.ai/blog?id=qwen-image-2.1</a>
+转存日期：2026-11-19。类型：官方技术博客正文，不是独立论文 PDF。
+这是正文的静态格式转换，不是原站逐字节打包；不含网站登录、Cookie、跟踪脚本或互动
+Demo
+的可执行逻辑。图片、视频及其他资源保留外链，未打包媒体；懒加载代码块、图表及互动示例可能仍需回到原网页查看。文中命令为来源原文，未执行。</p>
+</blockquote>
+<hr />
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/banner_en.png"
+alt="Qwen-Image-2.1 banner" /></p>
+<p><a href="https://github.com/QwenLM/Qwen-Image-2.1">GITHUB</a><a
+href="https://huggingface.co/Qwen/Qwen-Image-2.1">HUGGING FACE</a><a
+href="https://www.modelscope.cn/models/Qwen/Qwen-Image-2.1">MODELSCOPE</a></p>
+<p>We are excited to open-source <strong>Qwen-Image-2.1</strong>, an
+image model in the Qwen family that balances generation quality,
+inference efficiency, and cost. Qwen-Image-2.1 unifies text-to-image
+generation and image editing in a single model, with just <strong>7B
+parameters in its visual generation component</strong> and native
+support for generating and editing transparent images.</p>
+<p>This update introduces four key improvements:</p>
+<ul>
+<li><strong>Compact and efficient</strong>: A lightweight architecture
+and inference optimizations balance image quality and computational
+cost.</li>
+<li><strong>Native transparency, unified creation and editing</strong>:
+Generate regular or transparent images from prompts, edit transparent
+layers, and extract subjects from photos.</li>
+<li><strong>Versatile editing</strong>: Use up to <strong>10 reference
+images</strong>, specify local edits, preserve people and products, and
+handle a wide range of tasks.</li>
+<li><strong>Realistic textures and refined aesthetics</strong>: Improved
+typography, portrait lighting, and fine details make generated images
+more visually compelling.</li>
+</ul>
+<h2 id="compact-and-efficient">Compact and Efficient<a
+href="#compact-and-efficient">#</a></h2>
+<p>Qwen-Image-2.1 uses a lightweight architecture. Its visual generation
+component contains <strong>32 Single-Stream DiT layers and 7B
+parameters</strong>. Despite its compact size, the model delivers strong
+image generation quality. The Qwen-Image-Bench comparison below shows
+its performance alongside other open-source and closed-source
+models.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-01.png"
+alt="Qwen-Image-Bench evaluation comparison" /></p>
+<p>Qwen-Image-Bench evaluation comparison</p>
+<p>Inference efficiency is another focus, particularly when editing with
+multiple input images. This optimization comes from a
+<strong>mixed-granularity attention architecture</strong>. Text,
+including the system prefix and editing instructions, uses a token-level
+causal mask, while image generation uses a chunk-level mask. <strong>KV
+cache reuse</strong> allows input images and editing instructions to
+serve as static context, computed and cached in the first step to
+improve inference efficiency and reduce memory usage.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-03.png"
+alt="Qwen-Image-2.1 mixed-granularity attention architecture" /></p>
+<p>Qwen-Image-2.1 mixed-granularity attention architecture</p>
+<h2 id="native-transparency-unified-creation-and-editing">Native
+Transparency, Unified Creation and Editing<a
+href="#native-transparency-unified-creation-and-editing">#</a></h2>
+<p>Native transparency is a major addition in this release. In December
+2025, we introduced Qwen-Image-Layered as a dedicated model supporting
+transparent image generation. Qwen-Image-2.1 now integrates this
+capability into a unified model, using the prompt to determine whether
+to output a regular image or an image with a transparency channel.</p>
+<p>Here are examples of transparent images generated directly from
+text:</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-04.png"
+alt="Transparent images generated from text (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-05.png"
+alt="Transparent images generated from text (2)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-06.png"
+alt="Transparent images generated from text (3)" /></p>
+<p>Beyond individual subjects, the model can generate more complex
+transparent images composed of multiple elements, opening up further
+possibilities for design and asset creation.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-07.png"
+alt="Transparent compositions with multiple elements" /></p>
+<p>By unifying generation and editing, Qwen-Image-2.1 also supports
+editing transparent images directly. For example, it can change a
+subject’s expression while retaining the transparent background. The
+input is on the left and the edited result on the right.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-09.png?v=ee4de1b5241d"
+alt="Expression editing on a transparent image: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-10.png?v=611bf03abb39"
+alt="Expression editing on a transparent image: input and result (2)" /></p>
+<p>Text within a transparent layer can also be edited. In the following
+example, “BLOOM” is replaced with “Qwen-Image”.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-11.png?v=1f2803db504a"
+alt="Transparent text editing: replacing BLOOM with Qwen-Image (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-12.png?v=9d0fa2b0e13a"
+alt="Transparent text editing: replacing BLOOM with Qwen-Image (2)" /></p>
+<p>This capability extends to real photographs. Given an RGB image, the
+model can extract the desired subject as an RGBA layer with
+transparency, making it easier to reuse elements in subsequent design
+and composition work.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-13.png"
+alt="Extracting a transparent RGBA layer from an RGB photograph (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-14.png"
+alt="Extracting a transparent RGBA layer from an RGB photograph (2)" /></p>
+<h2 id="versatile-editing">Versatile Editing<a
+href="#versatile-editing">#</a></h2>
+<p>Qwen-Image-2.1 improves editing in four areas: multiple reference
+images, local editing, fidelity preservation, and task coverage.</p>
+<h3 id="multiple-references-up-to-10-input-images">Multiple References:
+Up to 10 Input Images<a
+href="#multiple-references-up-to-10-input-images">#</a></h3>
+<p>Qwen-Image-2.1 supports <strong>up to 10 reference images</strong>,
+combining multiple subjects and assets into a coherent composition. In
+the group portrait example below, six individual portraits on the left
+are brought together in one photograph.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-15.png"
+alt="A group photograph generated from six portrait references" /></p>
+<p>A group photograph generated from six portrait references</p>
+<p>For virtual try-on, five inputs—a model, clothing, shoes, a bag, and
+a hat—can be combined into a complete outfit.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-16.png"
+alt="A complete outfit generated from five reference images" /></p>
+<p>A complete outfit generated from five reference images</p>
+<p>For interior design, the model can use 10 images of furnishings to
+generate a complete room arrangement.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-17.png"
+alt="An interior generated from ten furnishing references" /></p>
+<p>An interior generated from ten furnishing references</p>
+<h3 id="local-editing-flexible-region-selection">Local Editing: Flexible
+Region Selection<a
+href="#local-editing-flexible-region-selection">#</a></h3>
+<p>Qwen-Image-2.1 supports circles, painted annotations, and separate
+masks to specify where an edit should take place.</p>
+<p>The first example uses circles of different colors to identify three
+regions at once: “Remove the metal watch in the blue circle, change the
+hair in the red circle to black, and replace the area in the green
+circle with gray short-sleeved linen pajamas.” The annotated input is on
+the left, and the result is on the right.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-18.png"
+alt="Circle-guided editing of a watch, hair, and clothing (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-19.png"
+alt="Circle-guided editing of a watch, hair, and clothing (2)" /></p>
+<p>Painted annotations provide another way to identify a region. In this
+example, the model adds a diver to the area marked in white on the right
+side of the input image.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-20.png"
+alt="Paint-guided editing: adding a diver to the marked region (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-21.png"
+alt="Paint-guided editing: adding a diver to the marked region (2)" /></p>
+<p>Circles and painted annotations obscure some of the original content.
+To preserve the complete input, Qwen-Image-2.1 also accepts <strong>the
+original image and a separate mask as two inputs</strong>. The following
+example asks the model to generate a cowboy on horseback, using these
+two images:</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-22.png"
+alt="Local editing inputs: original image and separate mask (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-23.png"
+alt="Local editing inputs: original image and separate mask (2)" /></p>
+<p>The model edits the region specified by the mask, producing the
+following result:</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-24.png"
+alt="Mask-guided editing result: a cowboy on horseback" /></p>
+<p>Mask-guided editing result: a cowboy on horseback</p>
+<p>Local editing can also support sequential creation. By making
+successive changes while preserving the rest of the scene, edited images
+can be assembled into simple animations, as illustrated by the capybara
+Calabash Brothers example below.</p>
+<p>00:00</p>
+<p>/</p>
+<p>00:00</p>
+<h3 id="fidelity-preserving-people-and-products">Fidelity: Preserving
+People and Products<a
+href="#fidelity-preserving-people-and-products">#</a></h3>
+<p>Fidelity improvements focus on <strong>portrait identity</strong> and
+<strong>product consistency</strong>. For portraits, the model better
+preserves facial features so that a person’s identity remains more
+consistent across edits. Each pair below shows the input on the left and
+the edited result on the right.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-25.png"
+alt="Portrait fidelity example one: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-26.png"
+alt="Portrait fidelity example one: input and result (2)" /></p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-27.png"
+alt="Portrait fidelity example two: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-28.png"
+alt="Portrait fidelity example two: input and result (2)" /></p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-29.png"
+alt="Portrait fidelity example three: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-30.png"
+alt="Portrait fidelity example three: input and result (2)" /></p>
+<p>For product editing, the model aims to preserve text, textures, and
+shape, keeping the product’s defining features consistent in a new
+image.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-31.png"
+alt="Product fidelity example one: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-32.png"
+alt="Product fidelity example one: input and result (2)" /></p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-33.png"
+alt="Product fidelity example two: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-34.png"
+alt="Product fidelity example two: input and result (2)" /></p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-35.png"
+alt="Product fidelity example three: input and result (1)" /><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-36.png"
+alt="Product fidelity example three: input and result (2)" /></p>
+<h3 id="task-coverage-panoramas-infographics-and-storyboards">Task
+Coverage: Panoramas, Infographics, and Storyboards<a
+href="#task-coverage-panoramas-infographics-and-storyboards">#</a></h3>
+<p>Qwen-Image-2.1 supports a broad range of editing tasks, including
+panorama, infographic, and storyboard generation, balancing capabilities
+across different applications.</p>
+<p>For example, starting from this selfie:</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-37.png"
+alt="Input selfie for panorama generation" /></p>
+<p>Input selfie for panorama generation</p>
+<p>The model generates the following panorama:</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-38.png"
+alt="Panorama generated from the selfie" /></p>
+<p>Panorama generated from the selfie</p>
+<p>The panorama can then be explored from different viewing directions
+in a visualization tool.</p>
+<p>00:00</p>
+<p>/</p>
+<p>00:00</p>
+<p>For infographic generation, a model photograph can be expanded into a
+detailed, information-rich composition.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-39.png"
+alt="Input model photograph for infographic generation" /></p>
+<p>Input model photograph for infographic generation</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-40.png"
+alt="Complex infographic generated from the model photograph" /></p>
+<p>Complex infographic generated from the model photograph</p>
+<p>The model can also turn a three-view character reference into a
+complete storyboard, providing material for storytelling and visual
+narratives.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-41.png"
+alt="Three-view character reference for storyboard generation" /></p>
+<p>Three-view character reference for storyboard generation</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-42.png"
+alt="Complete storyboard generated from the character reference" /></p>
+<p>Complete storyboard generated from the character reference</p>
+<h2 id="realistic-textures-and-refined-aesthetics">Realistic Textures
+and Refined Aesthetics<a
+href="#realistic-textures-and-refined-aesthetics">#</a></h2>
+<p>Qwen-Image-2.1 further improves visual quality, with particular
+attention to typography and portraits. Text rendering considers not only
+the content itself, but also type styles, layout, and their relationship
+to the overall composition. The following examples showcase text
+rendering across different settings.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-43.png"
+alt="Text rendering example one" /></p>
+<p>Text rendering example one</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-44.png"
+alt="Text rendering example two" /></p>
+<p>Text rendering example two</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-45.png"
+alt="Text rendering example three" /></p>
+<p>Text rendering example three</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-46.png"
+alt="Text rendering example four" /></p>
+<p>Text rendering example four</p>
+<p>For portraits, improved lighting and fine details give generated
+images a more realistic appearance.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-47.png"
+alt="Portrait lighting and detail example one" /></p>
+<p>Portrait lighting and detail example one</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-48.png"
+alt="Portrait lighting and detail example two" /></p>
+<p>Portrait lighting and detail example two</p>
+<h2 id="conclusion">Conclusion<a href="#conclusion">#</a></h2>
+<p>With a compact 7B visual generation component, Qwen-Image-2.1 brings
+image generation, transparency, and a wide range of editing capabilities
+together in one model. Faster inference, support for up to 10 reference
+images, flexible local editing, and improved fidelity for people and
+products make it a practical tool for design, content creation,
+e-commerce, and visual storytelling.</p>
+<p>We hope you enjoy creating with Qwen-Image-2.1!</p>
+</body>
+</html>

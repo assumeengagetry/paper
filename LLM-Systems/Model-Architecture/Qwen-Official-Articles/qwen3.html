@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Qwen3: Think Deeper, Act Faster</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Qwen3: Think Deeper, Act Faster</h1>
+</header>
+<h1 id="qwen3-think-deeper-act-faster">Qwen3: Think Deeper, Act
+Faster</h1>
+<blockquote>
+<p>官方来源：<a
+href="https://qwen.ai/blog?id=qwen3">https://qwen.ai/blog?id=qwen3</a>
+转存日期：2026-11-19。类型：官方技术博客正文，不是独立论文 PDF。
+这是正文的静态格式转换，不是原站逐字节打包；不含网站登录、Cookie、跟踪脚本或互动
+Demo
+的可执行逻辑。图片、视频及其他资源保留外链，未打包媒体；懒加载代码块、图表及互动示例可能仍需回到原网页查看。文中命令为来源原文，未执行。</p>
+</blockquote>
+<hr />
+<p><img
+src="https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/qwen3-banner.png"
+alt="Qwen3 Main Image" /></p>
+<p>Qwen3 Main Image</p>
+<p><a href="https://chat.qwen.ai">QWEN CHAT</a></p>
+<p><a href="https://github.com/QwenLM/Qwen3">GitHub</a></p>
+<p><a
+href="https://huggingface.co/collections/Qwen/qwen3-67dd247413f0e2e4f653967f">Hugging
+Face</a></p>
+<p><a
+href="https://modelscope.cn/collections/Qwen3-9743180bdc6b48">ModelScope</a></p>
+<p><a href="https://www.kaggle.com/models/qwen-lm/qwen-3">Kaggle</a></p>
+<p><a href="https://huggingface.co/spaces/Qwen/Qwen3-Demo">DEMO</a></p>
+<p><a href="https://discord.gg/yPEP2vHTu4">DISCORD</a></p>
+<h2 id="introduction">Introduction</h2>
+<p>Today, we are excited to announce the release of
+<strong>Qwen3</strong>, the latest addition to the Qwen family of large
+language models. Our flagship model, <strong>Qwen3-235B-A22B</strong>,
+achieves competitive results in benchmark evaluations of coding, math,
+general capabilities, etc., when compared to other top-tier models such
+as DeepSeek-R1, o1, o3-mini, Grok-3, and Gemini-2.5-Pro. Additionally,
+the small MoE model, <strong>Qwen3-30B-A3B</strong>, outcompetes QwQ-32B
+with 10 times of activated parameters, and even a tiny model like
+Qwen3-4B can rival the performance of Qwen2.5-72B-Instruct.</p>
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3/qwen3-235a22.jpg" /></p>
+<p><img
+src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3/qwen3-30a3.jpg" /></p>
+<p>We are open-weighting two MoE models:
+<strong>Qwen3-235B-A22B</strong>, a large model with 235 billion total
+parameters and 22 billion activated parameters, and
+<strong>Qwen3-30B-A3B</strong>, a smaller MoE model with 30 billion
+total parameters and 3 billion activated parameters. Additionally, six
+dense models are also open-weighted, including
+<strong>Qwen3-32B</strong>, <strong>Qwen3-14B</strong>,
+<strong>Qwen3-8B</strong>, <strong>Qwen3-4B</strong>,
+<strong>Qwen3-1.7B</strong>, and <strong>Qwen3-0.6B</strong>, under
+Apache 2.0 license.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Models</th>
+<th style="text-align: center;">Layers</th>
+<th style="text-align: center;">Heads (Q / KV)</th>
+<th style="text-align: center;">Tie Embedding</th>
+<th style="text-align: center;">Context Length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Qwen3-0.6B</td>
+<td style="text-align: center;">28</td>
+<td style="text-align: center;">16 / 8</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">32K</td>
+</tr>
+<tr>
+<td style="text-align: left;">Qwen3-1.7B</td>
+<td style="text-align: center;">28</td>
+<td style="text-align: center;">16 / 8</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">32K</td>
+</tr>
+<tr>
+<td style="text-align: left;">Qwen3-4B</td>
+<td style="text-align: center;">36</td>
+<td style="text-align: center;">32 / 8</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">32K</td>
+</tr>
+<tr>
+<td style="text-align: left;">Qwen3-8B</td>
+<td style="text-align: center;">36</td>
+<td style="text-align: center;">32 / 8</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">128K</td>
+</tr>
+<tr>
+<td style="text-align: left;">Qwen3-14B</td>
+<td style="text-align: center;">40</td>
+<td style="text-align: center;">40 / 8</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">128K</td>
+</tr>
+<tr>
+<td style="text-align: left;">Qwen3-32B</td>
+<td style="text-align: center;">64</td>
+<td style="text-align: center;">64 / 8</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">128K</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Models</th>
+<th style="text-align: center;">Layers</th>
+<th style="text-align: center;">Heads (Q / KV)</th>
+<th style="text-align: center;"># Experts (Total / Activated)</th>
+<th style="text-align: center;">Context Length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Qwen3-30B-A3B</td>
+<td style="text-align: center;">48</td>
+<td style="text-align: center;">32 / 4</td>
+<td style="text-align: center;">128 / 8</td>
+<td style="text-align: center;">128K</td>
+</tr>
+<tr>
+<td style="text-align: left;">Qwen3-235B-A22B</td>
+<td style="text-align: center;">94</td>
+<td style="text-align: center;">64 / 4</td>
+<td style="text-align: center;">128 / 8</td>
+<td style="text-align: center;">128K</td>
+</tr>
+</tbody>
+</table>
+<p>The post-trained models, such as <strong>Qwen3-30B-A3B</strong>,
+along with their pre-trained counterparts (e.g.,
+<strong>Qwen3-30B-A3B-Base</strong>), are now available on platforms
+like <strong>Hugging Face</strong>, <strong>ModelScope</strong>, and
+<strong>Kaggle</strong>. For deployment, we recommend using frameworks
+like <strong>SGLang</strong> and <strong>vLLM</strong>. For local usage,
+tools such as <strong>Ollama</strong>, <strong>LMStudio</strong>,
+<strong>MLX</strong>, <strong>llama.cpp</strong>, and
+<strong>KTransformers</strong> are highly recommended. These options
+ensure that users can easily integrate Qwen3 into their workflows,
+whether in research, development, or production environments.</p>
+<p>We believe that the release and open-sourcing of Qwen3 will
+significantly advance the research and development of large foundation
+models. Our goal is to empower researchers, developers, and
+organizations around the world to build innovative solutions using these
+cutting-edge models.</p>
+<p>Feel free to try Qwen3 out in Qwen Chat Web (<a
+href="https://chat.qwen.ai">chat.qwen.ai</a>) and mobile APP!</p>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>Hybrid Thinking Modes</strong></li>
+</ul>
+<p>Qwen3 models introduce a hybrid approach to problem-solving. They
+support two modes:</p>
+<ol type="1">
+<li>Thinking Mode: In this mode, the model takes time to reason step by
+step before delivering the final answer. This is ideal for complex
+problems that require deeper thought.</li>
+<li>Non-Thinking Mode: Here, the model provides quick, near-instant
+responses, suitable for simpler questions where speed is more important
+than depth.</li>
+</ol>
+<p>This flexibility allows users to control how much “thinking” the
+model performs based on the task at hand. For example, harder problems
+can be tackled with extended reasoning, while easier ones can be
+answered directly without delay. Crucially, the integration of these two
+modes greatly enhances the model’s ability to implement stable and
+efficient thinking budget control. As demonstrated above, Qwen3 exhibits
+scalable and smooth performance improvements that are directly
+correlated with the computational reasoning budget allocated. This
+design enables users to configure task-specific budgets with greater
+ease, achieving a more optimal balance between cost efficiency and
+inference quality.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/assets/blog/qwen3/thinking_budget.png" /></p>
+<ul>
+<li><strong>Multilingual Support</strong></li>
+</ul>
+<p>Qwen3 models are supporting <strong>119 languages and
+dialects</strong>. This extensive multilingual capability opens up new
+possibilities for international applications, enabling users worldwide
+to benefit from the power of these models.</p>
+<table>
+<thead>
+<tr>
+<th>Language Family</th>
+<th>Languages &amp; Dialects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Indo-European</td>
+<td>English, French, Portuguese, German, Romanian, Swedish, Danish,
+Bulgarian, Russian, Czech, Greek, Ukrainian, Spanish, Dutch, Slovak,
+Croatian, Polish, Lithuanian, Norwegian Bokmål, Norwegian Nynorsk,
+Persian, Slovenian, Gujarati, Latvian, Italian, Occitan, Nepali,
+Marathi, Belarusian, Serbian, Luxembourgish, Venetian, Assamese, Welsh,
+Silesian, Asturian, Chhattisgarhi, Awadhi, Maithili, Bhojpuri, Sindhi,
+Irish, Faroese, Hindi, Punjabi, Bengali, Oriya, Tajik, Eastern Yiddish,
+Lombard, Ligurian, Sicilian, Friulian, Sardinian, Galician, Catalan,
+Icelandic, Tosk Albanian, Limburgish, Dari, Afrikaans, Macedonian,
+Sinhala, Urdu, Magahi, Bosnian, Armenian</td>
+</tr>
+<tr>
+<td>Sino-Tibetan</td>
+<td>Chinese (Simplified Chinese, Traditional Chinese, Cantonese),
+Burmese</td>
+</tr>
+<tr>
+<td>Afro-Asiatic</td>
+<td>Arabic (Standard, Najdi, Levantine, Egyptian, Moroccan,
+Mesopotamian, Ta’izzi-Adeni, Tunisian), Hebrew, Maltese</td>
+</tr>
+<tr>
+<td>Austronesian</td>
+<td>Indonesian, Malay, Tagalog, Cebuano, Javanese, Sundanese,
+Minangkabau, Balinese, Banjar, Pangasinan, Iloko, Waray
+(Philippines)</td>
+</tr>
+<tr>
+<td>Dravidian</td>
+<td>Tamil, Telugu, Kannada, Malayalam</td>
+</tr>
+<tr>
+<td>Turkic</td>
+<td>Turkish, North Azerbaijani, Northern Uzbek, Kazakh, Bashkir,
+Tatar</td>
+</tr>
+<tr>
+<td>Tai-Kadai</td>
+<td>Thai, Lao</td>
+</tr>
+<tr>
+<td>Uralic</td>
+<td>Finnish, Estonian, Hungarian</td>
+</tr>
+<tr>
+<td>Austroasiatic</td>
+<td>Vietnamese, Khmer</td>
+</tr>
+<tr>
+<td>Other</td>
+<td>Japanese, Korean, Georgian, Basque, Haitian, Papiamento,
+Kabuverdianu, Tok Pisin, Swahili</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Improved Agentic Capabilities</strong></li>
+</ul>
+<p>We have optimized the Qwen3 models for coding and agentic
+capabilities, and also we have strengthened the support of MCP as well.
+Below we provide examples to show how Qwen3 thinks and interacts with
+the environment.</p>
+<video src="https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/mcp.mov" controls>
+
+</video>
+
+<h2 id="pre-training">Pre-training</h2>
+<p>In terms of pretraining, the dataset for Qwen3 has been significantly
+expanded compared to Qwen2.5. While Qwen2.5 was pre-trained on 18
+trillion tokens, Qwen3 uses nearly twice that amount, with approximately
+36 trillion tokens covering 119 languages and dialects. To build this
+large dataset, we collected data not only from the web but also from
+PDF-like documents. We used Qwen2.5-VL to extract text from these
+documents and Qwen2.5 to improve the quality of the extracted content.
+To increase the amount of math and code data, we used Qwen2.5-Math and
+Qwen2.5-Coder to generate synthetic data. This includes textbooks,
+question-answer pairs, and code snippets.</p>
+<p>The pre-training process consists of three stages. In the first stage
+(S1), the model was pretrained on over 30 trillion tokens with a context
+length of 4K tokens. This stage provided the model with basic language
+skills and general knowledge. In the second stage (S2), we improved the
+dataset by increasing the proportion of knowledge-intensive data, such
+as STEM, coding, and reasoning tasks. The model was then pretrained on
+an additional 5 trillion tokens. In the final stage, we used
+high-quality long-context data to extend the context length to 32K
+tokens. This ensures the model can handle longer inputs effectively.</p>
+<p><img
+src="https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/qwen3-base.jpg" /></p>
+<p>Due to advancements in model architecture, increase in training data,
+and more effective training methods, the overall performance of Qwen3
+dense base models matches that of Qwen2.5 base models with more
+parameters. For instance, Qwen3-1.7B/4B/8B/14B/32B-Base performs as well
+as Qwen2.5-3B/7B/14B/32B/72B-Base, respectively. Notably, in areas like
+STEM, coding, and reasoning, Qwen3 dense base models even outperform
+larger Qwen2.5 models. For Qwen3-MoE base models, they achieve similar
+performance to Qwen2.5 dense base models while using only 10% of the
+active parameters. This results in significant savings in both training
+and inference costs.</p>
+<h2 id="post-training">Post-training</h2>
+<p><img
+src="https://qianwen-res.oss-accelerate.aliyuncs.com/assets/blog/qwen3/post-training.png" /></p>
+<p>To develop the hybrid model capable of both step-by-step reasoning
+and rapid responses, we implemented a four-stage training pipeline. This
+pipeline includes: (1) long chain-of-thought (CoT) cold start, (2)
+reasoning-based reinforcement learning (RL), (3) thinking mode fusion,
+and (4) general RL.</p>
+<p>In the first stage, we fine-tuned the models using diverse long CoT
+data, covering various tasks and domains such as mathematics, coding,
+logical reasoning, and STEM problems. This process aimed to equip the
+model with fundamental reasoning abilities. The second stage focused on
+scaling up computational resources for RL, utilizing rule-based rewards
+to enhance the model’s exploration and exploitation capabilities.</p>
+<p>In the third stage, we integrated non-thinking capabilities into the
+thinking model by fine-tuning it on a combination of long CoT data and
+commonly used instruction-tuning data. This data was generated by the
+enhanced thinking model from the second stage, ensuring a seamless blend
+of reasoning and quick response capabilities. Finally, in the fourth
+stage, we applied RL across more than 20 general-domain tasks to further
+strengthen the model’s general capabilities and correct undesired
+behaviors. These tasks included instruction following, format following,
+and agent capabilities, etc.</p>
+<h2 id="develop-with-qwen3">Develop with Qwen3</h2>
+<p>Below is a simple guide for you to use Qwen3 on different frameworks.
+First of all, we provide an standard example of using Qwen3-30B-A3B in
+Hugging Face transformers:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> modelscope <span class="im">import</span> AutoModelForCausalLM, AutoTokenizer</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>model_name <span class="op">=</span> <span class="st">&quot;Qwen/Qwen3-30B-A3B&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># load the tokenizer and the model</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>tokenizer <span class="op">=</span> AutoTokenizer.from_pretrained(model_name)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> AutoModelForCausalLM.from_pretrained(</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    model_name,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    torch_dtype<span class="op">=</span><span class="st">&quot;auto&quot;</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    device_map<span class="op">=</span><span class="st">&quot;auto&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare the model input</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">&quot;Give me a short introduction to large language model.&quot;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>messages <span class="op">=</span> [</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    {<span class="st">&quot;role&quot;</span>: <span class="st">&quot;user&quot;</span>, <span class="st">&quot;content&quot;</span>: prompt}</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>text <span class="op">=</span> tokenizer.apply_chat_template(</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    messages,</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    tokenize<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    add_generation_prompt<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    enable_thinking<span class="op">=</span><span class="va">True</span> <span class="co"># Switch between thinking and non-thinking modes. Default is True.</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>model_inputs <span class="op">=</span> tokenizer([text], return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>).to(model.device)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co"># conduct text completion</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>generated_ids <span class="op">=</span> model.generate(</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="op">**</span>model_inputs,</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    max_new_tokens<span class="op">=</span><span class="dv">32768</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>output_ids <span class="op">=</span> generated_ids[<span class="dv">0</span>][<span class="bu">len</span>(model_inputs.input_ids[<span class="dv">0</span>]):].tolist() </span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="co"># parsing thinking content</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="co"># rindex finding 151668 (&lt;/think&gt;)</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    index <span class="op">=</span> <span class="bu">len</span>(output_ids) <span class="op">-</span> output_ids[::<span class="op">-</span><span class="dv">1</span>].index(<span class="dv">151668</span>)</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">ValueError</span>:</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    index <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>thinking_content <span class="op">=</span> tokenizer.decode(output_ids[:index], skip_special_tokens<span class="op">=</span><span class="va">True</span>).strip(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>content <span class="op">=</span> tokenizer.decode(output_ids[index:], skip_special_tokens<span class="op">=</span><span class="va">True</span>).strip(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;thinking content:&quot;</span>, thinking_content)</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;content:&quot;</span>, content)</span></code></pre></div>
+<p>}}</p>
+<p>To disable thinking, you just need to make changes to the argument
+<code>enable_thinking</code> like the following:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>text <span class="op">=</span> tokenizer.apply_chat_template(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    messages,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    tokenize<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    add_generation_prompt<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    enable_thinking<span class="op">=</span><span class="va">False</span>  <span class="co"># True is the default value for enable_thinking.</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<p>}}</p>
+<p>For deployment, you can use <code>sglang&gt;=0.4.6.post1</code> or
+<code>vllm&gt;=0.8.4</code> to create an OpenAI-compatible API
+endpoint:</p>
+<ul>
+<li><p>SGLang: {{&lt; code
+src=“./code/4a18f321-ccd1-45f4-8717-bdffd10b065c.sh” lang=“shell”
+&gt;}}</p></li>
+<li><p>vLLM: {{&lt; code
+src=“./code/1f05ec9a-294c-4bef-a34e-7cb9d382168f.sh” lang=“shell”
+&gt;}}</p></li>
+</ul>
+<p>If you use it for local development, you can use ollama by running a
+simple command <code>ollama run qwen3:30b-a3b</code> to play with the
+model, or you can use LMStudio or llama.cpp and ktransformers to build
+locally.</p>
+<h3 id="advanced-usages">Advanced Usages</h3>
+<p>We provide a soft switch mechanism that allows users to dynamically
+control the model’s behavior when enable_thinking=True. Specifically,
+you can add /think and /no_think to user prompts or system messages to
+switch the model’s thinking mode from turn to turn. The model will
+follow the most recent instruction in multi-turn conversations.</p>
+<p>Here is an example of a multi-turn conversation:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> transformers <span class="im">import</span> AutoModelForCausalLM, AutoTokenizer</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> QwenChatbot:</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, model_name<span class="op">=</span><span class="st">&quot;Qwen/Qwen3-30B-A3B&quot;</span>):</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.tokenizer <span class="op">=</span> AutoTokenizer.from_pretrained(model_name)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.model <span class="op">=</span> AutoModelForCausalLM.from_pretrained(model_name)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.history <span class="op">=</span> []</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> generate_response(<span class="va">self</span>, user_input):</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        messages <span class="op">=</span> <span class="va">self</span>.history <span class="op">+</span> [{<span class="st">&quot;role&quot;</span>: <span class="st">&quot;user&quot;</span>, <span class="st">&quot;content&quot;</span>: user_input}]</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        text <span class="op">=</span> <span class="va">self</span>.tokenizer.apply_chat_template(</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            messages,</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            tokenize<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            add_generation_prompt<span class="op">=</span><span class="va">True</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        inputs <span class="op">=</span> <span class="va">self</span>.tokenizer(text, return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        response_ids <span class="op">=</span> <span class="va">self</span>.model.generate(<span class="op">**</span>inputs, max_new_tokens<span class="op">=</span><span class="dv">32768</span>)[<span class="dv">0</span>][<span class="bu">len</span>(inputs.input_ids[<span class="dv">0</span>]):].tolist()</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        response <span class="op">=</span> <span class="va">self</span>.tokenizer.decode(response_ids, skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Update history</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.history.append({<span class="st">&quot;role&quot;</span>: <span class="st">&quot;user&quot;</span>, <span class="st">&quot;content&quot;</span>: user_input})</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.history.append({<span class="st">&quot;role&quot;</span>: <span class="st">&quot;assistant&quot;</span>, <span class="st">&quot;content&quot;</span>: response})</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> response</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Example Usage</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">&quot;__main__&quot;</span>:</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    chatbot <span class="op">=</span> QwenChatbot()</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="co"># First input (without /think or /no_think tags, thinking mode is enabled by default)</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    user_input_1 <span class="op">=</span> <span class="st">&quot;How many r&#39;s in strawberries?&quot;</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;User: </span><span class="sc">{</span>user_input_1<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    response_1 <span class="op">=</span> chatbot.generate_response(user_input_1)</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Bot: </span><span class="sc">{</span>response_1<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;----------------------&quot;</span>)</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Second input with /no_think</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    user_input_2 <span class="op">=</span> <span class="st">&quot;Then, how many r&#39;s in blueberries? /no_think&quot;</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;User: </span><span class="sc">{</span>user_input_2<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>    response_2 <span class="op">=</span> chatbot.generate_response(user_input_2)</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Bot: </span><span class="sc">{</span>response_2<span class="sc">}</span><span class="ss">&quot;</span>) </span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;----------------------&quot;</span>)</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Third input with /think</span></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>    user_input_3 <span class="op">=</span> <span class="st">&quot;Really? /think&quot;</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;User: </span><span class="sc">{</span>user_input_3<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>    response_3 <span class="op">=</span> chatbot.generate_response(user_input_3)</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Bot: </span><span class="sc">{</span>response_3<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<p>}}</p>
+<h3 id="agentic-usages">Agentic Usages</h3>
+<p>Qwen3 excels in tool calling capabilities. We recommend using <a
+href="https://github.com/QwenLM/Qwen-Agent">Qwen-Agent</a> to make the
+best use of agentic ability of Qwen3. Qwen-Agent encapsulates
+tool-calling templates and tool-calling parsers internally, greatly
+reducing coding complexity.</p>
+<p>To define the available tools, you can use the MCP configuration
+file, use the integrated tool of Qwen-Agent, or integrate other tools by
+yourself.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> qwen_agent.agents <span class="im">import</span> Assistant</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Define LLM</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>llm_cfg <span class="op">=</span> {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;model&#39;</span>: <span class="st">&#39;Qwen3-30B-A3B&#39;</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use the endpoint provided by Alibaba Model Studio:</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># &#39;model_type&#39;: &#39;qwen_dashscope&#39;,</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># &#39;api_key&#39;: os.getenv(&#39;DASHSCOPE_API_KEY&#39;),</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use a custom endpoint compatible with OpenAI API:</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;model_server&#39;</span>: <span class="st">&#39;http://localhost:8000/v1&#39;</span>,  <span class="co"># api_base</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;api_key&#39;</span>: <span class="st">&#39;EMPTY&#39;</span>,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Other parameters:</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># &#39;generate_cfg&#39;: {</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">#         # Add: When the response content is `&lt;think&gt;this is the thought&lt;/think&gt;this is the answer;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">#         # Do not add: When the response has been separated by reasoning_content and content.</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">#         &#39;thought_in_content&#39;: True,</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     },</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Define Tools</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>tools <span class="op">=</span> [</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    {<span class="st">&#39;mcpServers&#39;</span>: {  <span class="co"># You can specify the MCP configuration file</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>            <span class="st">&#39;time&#39;</span>: {</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>                <span class="st">&#39;command&#39;</span>: <span class="st">&#39;uvx&#39;</span>,</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>                <span class="st">&#39;args&#39;</span>: [<span class="st">&#39;mcp-server-time&#39;</span>, <span class="st">&#39;--local-timezone=Asia/Shanghai&#39;</span>]</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>            },</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;fetch&quot;</span>: {</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;command&quot;</span>: <span class="st">&quot;uvx&quot;</span>,</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;args&quot;</span>: [<span class="st">&quot;mcp-server-fetch&quot;</span>]</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;code_interpreter&#39;</span>,  <span class="co"># Built-in tools</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="co"># Define Agent</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>bot <span class="op">=</span> Assistant(llm<span class="op">=</span>llm_cfg, function_list<span class="op">=</span>tools)</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Streaming generation</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>messages <span class="op">=</span> [{<span class="st">&#39;role&#39;</span>: <span class="st">&#39;user&#39;</span>, <span class="st">&#39;content&#39;</span>: <span class="st">&#39;https://qwenlm.github.io/blog/ Introduce the latest developments of Qwen&#39;</span>}]</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> responses <span class="kw">in</span> bot.run(messages<span class="op">=</span>messages):</span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">pass</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(responses)</span></code></pre></div>
+<blockquote>
+<p>}}</p>
+</blockquote>
+<h2 id="friends-of-qwen">Friends of Qwen</h2>
+<p>Thanks to the support of so many friends. Qwen is nothing without its
+friends! We welcome more people or organizations to join our community
+and help us become better!</p>
+<p><img
+src="https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/qwen3-logo.png" /></p>
+<h2 id="future-work">Future Work</h2>
+<p>Qwen3 represents a significant milestone in our journey toward
+Artificial General Intelligence (AGI) and Artificial Superintelligence
+(ASI). By scaling up both pretraining and reinforcement learning (RL),
+we have achieved higher levels of intelligence. We have seamlessly
+integrated thinking and non-thinking modes, offering users the
+flexibility to control the thinking budget. Additionally, we have
+expanded support for a wide range of languages, enhancing global
+accessibility.</p>
+<p>Looking ahead, we aim to enhance our models across multiple
+dimensions. This includes refining model architectures and training
+methodologies to achieve several key objectives: scaling data,
+increasing model size, extending context length, broadening modalities,
+and advancing RL with environmental feedback for long-horizon reasoning.
+We believe we are transitioning from an era focused on training models
+to one centered on training agents. Our next iteration promises to bring
+meaningful advancements to everyone’s work and life.</p>
+</body>
+</html>

@@ -1,30 +1,36 @@
 # Paper Library
 
-这是按研究主题归档的本地论文、书籍和研究笔记库。当前完整 PDF 文件目录见 [CATALOG-20261105.md](CATALOG-20261105.md)，历史逐文件索引与笔记入口见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
+这是按研究主题归档的本地论文、书籍和研究笔记库。当前完整 PDF 文件目录见 [CATALOG-20261119.md](CATALOG-20261119.md)，历史逐文件索引与笔记入口见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
 
-更新日期：2026-11-05。
+更新日期：2026-11-19。
 
 ## 主题入口
 
 | 目录 | 主要内容 | PDF 数量 |
 | --- | --- | ---: |
 | [Robotics-and-Embodied-AI](Robotics-and-Embodied-AI/) | 世界动作模型、VLA、扩散策略、部署、评测、运动控制与自动驾驶 | 72 |
-| [Generative-Models](Generative-Models/) | 图像／视频扩散、扩散语言模型、语音生成、多模态模型、推理与训练 | 43 |
-| [LLM-Systems](LLM-Systems/) | 模型架构、推测解码、推理内核、服务、KV Cache 与性能分析 | 101 |
+| [Generative-Models](Generative-Models/) | 图像／视频扩散、扩散语言模型、语音生成、多模态模型、推理与训练 | 47 |
+| [LLM-Systems](LLM-Systems/) | 模型架构、推测解码、推理内核、服务、KV Cache 与性能分析 | 104 |
 | [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式／高效训练、GPU 与加速器编程、编译器、框架与硬件性能 | 50 |
 | [Machine-Learning-Foundations](Machine-Learning-Foundations/) | 蒸馏与模型合并、优化、校准、量化、强化学习与概率采样 | 30 |
-| [Natural-Language-Processing](Natural-Language-Processing/) | 数据集与基准、文本编码器、分类抽取、逻辑推理、分词与翻译 | 153 |
-| [Computer-Vision](Computer-Vision/) | 视觉语言预训练、高效视觉架构、目标检测、图像与视频分割 | 32 |
-| [Audio-and-Speech](Audio-and-Speech/) | 音乐模型与数据集、神经音频编解码 | 4 |
+| [Natural-Language-Processing](Natural-Language-Processing/) | 数据集与基准、文本编码器、分类抽取、逻辑推理、分词与翻译 | 154 |
+| [Computer-Vision](Computer-Vision/) | 视觉语言预训练、高效视觉架构、目标检测、图像与视频分割 | 33 |
+| [Audio-and-Speech](Audio-and-Speech/) | 音乐模型与数据集、神经音频编解码、语音识别与对齐 | 5 |
 | [Recommender-Systems](Recommender-Systems/) | 生成式推荐模型 | 1 |
 | [Computer-Graphics](Computer-Graphics/) | 神经辐射缓存与路径追踪 | 1 |
 | [Computer-Science-Foundations](Computer-Science-Foundations/) | 字符串与数据结构、并发验证、数值计算、数据库与语言基础 | 31 |
-| [Explainable-and-Responsible-AI](Explainable-and-Responsible-AI/) | 可解释性、公平性、事实可靠性、安全、伦理与可持续性 | 33 |
+| [Explainable-and-Responsible-AI](Explainable-and-Responsible-AI/) | 可解释性、公平性、事实可靠性、安全、伦理与可持续性 | 34 |
 | [ML-Security-and-Robustness](ML-Security-and-Robustness/) | 后门、水印与模型压缩鲁棒性 | 3 |
 | [Medical-AI](Medical-AI/) | 内窥镜与息肉分析、临床语言理解与医学问答 | 11 |
 | [Research-Landscapes](Research-Landscapes/) | 团队、研究机构与研究信息源笔记 | — |
 
-PDF 总数为 565，包含书籍、学位论文、公开技术报告及保留的同文出版版本／副本；不等同于 565 篇互异的已发表论文。
+PDF 总数为 576，包含书籍、学位论文、公开技术报告及保留的同文出版版本／副本；不等同于 576 篇互异的已发表论文。
+
+## Qwen 论文与官方技术长文补齐（2026-11-19）
+
+覆盖所列14份Qwen arXiv报告及Gated Delta Networks基础论文：**新增11份PDF，约76.46 MiB、291页；复用已有4份PDF**，不覆盖旧文件。另转存 **13份官方技术博客正文HTML**，包括Qwen3-Next、普通Qwen3.5／3.6／3.7／3.8、Flash-Next和Qwen4-Max发布文章；HTML不计入PDF篇数，媒体及部分动态内容仍需查看原网页。
+
+逐项来源、版本、分类和未核实的独立PDF说明见 [Qwen资料清单](QWEN-Papers-20261119.md)，校验和及检查结果见 [机器清单](QWEN-Papers-20261119.manifest.json)。本批11份新增PDF均清洁通过格式检查，原有565份PDF不变。普通Qwen3.5不与3.5-Omni混同，Flash-Next也不冒充最终Qwen4规格。
 
 ## Zotero 压缩包与 profiler 引用归档（2026-11-05）
 
