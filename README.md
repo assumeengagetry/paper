@@ -37,12 +37,3 @@
 | VLA 与世界动作模型 | [VLA 部署](Robotics-and-Embodied-AI/VLA-Inference/) · [世界动作模型](Robotics-and-Embodied-AI/World-Action-Models/) |
 | 目标检测与分割 | [目标检测](Computer-Vision/Object-Detection/) · [图像与视频分割](Computer-Vision/Image-and-Video-Segmentation/) |
 
-## 扩散推理先读这五篇
-
-1. [SGLang-Diffusion: Advanced Optimizations](Generative-Models/Diffusion/Community-Articles-20261122/lmsys/2026-02-16-sglang-diffusion-advanced-optimizations.html)
-2. [xDiT 论文](Generative-Models/Diffusion/2411.01738v1.pdf)
-3. [PipeFusion 论文](Generative-Models/Diffusion/2405.14430v4.pdf)
-4. [TensorRT-LLM: Disaggregated Serving](LLM-Systems/Serving-and-KV-Cache/Community-Articles-20261122/tensorrt-llm/blog5_Disaggregated_Serving_in_TensorRT-LLM.html)
-5. [NVIDIA Dynamo 介绍](LLM-Systems/Serving-and-KV-Cache/Community-Articles-20261122/nvidia/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models.html)
-
-离线 HTML 可直接用浏览器打开；视频和交互图表通过文中的原始链接查看。`MinerU_markdown_*` 是 PDF 全文提取，与对应论文放在一起。
