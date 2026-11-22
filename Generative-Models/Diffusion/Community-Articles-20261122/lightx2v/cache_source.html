@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Feature Caching</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Feature Caching</h1>
+</header>
+<section id="feature-caching" class="header">
+<h1>Feature Caching</h1>
+<p>来源：<a
+href="https://github.com/ModelTC/LightX2V/blob/main/docs/EN/source/method_tutorials/cache_source.md">https://github.com/ModelTC/LightX2V/blob/main/docs/EN/source/method_tutorials/cache_source.md</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article>
+<h1 id="feature-caching">Feature Caching</h1>
+<h2 id="cache-acceleration-algorithm">Cache Acceleration Algorithm</h2>
+<ul>
+<li>In the inference process of diffusion models, cache reuse is an
+important acceleration algorithm.</li>
+<li>The core idea is to skip redundant computations at certain time
+steps by reusing historical cache results to improve inference
+efficiency.</li>
+<li>The key to the algorithm is how to decide which time steps to
+perform cache reuse, usually based on dynamic judgment of model state
+changes or error thresholds.</li>
+<li>During inference, key content such as intermediate features,
+residuals, and attention outputs need to be cached. When entering
+reusable time steps, the cached content is directly utilized, and the
+current output is reconstructed through approximation methods like
+Taylor expansion, thereby reducing repeated calculations and achieving
+efficient inference.</li>
+</ul>
+<h3 id="teacache">TeaCache</h3>
+<p>The core idea of <code>TeaCache</code> is to accumulate the
+<strong>relative L1</strong> distance between adjacent time step inputs.
+When the accumulated distance reaches a set threshold, it determines
+that the current time step should not use cache reuse; conversely, when
+the accumulated distance does not reach the set threshold, cache reuse
+is used to accelerate the inference process.</p>
+<ul>
+<li>Specifically, the algorithm calculates the relative L1 distance
+between the current input and the previous step input at each inference
+step and accumulates it.</li>
+<li>When the accumulated distance does not exceed the threshold, it
+indicates that the model state change is not obvious, so the most
+recently cached content is directly reused, skipping some redundant
+calculations. This can significantly reduce the number of forward
+computations of the model and improve inference speed.</li>
+</ul>
+<p>In practical effects, TeaCache achieves significant acceleration
+while ensuring generation quality. On a single H200 card, the time
+consumption and video comparison before and after acceleration are as
+follows:</p>
+<table>
+<tbody>
+<tr>
+<td style="text-align: center;">Before acceleration: 58s</td>
+<td style="text-align: center;">After acceleration: 17.9s</td>
+</tr>
+<tr>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/1781df9b-04df-4586-b22f-5d15f8e1bff6">视频／音频原始链接（联网查看）</a></p></td>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/e93f91eb-3825-4866-90c2-351176263a2f">视频／音频原始链接（联网查看）</a></p></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Acceleration ratio: <strong>3.24</strong></li>
+<li>Config: <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/caching/teacache/wan_t2v_1_3b_tea_480p.json">wan_t2v_1_3b_tea_480p.json</a></li>
+<li>Reference paper: <a
+href="https://arxiv.org/abs/2411.19108"><span>https://arxiv.org/abs/2411.19108</span></a></li>
+</ul>
+<h3 id="taylorseer-cache">TaylorSeer Cache</h3>
+<p>The core of <code>TaylorSeer Cache</code> lies in using Taylor's
+formula to recalculate cached content as residual compensation for cache
+reuse time steps.</p>
+<ul>
+<li>The specific approach is to not only simply reuse historical cache
+at cache reuse time steps, but also approximately reconstruct the
+current output through Taylor expansion. This can further improve output
+accuracy while reducing computational load.</li>
+<li>Taylor expansion can effectively capture minor changes in model
+state, allowing errors caused by cache reuse to be compensated, thereby
+ensuring generation quality while accelerating.</li>
+</ul>
+<p><code>TaylorSeer Cache</code> is suitable for scenarios with high
+output accuracy requirements and can further improve model inference
+performance based on cache reuse.</p>
+<table>
+<tbody>
+<tr>
+<td style="text-align: center;">Before acceleration: 57.7s</td>
+<td style="text-align: center;">After acceleration: 41.3s</td>
+</tr>
+<tr>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/2d04005c-853b-4752-884b-29f8ea5717d2">视频／音频原始链接（联网查看）</a></p></td>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/270e3624-c904-468c-813e-0c65daf1594d">视频／音频原始链接（联网查看）</a></p></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Acceleration ratio: <strong>1.39</strong></li>
+<li>Config: <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/caching/taylorseer/wan_t2v_taylorseer.json">wan_t2v_taylorseer</a></li>
+<li>Reference paper: <a
+href="https://arxiv.org/abs/2503.06923"><span>https://arxiv.org/abs/2503.06923</span></a></li>
+</ul>
+<h3 id="adacache">AdaCache</h3>
+<p>The core idea of <code>AdaCache</code> is to dynamically adjust the
+step size of cache reuse based on partial cached content in specified
+block chunks.</p>
+<ul>
+<li>The algorithm analyzes feature differences between two adjacent time
+steps within specific blocks and adaptively determines the next cache
+reuse time step interval based on the difference magnitude.</li>
+<li>When model state changes are small, the step size automatically
+increases, reducing cache update frequency; when state changes are
+large, the step size decreases to ensure output quality.</li>
+</ul>
+<p>This allows flexible adjustment of caching strategies based on
+dynamic changes in the actual inference process, achieving more
+efficient acceleration and better generation results. AdaCache is
+suitable for application scenarios that have high requirements for both
+inference speed and generation quality.</p>
+<table>
+<tbody>
+<tr>
+<td style="text-align: center;">Before acceleration: 227s</td>
+<td style="text-align: center;">After acceleration: 83s</td>
+</tr>
+<tr>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/33b2206d-17e6-4433-bed7-bfa890f9fa7d">视频／音频原始链接（联网查看）</a></p></td>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/084dbe3d-6ff3-4afc-9a7c-453ec53b3672">视频／音频原始链接（联网查看）</a></p></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Acceleration ratio: <strong>2.73</strong></li>
+<li>Config: <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/caching/adacache/wan_i2v_ada.json">wan_i2v_ada</a></li>
+<li>Reference paper: <a
+href="https://arxiv.org/abs/2411.02397"><span>https://arxiv.org/abs/2411.02397</span></a></li>
+</ul>
+<h3 id="customcache">CustomCache</h3>
+<p><code>CustomCache</code> combines the advantages of
+<code>TeaCache</code> and <code>TaylorSeer Cache</code>.</p>
+<ul>
+<li>It combines the real-time and reasonable cache decision-making of
+<code>TeaCache</code>, determining when to perform cache reuse through
+dynamic thresholds.</li>
+<li>At the same time, it utilizes <code>TaylorSeer</code>'s Taylor
+expansion method to make use of cached content.</li>
+</ul>
+<p>This not only efficiently determines the timing of cache reuse but
+also maximizes the utilization of cached content, improving output
+accuracy and generation quality. Actual testing shows that
+<code>CustomCache</code> produces video quality superior to using
+<code>TeaCache</code>, <code>TaylorSeer Cache</code>, or
+<code>AdaCache</code> alone across multiple content generation tasks,
+making it one of the currently optimal comprehensive cache acceleration
+algorithms.</p>
+<table>
+<tbody>
+<tr>
+<td style="text-align: center;">Before acceleration: 57.9s</td>
+<td style="text-align: center;">After acceleration: 16.6s</td>
+</tr>
+<tr>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/304ff1e8-ad1c-4013-bcf1-959ac140f67f">视频／音频原始链接（联网查看）</a></p></td>
+<td style="text-align: center;"><p><a
+href="https://github.com/user-attachments/assets/d3fb474a-79af-4f33-b965-23d402d3cf16">视频／音频原始链接（联网查看）</a></p></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Acceleration ratio: <strong>3.49</strong></li>
+<li>Config: <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/caching/custom/wan_t2v_custom_1_3b.json">wan_t2v_custom_1_3b</a></li>
+</ul>
+<h2 id="usage">Usage</h2>
+<p>The config files for feature caching are located <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/caching">here</a></p>
+<p>By specifying --config_json to the specific config file, you can test
+different cache algorithms.</p>
+<p><a
+href="https://github.com/ModelTC/lightx2v/tree/main/scripts/cache">Here</a>
+are some running scripts for use.</p>
+</article>
+</body>
+</html>

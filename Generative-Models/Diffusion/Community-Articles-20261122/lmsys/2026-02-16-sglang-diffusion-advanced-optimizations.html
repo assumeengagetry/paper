@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SGLang-Diffusion: Advanced Optimizations for Production-Ready Video Generation</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">SGLang-Diffusion: Advanced Optimizations for
+Production-Ready Video Generation</h1>
+</header>
+<section
+id="sglang-diffusion-advanced-optimizations-for-production-ready-video-generation"
+class="header">
+<h1>SGLang-Diffusion: Advanced Optimizations for Production-Ready Video
+Generation</h1>
+<p>来源：<a
+href="https://www.lmsys.org/blog/2026-02-16-sglang-diffusion-advanced-optimizations">https://www.lmsys.org/blog/2026-02-16-sglang-diffusion-advanced-optimizations</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="blog-post-content">
+<section
+id="sglangdiffusion-advanced-optimizations-for-productionready-video-generation"
+class="blog-post-title header post-header">
+<h1 class="blog-post-title">SGLang‑Diffusion: Advanced Optimizations for
+Production‑Ready Video Generation</h1>
+<div class="blog-post-meta">
+<span class="post-author">The SGLang-Diffusion Team</span><span
+class="post-meta-item">February 16, 2026</span>
+</div>
+</section>
+<details class="toc-mobile" open="open">
+<summary>
+<p><span>On this page</span></p>
+<svg width="14" height="14" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<p><path d="m6 9 6 6 6-6"></path></p>
+</svg>
+</summary>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#key-improvements">Key Improvements</a></li>
+<li><a
+href="#1-sp-sharding-improvement-from-frame-level-to-token-level">1.
+SP-Sharding Improvement: From Frame-Level to Token-Level</a></li>
+<li><a href="#previous-approach-frame-level-sharding">Previous Approach:
+Frame-Level Sharding</a></li>
+<li><a href="#new-approach-token-level-sharding">New Approach:
+Token-Level Sharding</a></li>
+<li><a href="#comparison-shape-and-comm-volume-analysis">Comparison:
+Shape and Comm Volume Analysis</a></li>
+<li><a
+href="#2-parallel-folding-decoupling-text-encoder-and-dit-parallelism">2.
+Parallel Folding: Decoupling Text Encoder and DiT Parallelism</a></li>
+<li><a href="#3-parallel-vae-distributed-encodingdecoding">3. Parallel
+VAE: Distributed Encoding/Decoding</a></li>
+<li><a
+href="#4-serving-with-cache-dit-fixing-multi-request-stability">4.
+Serving with Cache-DiT: Fixing Multi-Request Stability</a></li>
+<li><a
+href="#5-optimize-video-save-eliminating-serialization-overhead">5.
+Optimize Video Save: Eliminating Serialization Overhead</a></li>
+<li><a href="#6-wanvideo-layernorm-fusion-cutedsl-jit-kernels">6.
+WanVideo LayerNorm Fusion: CuTeDSL JIT Kernels</a></li>
+<li><a href="#performance-results">Performance Results</a></li>
+<li><a href="#whats-next">What's Next</a></li>
+<li><a href="#acknowledgment">Acknowledgment</a></li>
+<li><a href="#learn-more">Learn More</a></li>
+</ul>
+</details>
+<div class="post-prose">
+<p>Following our <a
+href="2026-01-16-sglang-diffusion.html">two-month
+progress update</a>, we’re excited to share a deeper dive into the
+advanced optimizations that make SGLang-Diffusion a production-ready
+framework for video generation. These improvements focus on scalability,
+efficiency, and stability—essential for deploying diffusion models at
+scale.</p>
+<p>Here’s what we’ve been working on:</p>
+<h2 id="overview">Overview</h2>
+<p>As video generation models continue to grow in complexity, we’ve
+identified and addressed critical bottlenecks across the entire
+inference pipeline:</p>
+<ul>
+<li><strong>Smarter Parallelism</strong>: Token-level sequence sharding
+and parallel folding for optimal resource utilization</li>
+<li><strong>Distributed VAE</strong>: Parallel encoding/decoding to
+eliminate memory bottlenecks for high-resolution video</li>
+<li><strong>Production-Ready Serving</strong>: Fixed Cache-DiT
+integration bugs for stable multi-request serving</li>
+<li><strong>Optimized I/O</strong>: Accelerated video save operations by
+eliminating unnecessary serialization</li>
+<li><strong>Fused Kernels</strong>: Custom JIT kernels for LayerNorm
+variants, reducing GPU bubbles</li>
+</ul>
+<p>Let’s dive into the technical details.</p>
+<h2 id="key-improvements">Key Improvements</h2>
+<h3 id="1-sp-sharding-improvement-from-frame-level-to-token-level">1.
+SP-Sharding Improvement: From Frame-Level to Token-Level</h3>
+<p>For Video DiT models, input tensors typically have shape
+<code>B, T, H, W, C</code>. For a common configuration with
+<code>num_frames=81</code>, this might be:
+<code>1, 21, 90, 160, 3</code>.</p>
+<p>In an 8×H100 setup with Ulysses Sequence Parallel (N=8), the
+framework needs to shard along the sequence dimension during
+non-attention operations, then use all-to-all communication to switch to
+head dimension sharding for attention.</p>
+<h4 id="previous-approach-frame-level-sharding">Previous Approach:
+Frame-Level Sharding</h4>
+<p>Our initial implementation sharded directly along the <code>T</code>
+(temporal) dimension. However, 21 frames cannot be evenly divided by 8
+GPUs, leading to two suboptimal solutions:</p>
+<ol>
+<li><strong>Adjust-frame</strong>: Modify <code>num_frames</code> during
+preprocessing to make T divisible by N</li>
+<li><strong>Token Padding</strong>: Pad the temporal dimension to the
+next multiple of N (21 → 24)</li>
+</ol>
+<p>The frame-level padding approach introduces significant overhead:
+each padded token requires <code>H × W × C</code> redundant
+computations.</p>
+<h4 id="new-approach-token-level-sharding">New Approach: Token-Level
+Sharding</h4>
+<p>To minimize padding overhead, we now <strong>flatten
+<code>T × H × W</code> into a single sequence dimension</strong> before
+sharding. This has two major benefits:</p>
+<ul>
+<li><strong>Reduced or Zero Padding</strong>: For common resolutions and
+VAE configurations, <code>H × W</code> is often divisible by 8,
+eliminating padding entirely</li>
+<li><strong>Lower Communication Volume</strong>: When padding is needed,
+the overhead is minimal compared to frame-level padding</li>
+</ul>
+<h3 id="comparison-shape-and-comm-volume-analysis">Comparison: Shape and
+Comm Volume Analysis</h3>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Solution</th>
+<th>Padding Overhead</th>
+<th>Input Tensor Shape (Per-rank)</th>
+<th>All-to-All Comm Volume</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frame Sharding</strong></td>
+<td>3 frames (14.3%)</td>
+<td><code>3, 90, 160, C</code> (24/8)</td>
+<td><code>1.0 × feature_map</code></td>
+</tr>
+<tr>
+<td><strong>Token Sharding</strong></td>
+<td>0 frames</td>
+<td><code>2.625, 90, 160, C</code> (21/8)</td>
+<td><code>0.875 × feature_map</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This optimization delivers both faster communication and reduced
+memory footprint, especially for video models.</p>
+<p>See related <a
+href="https://github.com/sgl-project/sglang/pull/18161">PR</a> for
+technical details.</p>
+<h3
+id="2-parallel-folding-decoupling-text-encoder-and-dit-parallelism">2.
+Parallel Folding: Decoupling Text Encoder and DiT Parallelism</h3>
+<p>In our original implementation, the Text Encoder and DiT shared the
+same Tensor Parallel (TP) group. When DiT used only Sequence Parallel
+(SP), this meant the Text Encoder ran with TP=1—each GPU held a complete
+model copy, wasting memory and compute.</p>
+<p>Since Text Encoder and DiT computations are <strong>completely
+decoupled</strong>, we introduced <strong>Parallel Folding</strong>: the
+Text Encoder now uses the DiT’s SP group as its TP group.</p>
+<p><strong>What this means in practice:</strong></p>
+<ul>
+<li><strong>For Text Encoder</strong>: Apply TP across the SP group to
+maximize speed and reduce memory</li>
+<li><strong>For Denoiser</strong>: Apply SP to optimize throughput and
+memory for sequence processing</li>
+</ul>
+<p>This approach ensures both components use optimal parallelism
+strategies without interference, improving overall efficiency.</p>
+<p>See related <a
+href="https://github.com/sgl-project/sglang/pull/17818">PR</a> for
+technical details.</p>
+<h3 id="3-parallel-vae-distributed-encodingdecoding">3. Parallel VAE:
+Distributed Encoding/Decoding</h3>
+<p>VAE encoding/decoding involves heavy 3D convolution operations. For
+high-resolution video, single-GPU implementations are slow and prone to
+OOM.</p>
+<p>The two common approaches to alleviate this are:</p>
+<ol>
+<li><strong>Tiling</strong>: Split feature maps into tiles, process them
+sequentially—reduces peak memory but increases latency</li>
+<li><strong>Parallel</strong>: Distribute tiles across GPUs for
+concurrent processing—reduces both peak memory and latency</li>
+</ol>
+<p>We implemented <strong>Parallel VAE</strong> for Wan-VAE with the
+following strategy:</p>
+<ul>
+<li><strong>Height-wise Sharding</strong>: Split feature maps along the
+height dimension across ranks</li>
+<li><strong>Conv Operations</strong>: Use <code>halo_exchange</code> to
+share boundary pixels between neighboring ranks (P2P), ensuring
+mathematical equivalence with global convolution</li>
+<li><strong>Attention Operations</strong>: Use <code>all_gather</code>
+for global context when needed</li>
+<li><strong>Result Aggregation</strong>: <code>all_gather</code> to
+reconstruct full height at the end of encoding/decoding</li>
+</ul>
+<p>This approach eliminates VAE as a bottleneck for high-resolution
+video generation, enabling higher resolutions and longer sequences
+without OOM.</p>
+<h3 id="4-serving-with-cache-dit-fixing-multi-request-stability">4.
+Serving with Cache-DiT: Fixing Multi-Request Stability</h3>
+<p><a href="https://github.com/vipshop/cache-dit">Cache-DiT</a> in
+SGLang-Diffusion accelerates inference by caching residuals and skipping
+redundant computations. However, its correct operation depends on proper
+<code>num_inference_steps</code> configuration, which determines step
+counting and the Selective Computation Mask (SCM).</p>
+<p><strong>The Problem:</strong></p>
+<p>Wan2.2 uses a dual-transformer architecture, where
+<code>transformer</code> and <code>transformer_2</code> execute
+<code>num_high_noise_steps</code> and <code>num_low_noise_steps</code>
+respectively (summing to <code>num_inference_steps</code>). Our initial
+implementation had two critical bugs:</p>
+<ol>
+<li>Both transformers incorrectly used total
+<code>num_inference_steps</code> to configure their cache contexts</li>
+<li>In serving mode, cache contexts persisted across requests, even when
+different requests used different <code>num_inference_steps</code></li>
+</ol>
+<p>These issues caused incorrect step counting and cache buffer
+contamination. When consecutive requests had different video shapes,
+cache buffers would encounter shape mismatches, <strong>crashing the
+server</strong>.</p>
+<p><strong>Our Solution:</strong></p>
+<ol>
+<li><code>transformer</code> and <code>transformer_2</code> now use
+<code>num_high_noise_steps</code> and <code>num_low_noise_steps</code>
+respectively to configure independent cache contexts</li>
+<li>For each new request, we recalculate timestep splits and
+<strong>refresh</strong> cache contexts using Cache-DiT’s API,
+completely isolating requests</li>
+</ol>
+<p>This ensures stable, production-ready serving with Cache-DiT
+acceleration.</p>
+<h3 id="5-optimize-video-save-eliminating-serialization-overhead">5.
+Optimize Video Save: Eliminating Serialization Overhead</h3>
+<p>In our serving architecture, <code>scheduler_client</code> and
+<code>gpu_worker</code> communicate via ZMQ.</p>
+<p>Previously, <code>gpu_worker</code> would:</p>
+<ol>
+<li>Complete inference</li>
+<li>Serialize output tensor</li>
+<li>Send tensor to <code>scheduler_client</code> via ZMQ</li>
+<li><code>scheduler_client</code> deserializes tensor</li>
+<li><code>scheduler_client</code> processes tensor and saves video</li>
+</ol>
+<p>This introduced significant overhead from
+serialization/deserialization and memory copies.</p>
+<p><strong>Our Solution:</strong></p>
+<p><code>gpu_worker</code> now directly processes the output tensor and
+saves the video to disk, returning only the file path to
+<code>scheduler_client</code>.</p>
+<p>This eliminates serialization/deserialization overhead, while
+avoiding duplicate tensor copies.</p>
+<h3 id="6-wanvideo-layernorm-fusion-cutedsl-jit-kernels">6. WanVideo
+LayerNorm Fusion: CuTeDSL JIT Kernels</h3>
+<p>WanVideo introduces two specialized LayerNorm patterns:</p>
+<ol>
+<li><p><strong>LayerNormScaleShift</strong>:
+<code>y = LN(x) * (1 + scale) + shift</code></p></li>
+<li><p><strong>ScaleResidualLayerNormScaleShift</strong>:</p>
+<ul>
+<li><code>residual_out = residual + gate * x</code></li>
+<li><code>y = LN(residual_out) * (1 + scale) + shift</code></li>
+</ul></li>
+</ol>
+<p>These patterns combine elementwise operations with normalization
+reductions. Implementing them as separate kernels would introduce
+multiple kernel launches and intermediate memory traffic, creating GPU
+bubbles.</p>
+<p><strong>Our Solution:</strong></p>
+<p>We implemented <strong>fused JIT kernels</strong> using CuTeDSL
+(located in <a
+href="https://github.com/sgl-project/sglang/tree/main/python/sglang/jit_kernel/diffusion/cutedsl"><code>sglang/jit_kernel/diffusion/cutedsl</code></a>)
+that combine these operations into single, efficient kernels.</p>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li><strong>Fewer Kernel Launches</strong>: Reduced launch overhead</li>
+<li><strong>Lower Memory Traffic</strong>: Eliminates intermediate
+reads/writes</li>
+<li><strong>Better GPU Utilization</strong>: Reduces bubbles and
+improves throughput</li>
+</ul>
+<p>These micro-optimizations add up, especially for multi-layer
+architectures like WanVideo.</p>
+<h2 id="performance-results">Performance Results</h2>
+<p>Here’s a comparison of SGLang-Diffusion and LightX2V for Wan2.2 T2V
+under different settings:</p>
+<p><a
+href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQRK_j_q8NXZKEqtrTBagxFxvvaxYXXB56HTqqYlD_aAv1v74WKle2HIc7HPK3P0ZVrYlZrjshKYnaV/pubchart?oid=677973346&amp;format=interactive">交互图表未离线保存；联网查看原图表</a></p>
+<h2 id="whats-next">What’s Next</h2>
+<p>We continue to push the boundaries of diffusion model serving. Please
+refer to <a
+href="https://github.com/sgl-project/sglang/issues/18286"><strong>SGLang-Diffusion’s
+Roadmap for 26Q1</strong></a> for more details.</p>
+<p>Stay tuned for more updates as we continue to optimize
+SGLang-Diffusion for production deployments.</p>
+<h2 id="acknowledgment">Acknowledgment</h2>
+<ul>
+<li>We would like to thank the following contributors for their work on
+these optimizations: <strong>Skywork.ai, <a
+href="https://github.com/Songrui625">Song Rui</a>, SGLang-Diffusion
+Team</strong></li>
+<li>Special thanks to our compute partners for their continued
+support.</li>
+</ul>
+<p>Try diffusion generation, proudly powered by SGLang-Diffusion: <a
+href="https://www.apifree.ai/home">APIFree</a></p>
+<h2 id="learn-more">Learn More</h2>
+<ul>
+<li><strong>Slack channel</strong>: <a
+href="https://sgl-fru7574.slack.com/archives/C09P0HTKE6A">#diffusion</a>
+(join via slack.sglang.io)</li>
+<li><a href="https://cookbook.sglang.io/docs/diffusion"><strong>Cookbook
+for SGLang-Diffusion</strong></a></li>
+<li><a
+href="https://github.com/sgl-project/sglang/blob/main/python/sglang/multimodal_gen/docs"><strong>Documentation
+on SGLang-Diffusion</strong></a></li>
+<li><a
+href="2026-01-16-sglang-diffusion.html"><strong>Previous
+Update: Two Months In</strong></a></li>
+</ul>
+</div>
+</article>
+</body>
+</html>

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Parameter Offload</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Parameter Offload</h1>
+</header>
+<section id="parameter-offload" class="header">
+<h1>Parameter Offload</h1>
+<p>来源：<a
+href="https://lightx2v-en.readthedocs.io/en/latest/method_tutorials/offload.html">https://lightx2v-en.readthedocs.io/en/latest/method_tutorials/offload.html</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="bd-article">
+<section id="parameter-offload" class="tex2jax_ignore mathjax_ignore">
+<h1 id="parameter-offload-1">Parameter Offload<a
+href="#parameter-offload" class="headerlink"
+title="Permalink to this heading">#</a></h1>
+<h2 id="overview">📖 Overview<a href="#overview" class="headerlink"
+title="Permalink to this heading">#</a></h2>
+<p>LightX2V implements an advanced parameter offload mechanism
+specifically designed for large model inference under limited hardware
+resources. The system provides an excellent speed-memory balance by
+intelligently managing model weights across different memory
+hierarchies.</p>
+<p><strong>Core Features:</strong></p>
+<ul>
+<li><p><strong>Block/Phase-level Offload</strong>: Efficiently manages
+model weights in block/phase units for optimal memory usage</p>
+<ul>
+<li><p><strong>Block</strong>: The basic computational unit of
+Transformer models, containing complete Transformer layers
+(self-attention, cross-attention, feedforward networks, etc.), serving
+as a larger memory management unit</p></li>
+<li><p><strong>Phase</strong>: Finer-grained computational stages within
+blocks, containing individual computational components (such as
+self-attention, cross-attention, feedforward networks, etc.), providing
+more precise memory control</p></li>
+</ul></li>
+<li><p><strong>Multi-tier Storage Support</strong>: GPU → CPU → Disk
+hierarchy with intelligent caching</p></li>
+<li><p><strong>Asynchronous Operations</strong>: Overlaps computation
+and data transfer using CUDA streams</p></li>
+<li><p><strong>Disk/NVMe Serialization</strong>: Supports secondary
+storage when memory is insufficient</p></li>
+</ul>
+<h2 id="offload-strategies">🎯 Offload Strategies<a
+href="#offload-strategies" class="headerlink"
+title="Permalink to this heading">#</a></h2>
+<section id="strategy-1-gpu-cpu-block-phase-offload">
+<h3 id="strategy-1-gpu-cpu-blockphase-offload">Strategy 1: GPU-CPU
+Block/Phase Offload<a href="#strategy-1-gpu-cpu-block-phase-offload"
+class="headerlink" title="Permalink to this heading">#</a></h3>
+<p><strong>Use Case</strong>: Insufficient GPU memory but sufficient
+system memory</p>
+<p><strong>How It Works</strong>: Manages model weights in block or
+phase units between GPU and CPU memory, utilizing CUDA streams to
+overlap computation and data transfer. Blocks contain complete
+Transformer layers, while Phases are individual computational components
+within blocks.</p>
+<div data-align="center">
+<img
+src="assets/9f45c7ce5210aa45dea96f10650378e88d628276ecf4d607dbd2d83408eb5eed.png"
+style="width:75.0%" alt="GPU-CPU block/phase offload workflow" />
+</div>
+<div data-align="center">
+<img
+src="assets/d6a9529d19a27eb3246882e458dce34972dcef329bd1c6d94cec7537f8869255.png"
+style="width:75.0%" alt="Swap operation" />
+</div>
+<div data-align="center">
+<img
+src="assets/f793125fd78e396d79ba473bdedea5fb3c926025bf311ca554c641518e1a8b92.png"
+style="width:75.0%" alt="Swap concept" />
+</div>
+<p><strong>Block vs Phase Explanation</strong>:</p>
+<ul>
+<li><p><strong>Block Granularity</strong>: Larger memory management unit
+containing complete Transformer layers (self-attention, cross-attention,
+feedforward networks, etc.), suitable for sufficient memory scenarios
+with reduced management overhead</p></li>
+<li><p><strong>Phase Granularity</strong>: Finer-grained memory
+management containing individual computational components (such as
+self-attention, cross-attention, feedforward networks, etc.), suitable
+for memory-constrained scenarios with more flexible memory
+control</p></li>
+</ul>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><p><strong>Asynchronous Transfer</strong>: Uses three CUDA streams
+with different priorities for parallel computation and transfer</p>
+<ul>
+<li><p>Compute stream (priority=-1): High priority, handles current
+computation</p></li>
+<li><p>GPU load stream (priority=0): Medium priority, handles CPU to GPU
+prefetching</p></li>
+<li><p>CPU load stream (priority=0): Medium priority, handles GPU to CPU
+offloading</p></li>
+</ul></li>
+<li><p><strong>Prefetch Mechanism</strong>: Preloads the next
+block/phase to GPU in advance</p></li>
+<li><p><strong>Intelligent Caching</strong>: Maintains weight cache in
+CPU memory</p></li>
+<li><p><strong>Stream Synchronization</strong>: Ensures correctness of
+data transfer and computation</p></li>
+<li><p><strong>Swap Operation</strong>: Rotates block/phase positions
+after computation for continuous execution</p></li>
+</ul>
+</section>
+<section id="strategy-2-disk-cpu-gpu-block-phase-offload-lazy-loading">
+<h3
+id="strategy-2-disk-cpu-gpu-blockphase-offload-lazy-loading">Strategy 2:
+Disk-CPU-GPU Block/Phase Offload (Lazy Loading)<a
+href="#strategy-2-disk-cpu-gpu-block-phase-offload-lazy-loading"
+class="headerlink" title="Permalink to this heading">#</a></h3>
+<p><strong>Use Case</strong>: Both GPU memory and system memory are
+insufficient</p>
+<p><strong>How It Works</strong>: Builds upon Strategy 1 by introducing
+disk storage, implementing a three-tier storage hierarchy (Disk → CPU →
+GPU). CPU continues to serve as a cache pool with configurable size,
+suitable for devices with limited CPU memory.</p>
+<div data-align="center">
+<img
+src="assets/b4ca1520b3fee1bea6e41da5a5f7bd2802f452c2bb9961a1c2cb4c17594f54b7.png"
+style="width:75.0%" alt="Disk-CPU-GPU block/phase offload workflow" />
+</div>
+<div data-align="center">
+<img
+src="assets/4728da9b2f8a673b01869ef5337fada4504c5184426bfd61c9043d5b3924eded.png"
+style="width:75.0%" alt="Working steps" />
+</div>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><p><strong>Lazy Loading</strong>: Model weights are loaded from disk
+on-demand, avoiding loading the entire model at once</p></li>
+<li><p><strong>Intelligent Caching</strong>: CPU memory buffer uses FIFO
+strategy with configurable size</p></li>
+<li><p><strong>Multi-threaded Prefetch</strong>: Uses multiple disk
+worker threads for parallel loading</p></li>
+<li><p><strong>Asynchronous Transfer</strong>: Uses CUDA streams to
+overlap computation and data transfer</p></li>
+<li><p><strong>Swap Rotation</strong>: Achieves continuous computation
+through position rotation, avoiding repeated loading/offloading</p></li>
+</ul>
+<p><strong>Working Steps</strong>:</p>
+<ul>
+<li><p><strong>Disk Storage</strong>: Model weights are stored on
+SSD/NVMe by block, one .safetensors file per block</p></li>
+<li><p><strong>Task Scheduling</strong>: When a block/phase is needed,
+priority task queue assigns disk worker threads</p></li>
+<li><p><strong>Asynchronous Loading</strong>: Multiple disk threads load
+weight files from disk to CPU memory buffer in parallel</p></li>
+<li><p><strong>Intelligent Caching</strong>: CPU memory buffer manages
+cache using FIFO strategy with configurable size</p></li>
+<li><p><strong>Cache Hit</strong>: If weights are already in cache,
+transfer directly to GPU without disk read</p></li>
+<li><p><strong>Prefetch Transfer</strong>: Weights in cache are
+asynchronously transferred to GPU memory (using GPU load
+stream)</p></li>
+<li><p><strong>Compute Execution</strong>: Weights on GPU perform
+computation (using compute stream) while background continues
+prefetching next block/phase</p></li>
+<li><p><strong>Swap Rotation</strong>: After computation completes,
+rotate block/phase positions for continuous computation</p></li>
+<li><p><strong>Memory Management</strong>: When CPU cache is full,
+automatically evict the least recently used weight block/phase</p></li>
+</ul>
+</section>
+<h2 id="configuration-parameters">⚙️ Configuration Parameters<a
+href="#configuration-parameters" class="headerlink"
+title="Permalink to this heading">#</a></h2>
+<h3 id="gpu-cpu-offload-configuration">GPU-CPU Offload Configuration<a
+href="#gpu-cpu-offload-configuration" class="headerlink"
+title="Permalink to this heading">#</a></h3>
+<div class="highlight-python notranslate">
+<div class="highlight">
+<pre><code>config = {
+    &quot;cpu_offload&quot;: True,
+    &quot;offload_ratio&quot;: 1.0,           # Offload ratio (0.0-1.0)
+    &quot;offload_granularity&quot;: &quot;block&quot;, # Offload granularity: &quot;block&quot; or &quot;phase&quot;
+    &quot;lazy_load&quot;: False,             # Disable lazy loading
+}</code></pre>
+</div>
+</div>
+<h3 id="disk-cpu-gpu-offload-configuration">Disk-CPU-GPU Offload
+Configuration<a href="#disk-cpu-gpu-offload-configuration"
+class="headerlink" title="Permalink to this heading">#</a></h3>
+<div class="highlight-python notranslate">
+<div class="highlight">
+<pre><code>config = {
+    &quot;cpu_offload&quot;: True,
+    &quot;lazy_load&quot;: True,              # Enable lazy loading
+    &quot;offload_ratio&quot;: 1.0,           # Offload ratio
+    &quot;offload_granularity&quot;: &quot;phase&quot;, # Recommended to use phase granularity
+    &quot;num_disk_workers&quot;: 2,          # Number of disk worker threads
+    &quot;offload_to_disk&quot;: True,        # Enable disk offload
+}</code></pre>
+</div>
+</div>
+<p><strong>Intelligent Cache Key Parameters:</strong></p>
+<ul>
+<li><p><span class="pre"><code
+class="docutils literal notranslate">max_memory</code></span>: Controls
+CPU cache size, affects cache hit rate and memory usage</p></li>
+<li><p><span class="pre"><code
+class="docutils literal notranslate">num_disk_workers</code></span>:
+Controls number of disk loading threads, affects prefetch speed</p></li>
+<li><p><span class="pre"><code
+class="docutils literal notranslate">offload_granularity</code></span>:
+Controls cache granularity (block or phase), affects cache
+efficiency</p>
+<ul>
+<li><p><span class="pre"><code
+class="docutils literal notranslate">"block"</code></span>: Cache
+management in complete Transformer layer units</p></li>
+<li><p><span class="pre"><code
+class="docutils literal notranslate">"phase"</code></span>: Cache
+management in individual computational component units</p></li>
+</ul></li>
+</ul>
+<p><strong>Offload Configuration for Non-DIT Model Components (T5, CLIP,
+VAE):</strong></p>
+<p>The offload behavior of these components follows these rules:</p>
+<ul>
+<li><p><strong>Default Behavior</strong>: If not specified separately,
+T5, CLIP, VAE will follow the <span class="pre"><code
+class="docutils literal notranslate">cpu_offload</code></span>
+setting</p></li>
+<li><p><strong>Independent Configuration</strong>: Can set offload
+strategy separately for each component for fine-grained control</p></li>
+</ul>
+<p><strong>Configuration Example</strong>:</p>
+<div class="highlight-json notranslate">
+<div class="highlight">
+<pre><code>{
+    &quot;cpu_offload&quot;: true,           // DIT model offload switch
+    &quot;t5_cpu_offload&quot;: false,       // T5 encoder independent setting
+    &quot;clip_cpu_offload&quot;: false,     // CLIP encoder independent setting
+    &quot;vae_cpu_offload&quot;: false       // VAE encoder independent setting
+}</code></pre>
+</div>
+</div>
+<p>For memory-constrained devices, a progressive offload strategy is
+recommended:</p>
+<ol>
+<li><p><strong>Step 1</strong>: Only enable <span class="pre"><code
+class="docutils literal notranslate">cpu_offload</code></span>, disable
+<span class="pre"><code
+class="docutils literal notranslate">t5_cpu_offload</code></span>, <span
+class="pre"><code
+class="docutils literal notranslate">clip_cpu_offload</code></span>,
+<span class="pre"><code
+class="docutils literal notranslate">vae_cpu_offload</code></span></p></li>
+<li><p><strong>Step 2</strong>: If memory is still insufficient,
+gradually enable CPU offload for T5, CLIP, VAE</p></li>
+<li><p><strong>Step 3</strong>: If memory is still not enough, consider
+using quantization + CPU offload or enable <span class="pre"><code
+class="docutils literal notranslate">lazy_load</code></span></p></li>
+</ol>
+<p><strong>Practical Experience</strong>:</p>
+<ul>
+<li><p><strong>RTX 4090 24GB + 14B Model</strong>: Usually only need to
+enable <span class="pre"><code
+class="docutils literal notranslate">cpu_offload</code></span>, manually
+set other component offload to <span class="pre"><code
+class="docutils literal notranslate">false</code></span>, and use FP8
+quantized version</p></li>
+<li><p><strong>Smaller Memory GPUs</strong>: Need to combine
+quantization, CPU offload, and lazy loading</p></li>
+<li><p><strong>Quantization Schemes</strong>: Refer to <a
+href="https://lightx2v-en.readthedocs.io/en/latest/method_tutorials/quantization.html"
+class="reference internal"><span class="std std-doc">Quantization
+Documentation</span></a> to select appropriate quantization
+strategy</p></li>
+</ul>
+<p><strong>Configuration File Reference</strong>:</p>
+<ul>
+<li><p><strong>Wan2.1 Series Models</strong>: Refer to <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/offload"
+class="reference external">offload config files</a></p></li>
+<li><p><strong>Wan2.2 Series Models</strong>: Refer to <a
+href="https://github.com/ModelTC/lightx2v/tree/main/configs/wan22"
+class="reference external">wan22 config files</a> with <span
+class="pre"><code
+class="docutils literal notranslate">4090</code></span> suffix</p></li>
+</ul>
+<h2 id="usage-recommendations">🎯 Usage Recommendations<a
+href="#usage-recommendations" class="headerlink"
+title="Permalink to this heading">#</a></h2>
+<ul>
+<li><p>🔄 GPU-CPU Block/Phase Offload: Suitable for insufficient GPU
+memory (RTX 3090/4090 24G) but sufficient system memory
+(&gt;64/128G)</p></li>
+<li><p>💾 Disk-CPU-GPU Block/Phase Offload: Suitable for both
+insufficient GPU memory (RTX 3060/4090 8G) and system memory
+(16/32G)</p></li>
+<li><p>🚫 No Offload: Suitable for high-end hardware configurations
+pursuing best performance</p></li>
+</ul>
+<h2 id="troubleshooting">🔍 Troubleshooting<a href="#troubleshooting"
+class="headerlink" title="Permalink to this heading">#</a></h2>
+<h3 id="common-issues-and-solutions">Common Issues and Solutions<a
+href="#common-issues-and-solutions" class="headerlink"
+title="Permalink to this heading">#</a></h3>
+<ol>
+<li><p><strong>Disk I/O Bottleneck</strong></p>
+<ul>
+<li><p>Solution: Use NVMe SSD, increase num_disk_workers</p></li>
+</ul></li>
+<li><p><strong>Memory Buffer Overflow</strong></p>
+<ul>
+<li><p>Solution: Increase max_memory or reduce num_disk_workers</p></li>
+</ul></li>
+<li><p><strong>Loading Timeout</strong></p>
+<ul>
+<li><p>Solution: Check disk performance, optimize file system</p></li>
+</ul></li>
+</ol>
+<p><strong>Note</strong>: This offload mechanism is specifically
+designed for LightX2V, fully utilizing the asynchronous computing
+capabilities of modern hardware, significantly lowering the hardware
+threshold for large model inference.</p>
+</section>
+</article>
+</body>
+</html>

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Getting Started with DeepSpeed-Ulysses for Training Transformer Models with Extreme Long Sequences</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Getting Started with DeepSpeed-Ulysses for Training
+Transformer Models with Extreme Long Sequences</h1>
+</header>
+<section
+id="getting-started-with-deepspeed-ulysses-for-training-transformer-models-with-extreme-long-sequences"
+class="header">
+<h1>Getting Started with DeepSpeed-Ulysses for Training Transformer
+Models with Extreme Long Sequences</h1>
+<p>来源：<a
+href="https://www.deepspeed.ai/tutorials/ds-sequence/">https://www.deepspeed.ai/tutorials/ds-sequence/</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="page" itemtype="https://schema.org/CreativeWork">
+<meta itemprop="headline" content="Getting Started with DeepSpeed-Ulysses for Training Transformer Models with Extreme Long Sequences">
+<meta itemprop="description" content="In this tutorial we describe how to enable DeepSpeed-Ulysses for Megatron-Deepspeed. DeepSpeed-Ulysses is a simple but highly communication and memory efficient mechanism sequence parallelism approach for training of large transformer models with massive sequence lengths. It partitions input tensors along the sequence dimension and uses a communication-efficient all-2-all collective for distributed attention computations. Additionally, DeepSpeed-Ulysses incorporates advanced modeling and system optimizations, such as Flash attention, sparse attention, and ZeRO optimizer, to optimize both computational efficiency and memory usage. Training with DeepSpeed sequence parallelism allows both model size and sequence length to scale near indefinitely unbounded by single GPU memory limitation and at a high fraction of peak compute performance. Currently, DeepSpeed-Ulysses can handle sequences up to 1 million in length (10 times the size of a complete Harry Potter book!) on 64 A100 GPUs. Please read our DeepSpeed-Ulysses blog to learn more!">
+<meta itemprop="datePublished" content="2026-11-21T21:37:38-08:00">
+<div class="page__inner-wrap">
+<section id="page-title" class="page__title header" itemprop="headline">
+<h1 class="page__title" itemprop="headline">Getting Started with
+DeepSpeed-Ulysses for Training Transformer Models with Extreme Long
+Sequences</h1>
+</section>
+<section class="page__content" itemprop="text">
+<p>In this tutorial we describe how to enable DeepSpeed-Ulysses for
+Megatron-Deepspeed. DeepSpeed-Ulysses is a simple but highly
+communication and memory efficient mechanism sequence parallelism
+approach for training of large transformer models with massive sequence
+lengths. It partitions input tensors along the sequence dimension and
+uses a communication-efficient all-2-all collective for distributed
+attention computations. Additionally, DeepSpeed-Ulysses incorporates
+advanced modeling and system optimizations, such as Flash attention,
+sparse attention, and ZeRO optimizer, to optimize both computational
+efficiency and memory usage. Training with DeepSpeed sequence
+parallelism allows both model size and sequence length to scale near
+indefinitely unbounded by single GPU memory limitation and at a high
+fraction of peak compute performance. Currently, DeepSpeed-Ulysses can
+handle sequences up to 1 million in length (10 times the size of a
+complete Harry Potter book!) on 64 A100 GPUs. Please read our <a
+href="https://github.com/deepspeedai/DeepSpeed/tree/master/blogs/deepspeed-ulysses">DeepSpeed-Ulysses
+blog</a> to learn more!</p>
+<p>If you’re interested in a newer version that works with HF
+Transformers, please see
+https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism</p>
+<h2 id="1-installation">1. Installation</h2>
+<p>You will need to install DeepSpeed v0.10.2 or higher to use the
+DeepSpeed Sequence feature. Installing DeepSpeed is as simple as <code
+class="language-plaintext highlighter-rouge">pip install deepspeed</code>,
+<a href="https://www.deepspeed.ai/getting-started/">see more
+details</a>.</p>
+<h2 id="2-how-to-use-deepspeed-ulysses-in-your-application">2. How to
+use DeepSpeed-Ulysses in your application?</h2>
+<p>Integrating DS-Seq into your training code is easy, and in this
+section we describe how to integrate DeepSpeed-Ulysses through our <a
+href="https://github.com/deepspeedai/Megatron-DeepSpeed">Megatron-DeepSpeed</a>
+code repo.</p>
+<ul>
+<li><strong>Replace attention module</strong>: First, you need to update
+your attention module with DeepSpeed-Ulysses DistributedAttention. Here,
+we use the attention from <a
+href="https://github.com/deepspeedai/Megatron-DeepSpeed/blob/main/megatron/model/transformer.py">Megatron-DeepSpeed</a>
+which is the causal attention used in GPT-3 like model training. Rewrite
+the attention block:</li>
+</ul>
+<div class="language-python highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>def __init__():
+    ...
+    self.local_attn = CoreAttention(self.layer_number, config, self.attn_mask_type)
+    self.core_attention = local_attn
+    ...
+
+def forward():
+    ...
+    context_layer = self.core_attention(
+                    query_layer, key_layer, value_layer, attention_mask)
+    ...</code></pre>
+</div>
+</div>
+<p>with:</p>
+<div class="language-python highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>from deepspeed.sequence.layer import DistributedAttention
+
+def __init__():
+    ...
+    self.local_attn = CoreAttention(self.layer_number, config, self.attn_mask_type)
+    self.dist_attn = DistributedAttention(self.local_attn, parallel_state.get_sequence_parallel_group())
+    ...
+
+def forward():
+    ...
+    context_layer = self.dist_attn(query_layer, key_layer, value_layer, attention_mask)
+    ...
+</code></pre>
+</div>
+</div>
+<p><code
+class="language-plaintext highlighter-rouge">DistributedAttention(..., validate_shards=True)</code>
+enables an opt-in shard-length diagnostic. All ranks in the sequence
+parallel group must enable it consistently and enter each forward call.
+It compares query, key, and value sequence lengths separately across
+group ranks; query and KV lengths may differ. With consistent
+participation, unequal shards raise diagnostic errors before attention
+data collectives. Validation adds a metadata all-gather and host
+synchronization per forward; when disabled (the default), it adds no
+metadata communication. The caller remains responsible for equal shards
+or padding and for correct attention and loss masks; this flag adds no
+padding.</p>
+<ul>
+<li><strong>Add sequence parallel communication group</strong>: Note
+that DistributedAttention takes <code
+class="language-plaintext highlighter-rouge">local_attn</code> and <code
+class="language-plaintext highlighter-rouge">sequence_parallel_group</code>
+as the parameters, where local_attn can be your original attention
+block. You also need to build the sequence parallel communication group
+and pass that the DistributedAttention. One way to do this is to build
+the sequence parallel group at the model initialization stage.</li>
+</ul>
+<div class="language-python highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>def initialize_model_parallel(
+    ...
+    sequence_parallel_size,
+    ...
+):
+    ...
+    num_sequence_parallel_groups: int = world_size // sequence_parallel_size
+    num_sequence_data_parallel_groups: int = world_size // sequence_parallel_size // data_parallel_size
+    ...
+    global _SEQUENCE_PARALLEL_GROUP
+    for i in range(num_sequence_parallel_groups):
+        ranks = range(i * sequence_parallel_size,
+                      (i + 1) * sequence_parallel_size)
+        group = torch.distributed.new_group(ranks)
+        if rank in ranks:
+            _SEQUENCE_PARALLEL_GROUP = group
+
+def get_sequence_parallel_group():
+    &quot;&quot;&quot;Get the sequence parallel group the caller rank belongs to.&quot;&quot;&quot;
+    return _SEQUENCE_PARALLEL_GROUP
+</code></pre>
+</div>
+</div>
+<p>In the Megatron-DeepSpeed example, to enable sequence parallelism,
+set the degree of parallelism using the –ds-sequence-parallel-size
+argument. You also need to ensure that the number of attention heads is
+divisible by this value. We have prepared scripts for you to quickly get
+some examples for training GPT-3 like models with very long
+sequences:</p>
+<div class="language-shell highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>Megatron-DeepSpeed/examples_deepspeed/sequence_parallel$ bash ds_pretrain_gpt_1.3B_seq_parallel_32k.sh
+Megatron-DeepSpeed/examples_deepspeed/sequence_parallel$ bash ds_pretrain_gpt_30B_seq_parallel_32k.sh</code></pre>
+</div>
+</div>
+<p>Please note that our sequence parallelism feature is currently
+incompatible with Megatron-LM’s tensor or pipeline parallelism.</p>
+<h2 id="3-enabling-deepspeed-ulysses-with-flashattention">3. Enabling
+DeepSpeed-Ulysses with FlashAttention?</h2>
+<p>DeepSpeed’s sequence parallelism can be combined with different types
+of attention implementations to further improve the memory and compute
+efficiency of long sequence training:</p>
+<p><code
+class="language-plaintext highlighter-rouge">Classic attention</code>:
+attention mechanism implemented via PyTorch.</p>
+<p><code
+class="language-plaintext highlighter-rouge">FlashAttention</code>: the
+implementation from <a
+href="https://arxiv.org/abs/2205.14135">FlashAttention: Fast and
+Memory-Efficient Exact Attention with IO-Awareness</a>. Enabled by <code
+class="language-plaintext highlighter-rouge">--use-flash-attn</code>.</p>
+<p><code
+class="language-plaintext highlighter-rouge">FlashAttention + Triton</code>:
+FlashAttention in Triton (tested with triton==2.0.0.dev20221202).
+Enabled by <code
+class="language-plaintext highlighter-rouge">--use-flash-attn-triton</code>.</p>
+<p>For the best performance, we recommend using FlashAttention + Triton.
+Below are the installation steps. Note that FlashAttention is compatible
+only with NVIDIA Turing, Ampere, Ada, or Hopper GPUs.</p>
+<div class="language-bash highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code># install triton
+git clone -b legacy-backend https://github.com/openai/triton
+cd triton/python/
+pip install cmake
+pip install .</code></pre>
+</div>
+</div>
+<div class="language-bash highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code># install
+cd ${WORK_DIR}
+git clone -b v1.0.4 https://github.com/HazyResearch/flash-attention
+cd flash-attention
+python -m pip install .</code></pre>
+</div>
+</div>
+<p>You may also want to ensure your model configuration is compliant
+with FlashAttention’s requirements. For instance, to achieve optimal
+performance, the head size should be divisible by 8. Refer to the
+FlashAttention documentation for more details.</p>
+</section>
+</div>
+</article>
+</body>
+</html>

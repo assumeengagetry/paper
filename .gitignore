@@ -1,4 +1,2 @@
-# Original Zotero export is retained locally; classified PDFs are tracked instead.
+# Keep original Zotero exports out of version control.
 /storage.zip
-# Unresolved non-public project names stay local, not in the published bibliography.
-/LOCAL-REFERENCE-GAPS-20261105.json

@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Caching Acceleration</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Caching Acceleration</h1>
+</header>
+<section id="caching-acceleration" class="header">
+<h1>Caching Acceleration</h1>
+<p>来源：<a
+href="https://docs.sglang.io/docs/sglang-diffusion/caching-acceleration">https://docs.sglang.io/docs/sglang-diffusion/caching-acceleration</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
+<defs><symbol id="mi-mint-1-CalloutNote" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 9 1.6714 C 13.0371 1.6714 16.3286 4.9629 16.3286 9 C 16.3286 13.0371 13.0371 16.3286 9 16.3286 C 7.0574 16.3252 5.1953 15.552 3.8217 14.1783 C 2.448 12.8047 1.6748 10.9426 1.6714 9 C 1.6714 4.9629 4.9629 1.6714 9 1.6714 Z M 9 0 C 4.0371 0 0 4.0371 0 9 C 0 13.9629 4.0371 18 9 18 C 13.9629 18 18 13.9629 18 9 C 18 4.0371 13.9629 0 9 0 Z M 10.2857 3.8571 H 7.7143 V 10.2857 H 10.2857 V 3.8571 Z M 10.2857 11.5714 H 7.7143 V 14.1429 H 10.2857 V 11.5714 Z" fill="currentColor" stroke="none" fill-rule="evenodd" clip-rule="evenodd"></path>
+</svg>
+</symbol><symbol id="mi-mint-1-Sparkle" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M5.65799 2.99L4.39499 2.569L3.97399 1.306C3.83699 0.898 3.16199 0.898 3.02499 1.306L2.60399 2.569L1.34099 2.99C1.13699 3.058 0.998993 3.249 0.998993 3.464C0.998993 3.679 1.13699 3.87 1.34099 3.938L2.60399 4.359L3.02499 5.622C3.09299 5.826 3.28499 5.964 3.49999 5.964C3.71499 5.964 3.90599 5.826 3.97499 5.622L4.39599 4.359L5.65899 3.938C5.86299 3.87 6.00099 3.679 6.00099 3.464C6.00099 3.249 5.86199 3.058 5.65799 2.99Z" fill="currentColor" stroke="none"></path><path d="M9.5 2.75L11.412 7.587L16.25 9.5L11.412 11.413L9.5 16.25L7.587 11.413L2.75 9.5L7.587 7.587L9.5 2.75Z" stroke="currentColor"></path>
+</svg>
+</symbol></defs>
+</svg>
+<div id="content"
+class="mdx-content @container/columns-container relative mt-8 prose prose-gray dark:prose-invert [contain:inline-size] isolate empty:hidden mb-14"
+data-page-title="Caching Acceleration"
+data-page-href="/docs/sglang-diffusion/caching-acceleration">
+<span data-as="p">SGLang can reuse exact conditioning across requests
+and cache intermediate denoising results. Conditioning reuse preserves
+the encoded values; denoising caches such as Cache-DiT, TeaCache, and
+Spectrum use approximations.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_39crmhkd74t9_" id="conditioning-cache"><a
+href="#conditioning-cache" class="anchor-link"
+aria-label="Navigate to header: Conditioning cache"></a><span
+id="_R_39crmhkd74t9_" class="cursor-pointer">Conditioning
+cache</span></h2>
+<span data-as="p">Native pipelines enable a conditioning cache by
+default. Repeated inputs can reuse text embeddings (including negative
+prompts), image or vision-language encoder outputs, and VAE posteriors.
+The shared LRU holds at most <strong>512 MiB per executor/rank</strong>
+across CPU and device entries. The common text stage keeps consumed
+negative conditioning on its original device to avoid repeated
+CPU-to-GPU transfers and postprocessing. Other entries live on the CPU.
+Oversized results are not admitted.</span> <span data-as="p">Within a
+grouped or batched stage, the same conditioning boundary can reuse a
+device result before consulting the cross-request cache. The common text
+stage and the Qwen-Image 2.1, Ming-Image, and LingBot-Video text stages
+share read-only consumed tensors and give each request its own
+containers. Other cached boundaries return private copies, with device
+snapshots limited to 512 MiB per stage. These temporary references are
+released when the stage finishes or fails. Group reuse remains available
+when cross-request caching is disabled or its budget is too
+small.</span> <span data-as="p">The standard text encoding stage stores
+the final embeddings, pooled outputs, masks, and sequence lengths. A hit
+skips encoder weight preparation, token uploads, and mask construction;
+CPU tokenization still runs to match the inputs. Qwen-Image 2.1 also
+caches its consumed prompt embeddings and image-token slots before
+processor execution, while retaining separate vision-feature reuse for
+changed edit instructions. Other custom stages and batch-DP encoding
+retain caching at the native encoder boundary.</span> <span
+data-as="p">CPU hits restore outputs to their original devices; device
+hits return private device copies. Negative conditioning can therefore
+retain GPU memory between requests, within the shared cache budget.
+Measure memory as well as latency when using a tight VRAM budget.</span>
+<span data-as="p">This is most useful when generating several variations
+from the same prompt or reference image, especially with a
+layerwise-offloaded encoder. A changed edit instruction recomputes the
+joint vision-language embedding, while the unchanged image can still
+reuse its vision features and VAE posterior. Separate CLI invocations
+start separate processes and cannot share this cache. Denoising and
+output decoding still run for every request, so end-to-end gains depend
+on how much time the original request spends encoding
+conditioning.</span> <span data-as="p">To disable cross-request
+conditioning reuse:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="1"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_v4h9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_vkh9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_oh9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang serve --model-path Qwen/Qwen-Image-2.1 --disable-conditioning-cache</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">To increase the shared cache budget:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="1"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_v4l9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_vkl9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_ol9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang serve --model-path Qwen/Qwen-Image-2.1 --conditioning-cache-max-size-mb 1024</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">The same settings are accepted by
+<code>DiffGenerator.from_pretrained()</code> as
+<code>disable_conditioning_cache</code> and
+<code>conditioning_cache_max_size_mb</code>. A capacity of
+<code>0</code> also disables both cross-request tiers. Neither setting
+disables conditioning reuse within a grouped stage or changes per-output
+seeds.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_p9crmhkd74t9_" id="matching-and-correctness"><a
+href="#matching-and-correctness" class="anchor-link"
+aria-label="Navigate to header: Matching and correctness"></a><span
+id="_R_p9crmhkd74t9_" class="cursor-pointer">Matching and
+correctness</span></h3>
+<ul>
+<li>Keys include the loaded encoder instance, actual input contents,
+shapes, dtypes, masks, and autocast precision. Image tensors and PIL
+images are matched by content, so replacing a file at the same path
+cannot reuse stale pixels. Alpha is part of the VAE input.</li>
+<li>Positive and negative inputs use the same bounded cache. Different
+seeds can reuse conditioning; initial noise is still generated for each
+request.</li>
+<li>VAE caching stores the posterior before sampling and normalization.
+Every request still calls <code>sample()</code> or <code>mode()</code>
+as its model requires, preserving the random-number sequence.</li>
+<li>Cross-request hits return independent copies. Grouped consumed
+outputs may share read-only tensors; other boundaries isolate mutable
+tensors and posteriors. In-place normalization and downstream mutations
+cannot change a persistent entry.</li>
+<li>Encoder TP and folding groups agree on hits before skipping
+collective work. Weight updates and LoRA changes invalidate the cache,
+including failed updates that may have modified weights.</li>
+<li>Warmup refreshes cached results and executes each distinct encoding
+within a group once. This primes kernels while preserving multi-output
+reuse; subsequent requests can reuse conditioning such as the
+model-default negative prompt. Compare disabled, cold, and
+repeated-input latency separately when benchmarking.</li>
+</ul>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_t9crmhkd74t9_" id="coverage-and-limits"><a
+href="#coverage-and-limits" class="anchor-link"
+aria-label="Navigate to header: Coverage and limits"></a><span
+id="_R_t9crmhkd74t9_" class="cursor-pointer">Coverage and
+limits</span></h3>
+<span data-as="p">The common encoder boundary covers native CLIP,
+T5/UMT5, Llama, Mistral 3, Gemma 2/3, Qwen 2.5-VL, Qwen 3/3-VL,
+Ideogram, and MiniMax-H3 encoders, including custom pipeline stages.
+Qwen-VL and Gemma 3 also cache vision features independently of text.
+Hunyuan3D image encoders and the LTX-2.3 video condition encoder
+participate. Native image, video, and audio VAE encode entry points
+cache deterministic tensors or supported posterior containers.</span>
+<span data-as="p">Cosmos3 has no separate text encoder: its
+deterministic understanding pathway caches immutable per-layer K/V
+results, which are copied into fresh request state. SenseNova-U1 caches
+reference-image vision features; its noisy-image vision path still runs
+at each denoising step. VLA keeps its model-owned observation/prefix
+cache.</span> <span data-as="p">FSDP disables cross-request caching and
+caching inside sharded modules. Consumed text-conditioning outputs still
+support group-local reuse, with all ranks agreeing before skipping the
+encoder. The common text stage also reuses consumed outputs from library
+fallback encoders within a group and keeps their negative conditioning
+device-hot across requests. Batch-DP can skip encoding and its output
+gather only when all participating ranks have the consumed result; this
+includes device-hot negatives. Otherwise each encoder copy retains its
+normal cache and gather behavior.</span> <span data-as="p">Stateful
+autoregressive calls (<code>use_cache=True</code> or existing
+<code>past_key_values</code>), training/autograd, CUDA Graph capture,
+unsupported tensor or output types, and distributed VAE encoding bypass
+the shared caches. External SRT encoders and the Diffusers pipeline
+backend keep their own cache behavior. The global disable flag also
+disables existing realtime text and VLA prefix reuse; those
+model-specific caches otherwise retain their own memory settings.</span>
+<span data-as="p">Joint vision-language embeddings depend on both the
+prompt and image. The cache does not reuse a previous turn’s combined
+embedding when either changes, and does not carry mutable denoising KV
+state between requests.</span> <span data-as="p">Dynamic batching still
+decides which requests can execute together. Conditioning reuse does not
+change encoder batch shapes, padding, or output order: a batched encoder
+call is matched as a whole, rather than split into individually cached
+rows. Model-specific grouped execution that also prepares materials,
+broadcasts results, or manages state retains its own execution
+rules.</span> <span data-as="p">The common text stage also keeps
+group-local stage deduplication: equivalent requests execute the stage
+once and receive their own output containers. This avoids repeating
+tokenization and stage bookkeeping. When stage deduplication leaves only
+one computation, it also skips the temporary group cache and its hit
+synchronization; cross-request caching remains available. The
+conditioning cache shares encodings between otherwise different
+requests, including a common negative prompt. Custom stages that prepare
+request-specific metadata or realtime session state use encoder-result
+reuse while still preparing each request.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1d9crmhkd74t9_" id="overview"><a href="#overview"
+class="anchor-link" aria-label="Navigate to header: Overview"></a><span
+id="_R_1d9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Overview</span></h2>
+<span data-as="p">The following approaches reduce denoising
+computation:</span>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Scope</th>
+<th>Mechanism</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cache-DiT</td>
+<td>Block-level</td>
+<td>Skip individual transformer blocks dynamically</td>
+<td>Advanced, higher speedup</td>
+</tr>
+<tr>
+<td>TeaCache</td>
+<td>Timestep-level</td>
+<td>Skip entire denoising steps based on L1 similarity</td>
+<td>Simple, built-in</td>
+</tr>
+<tr>
+<td>Spectrum</td>
+<td>Timestep-level</td>
+<td>Forecast DiT features to skip selected denoising steps</td>
+<td>Experimental, model-validated tuning</td>
+</tr>
+</tbody>
+</table>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1j9crmhkd74t9_" id="cache-dit"><a href="#cache-dit"
+class="anchor-link" aria-label="Navigate to header: Cache-DiT"></a><span
+id="_R_1j9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Cache-DiT</span></h2>
+<span data-as="p"><a href="https://github.com/vipshop/cache-dit"
+class="link" target="_blank" rel="noreferrer">Cache-DiT</a> provides
+block-level caching with advanced strategies like DBCache and
+TaylorSeer. It can achieve up to <strong>1.69x speedup</strong>.</span>
+<span data-as="p">See <a
+href="cache_dit.html"
+class="link">Cache-DiT</a> for detailed configuration.</span>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20"
+role="note" aria-label="Note" data-callout-type="note">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 text-blue-800 dark:text-blue-300">
+<use href="#mi-mint-1-CalloutNote"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-blue-800 dark:text-blue-300"
+data-component-part="callout-content">
+<span data-as="p">Cache-DiT currently cannot be combined with
+<code>--use-fsdp-inference</code>. Keep FSDP disabled when enabling
+Cache-DiT. DiT layerwise offload is compatible: skipped blocks are not
+streamed, and the first layer after a skip may sync-load.</span>
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1r9crmhkd74t9_" id="quick-start"><a
+href="#quick-start" class="anchor-link"
+aria-label="Navigate to header: Quick Start"></a><span
+id="_R_1r9crmhkd74t9_" class="cursor-pointer">Quick Start</span></h3>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="3"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_v5t9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_vlt9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_pt9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>SGLANG_CACHE_DIT_ENABLED=true \
+sglang generate --model-path Qwen/Qwen-Image \
+    --prompt &quot;A beautiful sunset over the mountains&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1v9crmhkd74t9_" id="key-features"><a
+href="#key-features" class="anchor-link"
+aria-label="Navigate to header: Key Features"></a><span
+id="_R_1v9crmhkd74t9_" class="cursor-pointer">Key Features</span></h3>
+<ul>
+<li><strong>DBCache</strong>: Dynamic block-level caching based on
+residual differences</li>
+<li><strong>TaylorSeer</strong>: Taylor expansion-based calibration for
+optimized caching</li>
+<li><strong>SCM</strong>: Step-level computation masking for additional
+speedup</li>
+</ul>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_239crmhkd74t9_" id="teacache"><a href="#teacache"
+class="anchor-link" aria-label="Navigate to header: TeaCache"></a><span
+id="_R_239crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">TeaCache</span></h2>
+<span data-as="p">TeaCache (Temporal similarity-based caching)
+accelerates diffusion inference by detecting when consecutive denoising
+steps are similar enough to skip computation entirely.</span> <span
+data-as="p">See <a
+href="teacache.html"
+class="link">TeaCache</a> for detailed documentation.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_299crmhkd74t9_" id="quick-overview"><a
+href="#quick-overview" class="anchor-link"
+aria-label="Navigate to header: Quick Overview"></a><span
+id="_R_299crmhkd74t9_" class="cursor-pointer">Quick Overview</span></h3>
+<ul>
+<li>Tracks L1 distance between modulated inputs across timesteps</li>
+<li>When accumulated distance is below threshold, reuses cached
+residual</li>
+<li>Uses separate positive/negative caches for supported CFG model
+families</li>
+</ul>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_2d9crmhkd74t9_" id="supported-models"><a
+href="#supported-models" class="anchor-link"
+aria-label="Navigate to header: Supported Models"></a><span
+id="_R_2d9crmhkd74t9_" class="cursor-pointer">Supported
+Models</span></h3>
+<ul>
+<li>Wan2.1</li>
+<li>Z-Image: not wired yet; enabling TeaCache is accepted but currently
+no-ops</li>
+<li>Wan2.2: coefficients are not calibrated yet; enabling TeaCache is
+accepted but currently no-ops</li>
+<li>HunyuanVideo: not supported yet</li>
+</ul>
+<span data-as="p">Flux and Qwen models do not implement TeaCache yet;
+<code>--enable-teacache</code> is accepted but has no effect.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_2j9crmhkd74t9_" id="spectrum"><a href="#spectrum"
+class="anchor-link" aria-label="Navigate to header: Spectrum"></a><span
+id="_R_2j9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Spectrum</span></h2>
+<span data-as="p">Spectrum forecasts DiT features and skips selected
+denoising steps. It is approximate and currently applies only to
+selected native implementation paths.</span> <span data-as="p">See <a
+href="https://docs.sglang.io/docs/sglang-diffusion/spectrum"
+class="link">Spectrum Acceleration</a> for supported model families,
+constraints, and request controls.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_2p9crmhkd74t9_" id="references"><a
+href="#references" class="anchor-link"
+aria-label="Navigate to header: References"></a><span
+id="_R_2p9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">References</span></h2>
+<ul>
+<li><a href="https://github.com/vipshop/cache-dit" class="link"
+target="_blank" rel="noreferrer">Cache-DiT Repository</a></li>
+<li><a href="https://arxiv.org/abs/2411.14324" class="link"
+target="_blank" rel="noreferrer">TeaCache Paper</a></li>
+</ul>
+</div>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SGLang-Diffusion: Two Months In</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">SGLang-Diffusion: Two Months In</h1>
+</header>
+<section id="sglang-diffusion-two-months-in" class="header">
+<h1>SGLang-Diffusion: Two Months In</h1>
+<p>来源：<a
+href="https://www.lmsys.org/blog/2026-01-16-sglang-diffusion">https://www.lmsys.org/blog/2026-01-16-sglang-diffusion</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="blog-post-content">
+<section id="sglangdiffusion-two-months-in"
+class="blog-post-title header post-header">
+<h1 class="blog-post-title">SGLang‑Diffusion: Two Months In</h1>
+<div class="blog-post-meta">
+<span class="post-author">The SGLang-Diffusion Team</span><span
+class="post-meta-item">January 16, 2026</span>
+</div>
+</section>
+<details class="toc-mobile" open="open">
+<summary>
+<p><span>On this page</span></p>
+<svg width="14" height="14" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<p><path d="m6 9 6 6 6-6"></path></p>
+</svg>
+</summary>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#performance-benchmark">Performance Benchmark</a></li>
+<li><a href="#key-improvements">Key Improvements</a></li>
+<li><a href="#1-layerwise-offload">1. Layerwise Offload</a></li>
+<li><a href="#2-kernel-improvements">2. Kernel Improvements</a></li>
+<li><a href="#3-cache-dit-integration">3. Cache-DiT Integration</a></li>
+<li><a href="#4-few-more-things">4. Few More Things</a></li>
+<li><a href="#roadmap-26q1">Roadmap (26Q1)</a></li>
+<li><a href="#acknowledgment">Acknowledgment</a></li>
+<li><a href="#learn-more">Learn more</a></li>
+</ul>
+</details>
+<div class="post-prose">
+<p>Since its release in early Nov. 2025,
+<strong>SGLang-Diffusion</strong> has gained significant attention and
+widespread adoption within the community. We are deeply grateful for the
+extensive feedback and growing number of contributions from open-source
+developers.</p>
+<p>Over the past two months, we’ve been meticulously optimizing
+SGLang-Diffusion, now (docker image tag:
+<code>lmsysorg/sglang:dev-pr-17247</code>) up to 2.5x faster than our
+initial release.</p>
+<p>Here is a summary of our progress:</p>
+<h2 id="overview">Overview</h2>
+<p><strong>New Models</strong>:</p>
+<ul>
+<li>Day-0 support for Flux.2, Qwen-Image-Edit-2511, Qwen-Image-2512,
+Z-Image-Turbo, Qwen-Image-Layered, TurboWan, GLM-Image and more.</li>
+<li>Run SGLang-Diffusion with diffusers backend: compatible with all
+models in diffusers; more improvements are planned (see <a
+href="https://github.com/sgl-project/sglang/issues/16642">Issue
+#16642</a>).</li>
+</ul>
+<p><strong>LoRA Support</strong>:</p>
+<ul>
+<li>We support almost all LoRA formats for supported models. This
+section lists some example LoRAs that have been explicitly tested and
+verified.
+<div class="table-wrap">
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Base Model</th>
+<th>Supported LoRAs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Wan2.2</strong></td>
+<td><code>lightx2v/Wan2.2-Distill-Loras</code><br />
+<code>Cseti/wan2.2-14B-Arcane_Jinx-lora-v1</code></td>
+</tr>
+<tr>
+<td><strong>Wan2.1</strong></td>
+<td><code>lightx2v/Wan2.1-Distill-Loras</code></td>
+</tr>
+<tr>
+<td><strong>Z-Image-Turbo</strong></td>
+<td><code>tarn59/pixel_art_style_lora_z_image_turbo</code><br />
+<code>wcde/Z-Image-Turbo-DeJPEG-Lora</code></td>
+</tr>
+<tr>
+<td><strong>Qwen-Image</strong></td>
+<td><code>lightx2v/Qwen-Image-Lightning</code><br />
+<code>flymy-ai/qwen-image-realism-lora</code><br />
+<code>prithivMLmods/Qwen-Image-HeadshotX</code><br />
+<code>starsfriday/Qwen-Image-EVA-LoRA</code></td>
+</tr>
+<tr>
+<td><strong>Qwen-Image-Edit</strong></td>
+<td><code>ostris/qwen_image_edit_inpainting</code><br />
+<code>lightx2v/Qwen-Image-Edit-2511-Lightning</code></td>
+</tr>
+<tr>
+<td><strong>Flux</strong></td>
+<td><code>dvyio/flux-lora-simple-illustration</code><br />
+<code>XLabs-AI/flux-furry-lora</code><br />
+<code>XLabs-AI/flux-RealismLora</code></td>
+</tr>
+</tbody>
+</table>
+</div></li>
+<li>Fully functional HTTP API:
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>API Endpoint</th>
+<th>Key Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set or Activate (multiple) LoRA(s)</td>
+<td><code>/v1/set_lora</code></td>
+<td><code>lora_nickname</code>, <code>lora_path</code>,
+<code>strength</code>, <code>target</code></td>
+</tr>
+<tr>
+<td>Merge Weights</td>
+<td><code>/v1/merge_lora_weights</code></td>
+<td><code>strength</code>, <code>target</code></td>
+</tr>
+<tr>
+<td>Unmerge Weights</td>
+<td><code>/v1/unmerge_lora_weights</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td>List Adapters</td>
+<td><code>/v1/list_loras</code></td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+</div></li>
+</ul>
+<p><strong>Parallelism</strong>: Support SP and TP for most models,
+alongside hybrid parallelism (combinations of Ulysses Parallel, Ring
+Parallel, and Tensor Parallel).</p>
+<p><strong>Attention Backend</strong>: SageAttention2, SageAttention3
+and SLA, more backends are planned.</p>
+<p><strong>Hardware Support</strong>: AMD, 4090, 5090, MUSA</p>
+<p><strong>SGLang-Diffusion x ComfyUI Integration</strong>: We have
+implemented a flexible ComfyUI custom node that integrates
+SGLang-Diffusion’s high-performance inference engine. See <a
+href="https://github.com/sgl-project/sglang/blob/76f69b77530c734ff9b92b5d036316ba097ba943/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/README.md">usage
+guide</a>.</p>
+<p>While ComfyUI offers exceptional flexibility via custom nodes, it
+often lacks multi-GPU support and optimal performance.</p>
+<p>Our solution replaces ComfyUI’s denoising model forward pass with
+SGLang’s optimized implementation, preserving ComfyUI’s flexibility
+while leveraging SGLang’s superior inference. Users can simply swap
+ComfyUI’s loader with our SGL-Diffusion UNET Loader to enable enhanced
+performance without modifying existing workflows.</p>
+<p><img
+src="assets/2a3a9039091755950e8eeee9a3f91834503f65e82a463197a413856fdcf8b6d4.png"
+class="fig-full" /></p>
+<p>SGLang-Diffusion Plugin in ComfyUI</p>
+<h2 id="performance-benchmark">Performance Benchmark</h2>
+<p>Here are some performance benchmark results:</p>
+<ul>
+<li>We benchmarked SGLang-Diffusion (docker image tag:
+<code>lmsysorg/sglang:dev-pr-17247</code>) across popular models,
+comparing it against previous version (Nov. 2025) and other frameworks.
+SGLang-Diffusion achieves state-of-the-art speeds on NVIDIA GPUs,
+outperforming all other solutions by up to 5x.</li>
+</ul>
+<p><a
+href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQRK_j_q8NXZKEqtrTBagxFxvvaxYXXB56HTqqYlD_aAv1v74WKle2HIc7HPK3P0ZVrYlZrjshKYnaV/pubchart?oid=1681696401&amp;format=interactive">交互图表未离线保存；联网查看原图表</a></p>
+<ul>
+<li>We compared the performance of SGLang-Diffusion under different
+environments with one of the fastest vendors.</li>
+</ul>
+<p><a
+href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQRK_j_q8NXZKEqtrTBagxFxvvaxYXXB56HTqqYlD_aAv1v74WKle2HIc7HPK3P0ZVrYlZrjshKYnaV/pubchart?oid=174425525&amp;format=interactive">交互图表未离线保存；联网查看原图表</a></p>
+<ul>
+<li>We also evaluated SGLang-Diffusion on AMD GPU:</li>
+</ul>
+<p><a
+href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQCc9ulnNOE8mpM2RjIgZLJlLKxK_KUyws3WlTB1mVz2Ywx790G0IVbrI7-gjY_O5D8G5Grcjb1dBkR/pubchart?oid=319708956&amp;format=interactive">交互图表未离线保存；联网查看原图表</a></p>
+<h2 id="key-improvements">Key Improvements</h2>
+<p>To serve as a robust, industrial-grade framework, <strong>speed,
+stability, and code quality</strong> are our top priorities. We have
+refactored key components to eliminate bottlenecks and maximize hardware
+efficiency.</p>
+<p>Here are the highlights of our recent technical improvements:</p>
+<h3 id="1-layerwise-offload">1. Layerwise Offload</h3>
+<p>From our early profiling, we identified model loading/offloading as a
+major bottleneck, since the compute stream has to wait until all the
+weights are on-device, and most GPUs are not equipped with sufficient
+VRAM to keep all components in memory throughout inference.</p>
+<p>To tackle this, we introduced:</p>
+<ol>
+<li><code>LayerwiseOffloadManager</code>: A manager class that provides
+hooks for <strong>prefetching</strong> weights of the next layer while
+computing on the current layer, as well as <strong>releasing</strong>
+hooks after compute.</li>
+<li><code>OffloadableDiTMixin</code>: A mixin class that registers
+<code>LayerwiseOffloadManager</code>’s prefetch and release hooks for
+the diffusion-transformer.</li>
+</ol>
+<p>which has the following benefits:</p>
+<ul>
+<li><strong>Compute-Loading Overlap</strong>: Overlapping computation
+with weight loading eliminates stalls on the copy stream, significantly
+boosting inference speed — especially for multi-DiT architectures like
+Wan2.2</li>
+<li><strong>VRAM Optimization</strong>: A reduced peak VRAM footprint
+enables the generation of longer video sequences and higher-resolution
+content</li>
+</ul>
+<p><img
+src="assets/c4e713d7411354fe1f1088d9c13a7951c1a455b200b35ada3c3ac2474f6e8147.png"
+class="fig-full" /></p>
+<p>Comparison of Standard Loading with Layerwise Offload</p>
+<p><strong>Layerwise Offload</strong> is now enabled for video models by
+default.</p>
+<p>See related PRs (<a
+href="https://github.com/sgl-project/sglang/pull/15511">#15511</a>, <a
+href="https://github.com/sgl-project/sglang/pull/16150">#16150</a>).</p>
+<h3 id="2-kernel-improvements">2. Kernel Improvements</h3>
+<ul>
+<li><strong>Upstream FlashAttention</strong>: We synchronized our
+kernels with the latest upstream version from Dao-AILab to eliminate
+performance lags. See <a
+href="https://github.com/sgl-project/sglang/pull/16382">#16382</a>.</li>
+<li><strong>Optimized QKV Processing</strong>: We analyzed the
+performance trade-offs between Packed QKV and downstream kernels (e.g.,
+<code>qk_norm</code>, FlashInfer RoPE). To achieve optimal preprocessing
+performance, we implemented QKV unpacking without introducing extra
+contiguous memory operations.</li>
+<li><strong>JIT QK Norm Kernel</strong>: Fused Q/K RMSNorm into a single
+inplace kernel to cut launch count and memory traffic before
+attention.</li>
+<li><strong>FlashInfer RoPE</strong>: Apply RoPE on Q/K inplace with
+FlashInfer when available (fallback otherwise), reducing RoPE overhead
+and intermediate tensor materialization.</li>
+<li><strong>Weight Fusion (Operator Fusion)</strong>: Fused projection +
+activation patterns (e.g., gate/up merge + SiLU&amp;Mul) to reduce GEMM
+count and elementwise launches in DiT blocks.</li>
+<li><strong>Timestep Implementation</strong>: Use a dedicated CUDA
+kernel for timestep sinusoidal embedding (sin/cos) to reduce per-step
+overhead in diffusion scheduling. See <a
+href="https://github.com/sgl-project/sglang/pull/12995">#12995</a>.</li>
+</ul>
+<h3 id="3-cache-dit-integration">3. Cache-DiT Integration</h3>
+<p>We’ve integrated <a
+href="https://github.com/vipshop/cache-dit">Cache-DiT🤗</a>, the most
+popular framework for DiT cache, seamlessly into SGLang-Diffusion, fully
+compatible with <code>torch.compile</code>, Ulysses Parallel, Ring
+Parallel, and Tensor Parallel, along with any hybrid combination of
+these three. See <a
+href="https://github.com/sgl-project/sglang/pull/14234">#14234</a>, <a
+href="https://github.com/sgl-project/sglang/pull/15163">#15163</a> and
+<a href="https://github.com/sgl-project/sglang/pull/16532">#16532</a>
+for implementation details.</p>
+<p>By setting just a few environment variables, generation speed can
+increase by up to 169%.</p>
+<p>Here is an example to enable Cache-DiT in SGLang-Diffusion:</p>
+<div class="code-block">
+<pre><code>SGLANG_CACHE_DIT_ENABLED=true \
+SGLANG_CACHE_DIT_SCM_PRESET=fast \
+sglang generate --model-path=Qwen/Qwen-Image --prompt=&quot;Cinematic establishing shot of a city at dusk&quot;
+  --save-output</code></pre>
+</div>
+<p>Furthermore, we can now integrate and refine Cache-DiT optimizations
+to our newly-supported diffuser backend (see <a
+href="https://github.com/sgl-project/sglang/issues/16642">Issue
+#16642</a>).</p>
+<h3 id="4-few-more-things">4. Few More Things</h3>
+<ul>
+<li><strong>Memory Monitoring</strong>: Peak usage statistics available
+across offline generation and online serving workflows.</li>
+<li><a
+href="https://docs.sglang.io/diffusion/performance/profiling.html"><strong>Profiling
+Suite</strong></a>: Full-stage support with step-by-step docs for
+PyTorch Profiler and Nsight Systems.</li>
+<li><a
+href="https://cookbook.sglang.io/docs/diffusion/"><strong>Diffusion
+Cookbook</strong></a>: Curated recipes, best practices, and benchmarking
+guides for SGLang-Diffusion.</li>
+</ul>
+<h2 id="roadmap-26q1">Roadmap (26Q1)</h2>
+<ul>
+<li>Sparse Attention Backends</li>
+<li>Quantization (nunchaku, nvfp4 and others)</li>
+<li>Optimizations on consumer-level GPUs</li>
+<li>Codesign with <a
+href="https://github.com/sgl-project/sglang/issues/16546">sglang-omni</a></li>
+</ul>
+<p>Please refer to <a
+href="https://github.com/sgl-project/sglang/issues/18286"><strong>Roadmap
+for 26Q1</strong></a> for more details.</p>
+<h2 id="acknowledgment">Acknowledgment</h2>
+<p><strong>SGLang-Diffusion Team</strong>:</p>
+<p>Aichen Feng, Adarsh Shirawalmath, Alison Shao, Changyi Yang, Chunan
+Zeng, DefTruth, Fan Lin, Fan Luo, Fenglin Yu, Gaoji Liu, Heyang Huang,
+Hongli Mi, Huanhuan Chen, Ji Huang, Jiajun Li, Ji Li, Jinliang Li,
+Junlin Lv, Jianying Zhu, Jiaqi Zhu, Mingfa Feng, Ran Mei, Ruiguo Yang,
+Shenggui Li, Shuyi Fan, Shuxi Guo, Song Lin, Wang Xingyu, Weitao Dai,
+Wenhao Zhang, Xi Chen, Xiao Jin, Xiaoyu Zhang (BBuf), Yihan Chen, Yikai
+Zhu, Yin Fan, Yuhao Yang, Yixuan Zhang, Yuan Luo, Yueming Yuan, Yuhang
+Qi, Yuzhen Zhou, Zhiyi Liu, Zhuorui Liu, Ziyi Xu, Mick</p>
+<p>Special thanks to NVIDIA and Voltage Park for their compute
+support.</p>
+<p>Special thanks to AMD for their compute support and assistance in
+development.</p>
+<h2 id="learn-more">Learn more</h2>
+<ul>
+<li><strong>Slack channel</strong>: <a
+href="https://sgl-fru7574.slack.com/archives/C09P0HTKE6A">#diffusion</a>
+(join via slack.sglang.io)</li>
+<li><a href="https://cookbook.sglang.io/docs/diffusion"><strong>Cookbook
+for SGLang-Diffusion</strong></a></li>
+<li><a
+href="https://docs.sglang.io/diffusion/index.html"><strong>Documentation
+on SGLang-Diffusion</strong></a></li>
+<li><a
+href="https://github.com/sgl-project/sglang/issues/18286"><strong>Roadmap
+for 26Q1</strong></a></li>
+</ul>
+</div>
+</article>
+</body>
+</html>

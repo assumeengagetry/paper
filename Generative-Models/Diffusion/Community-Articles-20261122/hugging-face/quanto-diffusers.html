@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Memory-efficient Diffusion Transformers with Quanto and Diffusers</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Memory-efficient Diffusion Transformers with Quanto
+and Diffusers</h1>
+</header>
+<section
+id="memory-efficient-diffusion-transformers-with-quanto-and-diffusers"
+class="header">
+<h1>Memory-efficient Diffusion Transformers with Quanto and
+Diffusers</h1>
+<p>来源：<a
+href="https://huggingface.co/blog/quanto-diffusers">https://huggingface.co/blog/quanto-diffusers</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<div
+class="blog-content copiable-code-container [&amp;_h1]:mr-0! prose mx-auto mb-8 lg:prose-lg 2xl:prose-lg prose-h1:mb-3 lg:px-8">
+<div class="SVELTE_HYDRATER contents" data-target="RepoCodeCopy"
+data-props="{}">
+<div>
+
+</div>
+</div>
+<div class="mb-4">
+<a href="https://huggingface.co/blog" class="text-gray-500! no-underline! hover:underline! flex items-center font-sans">
+<svg class="mr-2 h-3 w-3" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M14 26l1.41-1.41L7.83 17H28v-2H7.83l7.58-7.59L14 6L4 16l10 10z" fill="currentColor"></path>
+</svg>
+Back to Articles</a>
+</div>
+<h1 class="group relative flex items-center max-md:[&amp;&gt;a]:hidden">
+<a id="memory-efficient-diffusion-transformers-with-quanto-and-diffusers" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#memory-efficient-diffusion-transformers-with-quanto-and-diffusers" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Memory-efficient Diffusion Transformers with Quanto
+and Diffusers </span>
+</h1>
+<div>
+<div class="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-base">
+<div class="flex items-center gap-x-4">
+<span class="whitespace-nowrap text-sm sm:text-base">Published July 30,
+2024</span>
+</div>
+</div>
+<a
+href="https://github.com/huggingface/blog/blob/main/quanto-diffusers.md"
+class="btn mb-5 font-sans text-sm no-underline" target="_blank">Update
+on GitHub</a>
+</div>
+<div class="not-prose mb-6 font-sans xl:hidden">
+<div class="SVELTE_HYDRATER contents" data-target="UpvoteControl"
+data-props="{&quot;modalClassNames&quot;:&quot;not-prose&quot;,&quot;maxShown&quot;:6,&quot;apiUrlPrefix&quot;:&quot;/api/blog/quanto-diffusers&quot;,&quot;postLoginRedirectUrl&quot;:&quot;/blog/quanto-diffusers&quot;,&quot;size&quot;:&quot;sm&quot;,&quot;style&quot;:&quot;horizontal&quot;,&quot;color&quot;:&quot;gray&quot;,&quot;upvotedColor&quot;:&quot;orange&quot;,&quot;upvoted&quot;:false,&quot;upvoters&quot;:[{&quot;_id&quot;:&quot;62bb3bc80feffce2540d6404&quot;,&quot;avatarUrl&quot;:&quot;/avatars/3e348da423c5820958445044f1490fde.svg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Ruslan Jankurazov&quot;,&quot;user&quot;:&quot;ruslanjan&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;618661e9a7717cb375090bf6&quot;,&quot;avatarUrl&quot;:&quot;/avatars/e2358658517475375e12be5b42b3dfaf.svg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Artur Daveyan&quot;,&quot;user&quot;:&quot;ArturD&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;66ab799e5e4f9699e476856e&quot;,&quot;avatarUrl&quot;:&quot;/avatars/54051c97e985092d09323b3c88e65398.svg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Shahar Yadin&quot;,&quot;user&quot;:&quot;shaharyadin&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;608aabf24955d2bfc3cd99c6&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/608aabf24955d2bfc3cd99c6/-YxmtpzEmf3NKOTktODRP.jpeg&quot;,&quot;isPro&quot;:true,&quot;fullname&quot;:&quot;Aritra Roy Gosthipaty&quot;,&quot;user&quot;:&quot;ariG23498&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;655791a07be68c09619943f2&quot;,&quot;avatarUrl&quot;:&quot;/avatars/d24744e39f285a9aadee2332d60ba78f.svg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Madhu Srinivasan&quot;,&quot;user&quot;:&quot;secunit64&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;64b695dcd3df8086e5ed7c89&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/64b695dcd3df8086e5ed7c89/ZULwnPE8Q5q7bxKJsJ7v5.jpeg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Adam Fields&quot;,&quot;user&quot;:&quot;0xFieldsy&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;6657250cf306678f387f02d7&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/noauth/OqiF10RKo-bytyIkmX8HJ.png&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Weronika Stryj&quot;,&quot;user&quot;:&quot;privategeek24&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;5fac18fb5eec0323e9470ba2&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/1605114051380-noauth.jpeg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Jeff Boudier&quot;,&quot;user&quot;:&quot;jeffboudier&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;66dea2bd8934078387560e4a&quot;,&quot;avatarUrl&quot;:&quot;/avatars/471ad5452d2ba8c2c0ebd8d4c2355d97.svg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Ammar Ahmed Siddiqui&quot;,&quot;user&quot;:&quot;ammarfunprime&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;64bf55d412d00c4589312291&quot;,&quot;avatarUrl&quot;:&quot;/avatars/85fbf5a452b1b5f43845c21c31ada2aa.svg&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Null&quot;,&quot;user&quot;:&quot;Zer0Nin3r&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;655bbea80555d96ad9653ed4&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/no-auth/DXTGif1mtqpLCiPR5PrnH.png&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;Fabio Polimeni&quot;,&quot;user&quot;:&quot;3Nu&quot;,&quot;type&quot;:&quot;user&quot;},{&quot;_id&quot;:&quot;65f5c3528fb2b1535728138f&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/65f5c3528fb2b1535728138f/3KtK3VL51RBcculVaPoQg.png&quot;,&quot;isPro&quot;:false,&quot;fullname&quot;:&quot;abdeljalil_elma&quot;,&quot;user&quot;:&quot;abdeljalilELmajjodi&quot;,&quot;type&quot;:&quot;user&quot;}],&quot;upvotes&quot;:68}">
+<div
+class="flex flex-wrap items-center gap-2.5 pt-1 z-1 lg:sticky lg:top-8">
+<a href="https://huggingface.co/login?next=%2Fblog%2Fquanto-diffusers"
+class="self-start"></a>
+<div
+class="shadow-alternate group flex h-9 cursor-pointer select-none items-center gap-2 rounded-lg border pl-3 pr-3.5 border-gray-300 bg-white dark:bg-gray-850"
+role="checkbox">
+<svg class="text-xs text-gray-500 peer-checked:text-gray-500 group-hover:text-orange-500" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 12 12">
+<path fill="currentColor" d="M5.19 2.67a.94.94 0 0 1 1.62 0l3.31 5.72a.94.94 0 0 1-.82 1.4H2.7a.94.94 0 0 1-.82-1.4l3.31-5.7v-.02Z"></path>
+</svg>
+Upvote
+<div class="font-semibold text-orange-500">
+68
+</div>
+</div>
+</a>
+<ul>
+<li><a href="https://huggingface.co/ruslanjan" title="ruslanjan"><img
+src="assets/a2fa8e16b609eab720367dd119488c5d80ef32b02336034e65229e438d07b407.svg"
+class="overflow-hidden rounded-full" /></a></li>
+<li><a href="https://huggingface.co/ArturD" title="ArturD"><img
+src="assets/9b53074015f1ef27d506cb22368cbb42a0e5f1f75c1f400d13c69e13dddd2bc2.svg"
+class="overflow-hidden rounded-full" /></a></li>
+<li><a href="https://huggingface.co/shaharyadin"
+title="shaharyadin"><img
+src="assets/b739ccc6bb06e4f926a5014efa17b374431f71d4246cfbf02c3acc9312c87610.svg"
+class="overflow-hidden rounded-full" /></a></li>
+<li><a href="https://huggingface.co/ariG23498" title="ariG23498"><img
+src="assets/91eb007daef99607c50014bca7af42539ab3eb4de0bd3818c7e655d9abe0e76c.webp"
+class="overflow-hidden rounded-full" /></a></li>
+<li><a href="https://huggingface.co/secunit64" title="secunit64"><img
+src="assets/e6485c68df9161ba9b2d5f362d04ea6bb51c9588260eaaa9dc93ebc51bd75183.svg"
+class="overflow-hidden rounded-full" /></a></li>
+<li><a href="https://huggingface.co/0xFieldsy" title="0xFieldsy"><img
+src="assets/5b8d01badf729c7d381640b9a139b78bade352398313eb22260cb8219aa8d579.webp"
+class="overflow-hidden rounded-full" /></a></li>
+<li><span class="archived-control-label">+62</span></li>
+</ul>
+</div>
+<dialog class="shadow-alternate z-40 mx-4 my-auto h-fit select-text overflow-hidden rounded-xl bg-white max-sm:max-w-[calc(100dvw-2rem)] sm:mx-auto lg:mt-26 md:portrait:mt-30 xl:mt-30 2xl:mt-32 w-full sm:w-96 max-w-[calc(100%-4rem)] text-base not-prose ">
+<div class="outline-none focus:ring-0 focus-visible:ring-0"
+tabindex="-1">
+
+</div>
+</dialog>
+</div>
+</div>
+<div class="not-prose">
+<div class="SVELTE_HYDRATER contents" data-target="BlogAuthorsByline"
+data-props="{&quot;authors&quot;:[{&quot;author&quot;:{&quot;_id&quot;:&quot;5f7fbd813e94f16a85448745&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/1649681653581-5f7fbd813e94f16a85448745.jpeg&quot;,&quot;fullname&quot;:&quot;Sayak Paul&quot;,&quot;name&quot;:&quot;sayakpaul&quot;,&quot;type&quot;:&quot;user&quot;,&quot;isPro&quot;:true,&quot;isHf&quot;:true,&quot;isHfAdmin&quot;:false,&quot;isMod&quot;:false,&quot;followerCount&quot;:1096,&quot;isUserFollowing&quot;:false}},{&quot;author&quot;:{&quot;_id&quot;:&quot;647995564be04c76ce4547b3&quot;,&quot;avatarUrl&quot;:&quot;https://cdn-avatars.huggingface.co/v1/production/uploads/647995564be04c76ce4547b3/-tlmMQgr-CTm5TCIjGApB.jpeg&quot;,&quot;fullname&quot;:&quot;David Corvoysier&quot;,&quot;name&quot;:&quot;dacorvo&quot;,&quot;type&quot;:&quot;user&quot;,&quot;isPro&quot;:false,&quot;isHf&quot;:true,&quot;isHfAdmin&quot;:false,&quot;isMod&quot;:false,&quot;followerCount&quot;:162,&quot;isUserFollowing&quot;:false}}],&quot;translators&quot;:[],&quot;proofreaders&quot;:[],&quot;lang&quot;:&quot;en&quot;}">
+<div class="not-prose">
+<div
+class="mb-12 grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-5 gap-y-3.5">
+<div class="flex min-w-0 items-center font-sans leading-tight">
+<span class="inline-block flex-none"><span class="contents"><a
+href="https://huggingface.co/sayakpaul"><img
+src="assets/77b40dc2f199fc44536ca990ed4aee091f3d7db65531dbc275b5644e1620ba4c.webp"
+class="rounded-full! m-0 mr-2.5 size-9 sm:mr-3 sm:size-12"
+alt="Sayak Paul&#39;s avatar" /></a></span> </span>
+<div class="min-w-0 text-gray-900 dark:text-gray-300">
+<a href="https://huggingface.co/sayakpaul"><span
+class="fullname block truncate font-sans font-semibold max-sm:text-sm"
+title="Sayak Paul">Sayak Paul</span></a>
+<div class="my-0.5 flex items-center gap-x-2">
+<span class="inline-block min-w-0"><span
+class="contents"><u>sayakpaul</u></span> </span>
+<div role="button" tabindex="0">
+<div class="relative flex items-center gap-1.5">
+<span class="archived-control-label"></span>
+<div
+class="flex h-full flex-1 items-center justify-center rounded-full">
+Follow
+</div>
+</span>
+</div>
+</div>
+</div>
+</a>
+<div class="flex items-center pt-0.5">
+
+</div>
+</div>
+</div>
+<div class="flex min-w-0 items-center font-sans leading-tight">
+<span class="inline-block flex-none"><span class="contents"><a
+href="https://huggingface.co/dacorvo"><img
+src="assets/06dfdbaf2bf8221df969c46bb20c1d24a84670bd3b548a9c27ea40e85655f0bd.webp"
+class="rounded-full! m-0 mr-2.5 size-9 sm:mr-3 sm:size-12"
+alt="David Corvoysier&#39;s avatar" /></a></span> </span>
+<div class="min-w-0 text-gray-900 dark:text-gray-300">
+<a href="https://huggingface.co/dacorvo"><span
+class="fullname block truncate font-sans font-semibold max-sm:text-sm"
+title="David Corvoysier">David Corvoysier</span></a>
+<div class="my-0.5 flex items-center gap-x-2">
+<span class="inline-block min-w-0"><span
+class="contents"><u>dacorvo</u></span> </span>
+<div role="button" tabindex="0">
+<div class="relative flex items-center gap-1.5">
+<span class="archived-control-label"></span>
+<div
+class="flex h-full flex-1 items-center justify-center rounded-full">
+Follow
+</div>
+</span>
+</div>
+</div>
+</div>
+</a>
+<div class="flex items-center pt-0.5">
+
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div
+class="relative overflow-clip [overflow-clip-margin:3rem] [&amp;&gt;:last-child]:mb-0">
+<div class="SVELTE_HYDRATER contents" data-target="SideNavigation"
+data-props="{&quot;titleTree&quot;:[{&quot;id&quot;:&quot;preliminaries&quot;,&quot;label&quot;:&quot;Preliminaries&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Preliminaries&quot;},{&quot;id&quot;:&quot;quantizing-a-diffusionpipeline-with-quanto&quot;,&quot;label&quot;:&quot;Quantizing a &lt;code&gt;DiffusionPipeline&lt;/code&gt; with Quanto&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Quantizing a &lt;code&gt;DiffusionPipeline&lt;/code&gt; with Quanto&quot;},{&quot;id&quot;:&quot;generality-of-the-observations&quot;,&quot;label&quot;:&quot;Generality of the observations&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Generality of the observations&quot;},{&quot;id&quot;:&quot;misc-findings&quot;,&quot;label&quot;:&quot;Misc findings&quot;,&quot;children&quot;:[{&quot;id&quot;:&quot;bfloat16-is-usually-better-on-h100&quot;,&quot;label&quot;:&quot;&lt;code&gt;bfloat16&lt;/code&gt; is usually better on H100&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;&lt;code&gt;bfloat16&lt;/code&gt; is usually better on H100&quot;},{&quot;id&quot;:&quot;the-promise-of-qint8&quot;,&quot;label&quot;:&quot;The promise of &lt;code&gt;qint8&lt;/code&gt;&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;The promise of &lt;code&gt;qint8&lt;/code&gt;&quot;},{&quot;id&quot;:&quot;how-about-int4&quot;,&quot;label&quot;:&quot;How about INT4?&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;How about INT4?&quot;}],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Misc findings&quot;},{&quot;id&quot;:&quot;bonus---saving-and-loading-diffusers-models-in-quanto&quot;,&quot;label&quot;:&quot;Bonus - saving and loading Diffusers models in Quanto&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Bonus - saving and loading Diffusers models in Quanto&quot;},{&quot;id&quot;:&quot;tips&quot;,&quot;label&quot;:&quot;Tips&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Tips&quot;},{&quot;id&quot;:&quot;conclusion&quot;,&quot;label&quot;:&quot;Conclusion&quot;,&quot;children&quot;:[],&quot;isValid&quot;:true,&quot;title&quot;:&quot;Conclusion&quot;}],&quot;classNames&quot;:&quot;not-prose hidden lg:block&quot;}">
+<div
+class="absolute -left-12 bottom-0 top-0 z-30 not-prose hidden lg:block">
+<div class="sticky top-4 flex">
+<div class="h-7 pt-[0.175rem]">
+<span class="peer" tabindex="0">
+<span class="archived-control-label">
+<svg width="1em" height="1em" viewbox="0 0 10 10" class="text-lg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" focusable="false" role="img" preserveaspectratio="xMidYMid meet" fill="currentColor">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M1.65039 2.9999C1.65039 2.8066 1.80709 2.6499 2.00039 2.6499H8.00039C8.19369 2.6499 8.35039 2.8066 8.35039 2.9999C8.35039 3.1932 8.19369 3.3499 8.00039 3.3499H2.00039C1.80709 3.3499 1.65039 3.1932 1.65039 2.9999ZM1.65039 4.9999C1.65039 4.8066 1.80709 4.6499 2.00039 4.6499H8.00039C8.19369 4.6499 8.35039 4.8066 8.35039 4.9999C8.35039 5.1932 8.19369 5.3499 8.00039 5.3499H2.00039C1.80709 5.3499 1.65039 5.1932 1.65039 4.9999ZM2.00039 6.6499C1.80709 6.6499 1.65039 6.8066 1.65039 6.9999C1.65039 7.1932 1.80709 7.3499 2.00039 7.3499H8.00039C8.19369 7.3499 8.35039 7.1932 8.35039 6.9999C8.35039 6.8066 8.19369 6.6499 8.00039 6.6499H2.00039Z"></path>
+</svg>
+</span></span>
+<div
+class="invisible w-0 -translate-x-8 -translate-y-6 overflow-hidden rounded-xl border bg-white transition-transform hover:visible hover:w-52 hover:translate-x-0 peer-focus-within:visible peer-focus-within:w-52 peer-focus-within:translate-x-0">
+
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>Over the past few months, we have seen an emergence in the use of
+Transformer-based diffusion backbones for high-resolution text-to-image
+(T2I) generation. These models use the transformer architecture as the
+building block for the diffusion process, instead of the UNet
+architecture that was prevalent in many of the initial diffusion models.
+Thanks to the nature of Transformers, these backbones show good
+scalability, with models ranging from 0.6B to 8B parameters.</p>
+<p>As models become larger, memory requirements increase. The problem
+intensifies because a diffusion pipeline usually consists of several
+components: a text encoder, a diffusion backbone, and an image decoder.
+Furthermore, modern diffusion pipelines use multiple text encoders – for
+example, there are three in the case of Stable Diffusion 3. It takes
+18.765 GB of GPU memory to run SD3 inference using FP16 precision.</p>
+<p>These high memory requirements can make it difficult to use these
+models with consumer GPUs, slowing adoption and making experimentation
+harder. In this post, we show how to improve the memory efficiency of
+Transformer-based diffusion pipelines by leveraging Quanto's
+quantization utilities from the Diffusers library.</p>
+<h3 class="relative group flex items-baseline">
+<a id="table-of-contents" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#table-of-contents" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Table of contents </span>
+</h3>
+<ul>
+<li><a href="#preliminaries" rel="nofollow">Preliminaries</a></li>
+<li><a href="#quantizing-a-diffusionpipeline-with-quanto"
+rel="nofollow">Quantizing a <code>DiffusionPipeline</code> with
+Quanto</a></li>
+<li><a href="#generality-of-the-observations" rel="nofollow">Generality
+of the observations</a></li>
+<li><a href="#misc-findings" rel="nofollow">Misc findings</a>
+<ul>
+<li><a href="#bfloat16-is-usually-better-on-h100"
+rel="nofollow"><code>bfloat16</code> as the main compute
+data-type</a></li>
+<li><a href="#the-promise-of-qint8" rel="nofollow">The promise of
+<code>qint8</code></a></li>
+<li><a href="#how-about-int4" rel="nofollow">INT4</a></li>
+</ul></li>
+<li><a href="#bonus---saving-and-loading-diffusers-models-in-quanto"
+rel="nofollow">Bonus - saving and loading Diffusers models in
+Quanto</a></li>
+<li><a href="#tips" rel="nofollow">Tips</a></li>
+<li><a href="#conclusion" rel="nofollow">Conclusion</a></li>
+</ul>
+<h2 class="relative group flex items-baseline">
+<a id="preliminaries" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#preliminaries" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Preliminaries </span>
+</h2>
+<p>For a detailed introduction to Quanto, please refer to <a
+href="https://huggingface.co/blog/quanto-introduction">this post</a>. In
+short, Quanto is a quantization toolkit built on PyTorch. It's part of
+<a href="https://github.com/huggingface/optimum" rel="nofollow">Hugging
+Face Optimum</a>, a set of tools for hardware optimization.</p>
+<p>Model quantization is a popular tool among LLM practitioners, but not
+so much with diffusion models. Quanto can help bridge this gap and
+provide memory savings with little or no quality degradation.</p>
+<p>For benchmarking purposes, we use an H100 GPU with the following
+environment:</p>
+<ul>
+<li>CUDA 12.2</li>
+<li>PyTorch 2.4.0</li>
+<li>Diffusers (installed from <a
+href="https://github.com/huggingface/diffusers/commit/bce9105ac79636f68dcfdcfc9481b89533db65e5"
+rel="nofollow">this commit</a>)</li>
+<li>Quanto (installed from <a
+href="https://github.com/huggingface/optimum-quanto/commit/285862b4377aa757342ed810cd60949596b4872b"
+rel="nofollow">this commit</a>)</li>
+</ul>
+<p>Unless otherwise specified, we default to performing computations in
+FP16. We chose not to quantize the VAE to prevent numerical instability
+issues. Our benchmarking code can be found <a
+href="https://huggingface.co/datasets/sayakpaul/sample-datasets/blob/main/quanto-exps-2/benchmark.py">here</a>.</p>
+<p>At the time of this writing, we have the following Transformer-based
+diffusion pipelines for text-to-image generation in Diffusers:</p>
+<ul>
+<li><a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/pixart">PixArt-Alpha</a>
+and <a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/pixart_sigma">PixArt-Sigma</a></li>
+<li><a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/stable_diffusion/stable_diffusion_3">Stable
+Diffusion 3</a></li>
+<li><a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/hunyuandit">Hunyuan
+DiT</a></li>
+<li><a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/lumina">Lumina</a></li>
+<li><a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/aura_flow">Aura
+Flow</a></li>
+</ul>
+<p>We also have <a
+href="https://huggingface.co/docs/diffusers/main/en/api/pipelines/latte">Latte</a>,
+a Transformer-based text-to-video generation pipeline.</p>
+<p>For brevity, we keep our study limited to the following three:
+PixArt-Sigma, Stable Diffusion 3, and Aura Flow. The table below shows
+the parameter counts of their diffusion backbones:</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Model</strong></th>
+<th style="text-align: center;"><strong>Checkpoint</strong></th>
+<th style="text-align: center;"><strong># Params (Billion)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">PixArt</td>
+<td style="text-align: center;"><a
+href="https://huggingface.co/PixArt-alpha/PixArt-Sigma-XL-2-1024-MS">https://huggingface.co/PixArt-alpha/PixArt-Sigma-XL-2-1024-MS</a></td>
+<td style="text-align: center;">0.611</td>
+</tr>
+<tr>
+<td style="text-align: center;">Stable Diffusion 3</td>
+<td style="text-align: center;"><a
+href="https://huggingface.co/stabilityai/stable-diffusion-3-medium-diffusers">https://huggingface.co/stabilityai/stable-diffusion-3-medium-diffusers</a></td>
+<td style="text-align: center;">2.028</td>
+</tr>
+<tr>
+<td style="text-align: center;">Aura Flow</td>
+<td style="text-align: center;"><a
+href="https://huggingface.co/fal/AuraFlow/">https://huggingface.co/fal/AuraFlow/</a></td>
+<td style="text-align: center;">6.843</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div>
+It’s worth keeping in mind that this post primarily focuses on memory
+efficiency at a slight or negligible cost of inference latency.
+</div>
+<h2 class="relative group flex items-baseline">
+<a id="quantizing-a-diffusionpipeline-with-quanto" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#quantizing-a-diffusionpipeline-with-quanto" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Quantizing a <code>DiffusionPipeline</code> with
+Quanto </span>
+</h2>
+<p>Quantizing a model with Quanto is straightforward.</p>
+<pre><code>from optimum.quanto import freeze, qfloat8, quantize
+from diffusers import PixArtSigmaPipeline
+import torch
+
+pipeline = PixArtSigmaPipeline.from_pretrained(
+    &quot;PixArt-alpha/PixArt-Sigma-XL-2-1024-MS&quot;, torch_dtype=torch.float16
+).to(&quot;cuda&quot;)
+
+quantize(pipeline.transformer, weights=qfloat8)
+freeze(pipeline.transformer)</code></pre>
+<p>We call <code>quantize()</code> on the module to be quantized,
+specifying what we want to quantize. In the above case, we are just
+quantizing the parameters, leaving the activations as is. We’re
+quantizing to the FP8 data-type. We finally call <code>freeze()</code>
+to replace the original parameters with the quantized parameters.</p>
+<p>We can then call this <code>pipeline</code> normally:</p>
+<pre><code>image = pipeline(&quot;ghibli style, a fantasy landscape with castles&quot;).images[0]</code></pre>
+<table>
+<tbody>
+<tr>
+<th>FP16</th>
+<th>Diffusion Transformer in FP8</th>
+</tr>
+
+<tr>
+<td><img
+src="assets/92e73904253e22c801271953f475a9c73cc41d9a243912b68251db607041ca4b.png"
+class="mx-auto" width="512" alt="FP16 image." /></td>
+<td><img
+src="assets/93eb5b8c2df47f7cdeb12f723c3572da8bd3f98f3ca1316fa10f3c7bad625308.png"
+class="mx-auto" width="512" alt="FP8 quantized image." /></td>
+</tr>
+</tbody>
+</table>
+<p>We notice the following memory savings when using FP8, with slightly
+higher latency and almost no quality degradation:</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Batch Size</strong></th>
+<th style="text-align: center;"><strong>Quantization</strong></th>
+<th style="text-align: center;"><strong>Memory (GB)</strong></th>
+<th style="text-align: center;"><strong>Latency (Seconds)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">None</td>
+<td style="text-align: center;">12.086</td>
+<td style="text-align: center;">1.200</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;"><strong>11.547</strong></td>
+<td style="text-align: center;">1.540</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">None</td>
+<td style="text-align: center;">12.087</td>
+<td style="text-align: center;">4.482</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;"><strong>11.548</strong></td>
+<td style="text-align: center;">5.109</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>We can quantize the text encoder in the same way:</p>
+<pre><code>quantize(pipeline.text_encoder, weights=qfloat8)
+freeze(pipeline.text_encoder)</code></pre>
+<p>The text encoder is also a transformer model, and we can quantize it
+too. Quantizing both the text encoder and the diffusion backbone leads
+to much larger memory improvements:</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Batch Size</strong></th>
+<th style="text-align: center;"><strong>Quantization</strong></th>
+<th style="text-align: center;"><strong>Quantize TE</strong></th>
+<th style="text-align: center;"><strong>Memory (GB)</strong></th>
+<th style="text-align: center;"><strong>Latency (Seconds)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">False</td>
+<td style="text-align: center;">11.547</td>
+<td style="text-align: center;">1.540</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;"><strong>5.363</strong></td>
+<td style="text-align: center;">1.601</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">False</td>
+<td style="text-align: center;">11.548</td>
+<td style="text-align: center;">5.109</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;"><strong>5.364</strong></td>
+<td style="text-align: center;">5.141</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Quantizing the text encoder produces results very similar to the
+previous case:</p>
+<p><a
+href="assets/df1ac08d22d5777d97b63f4558226914eda69a3f1b47356ecc2a535ff65e8c6b.png"
+rel="nofollow"><img
+src="assets/df1ac08d22d5777d97b63f4558226914eda69a3f1b47356ecc2a535ff65e8c6b.png"
+alt="ckpt@pixart-bs@1-dtype@fp16-qtype@fp8-qte@1.png" /></a></p>
+<h2 class="relative group flex items-baseline">
+<a id="generality-of-the-observations" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#generality-of-the-observations" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Generality of the observations </span>
+</h2>
+<p>Quantizing the text encoder together with the diffusion backbone
+generally works for the models we tried. Stable Diffusion 3 is a special
+case, as it uses three different text encoders. We found that quantizing
+the <em>second</em> text encoder does not work well, so we recommend the
+following alternatives:</p>
+<ul>
+<li>Only quantize the first text encoder (<a
+href="https://huggingface.co/docs/transformers/en/model_doc/clip#transformers.CLIPTextModelWithProjection"><code>CLIPTextModelWithProjection</code></a>)
+or</li>
+<li>Only quantize the third text encoder (<a
+href="https://huggingface.co/docs/transformers/en/model_doc/t5#transformers.T5EncoderModel"><code>T5EncoderModel</code></a>)
+or</li>
+<li>Quantize the first and third text encoders</li>
+</ul>
+<p>The table below gives an idea about the expected memory savings for
+various text encoder quantization combinations (the diffusion
+transformer is quantized in all cases):</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Batch Size</strong></th>
+<th style="text-align: center;"><strong>Quantization</strong></th>
+<th style="text-align: center;"><strong>Quantize TE 1</strong></th>
+<th style="text-align: center;"><strong>Quantize TE 2</strong></th>
+<th style="text-align: center;"><strong>Quantize TE 3</strong></th>
+<th style="text-align: center;"><strong>Memory (GB)</strong></th>
+<th style="text-align: center;"><strong>Latency (Seconds)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">8.200</td>
+<td style="text-align: center;">2.858</td>
+</tr>
+<tr>
+<td style="text-align: center;">1 ✅</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">8.294</td>
+<td style="text-align: center;">2.781</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">14.384</td>
+<td style="text-align: center;">2.833</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">14.475</td>
+<td style="text-align: center;">2.818</td>
+</tr>
+<tr>
+<td style="text-align: center;">1 ✅</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">14.384</td>
+<td style="text-align: center;">2.730</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">8.325</td>
+<td style="text-align: center;">2.875</td>
+</tr>
+<tr>
+<td style="text-align: center;">1 ✅</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">8.204</td>
+<td style="text-align: center;">2.789</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">None</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">16.403</td>
+<td style="text-align: center;">2.118</td>
+</tr>
+</tbody>
+</table>
+</div>
+<table>
+<tbody>
+<tr>
+<th>Quantized Text Encoder: 1</th>
+<th>Quantized Text Encoder: 3</th>
+<th>Quantized Text Encoders: 1 and 3</th>
+</tr>
+
+<tr>
+<td><img
+src="assets/050ec3599a85a7ee6d77b27779ad8efd4f0e8b883358ebc41233aafce59270a3.png"
+class="mx-auto" width="300"
+alt="Image with quantized text encoder 1." /></td>
+<td><img
+src="assets/f5811e27438d382c063676ddeccc567b8882b012ea80487c83f4f9c3b6d86c73.png"
+class="mx-auto" width="300"
+alt="Image with quantized text encoder 3." /></td>
+<td><img
+src="assets/308d5dc0f58d7337c4f8376b8cb77cb354e2393dccc12af9227160533f2d135f.png"
+class="mx-auto" width="300"
+alt="Image with quantized text encoders 1 and 3." /></td>
+</tr>
+</tbody>
+</table>
+<h2 class="relative group flex items-baseline">
+<a id="misc-findings" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#misc-findings" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Misc findings </span>
+</h2>
+<h3 class="relative group flex items-baseline">
+<a id="bfloat16-is-usually-better-on-h100" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#bfloat16-is-usually-better-on-h100" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> <code>bfloat16</code> is usually better on H100
+</span>
+</h3>
+<p>Using <code>bfloat16</code> can be faster for supported GPU
+architectures, such as H100 or 4090. The table below presents some
+numbers for PixArt measured on our H100 reference hardware:</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Batch Size</strong></th>
+<th style="text-align: center;"><strong>Precision</strong></th>
+<th style="text-align: center;"><strong>Quantization</strong></th>
+<th style="text-align: center;"><strong>Memory (GB)</strong></th>
+<th style="text-align: center;"><strong>Latency (Seconds)</strong></th>
+<th style="text-align: center;"><strong>Quantize TE</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP16</td>
+<td style="text-align: center;">INT8</td>
+<td style="text-align: center;">5.363</td>
+<td style="text-align: center;">1.538</td>
+<td style="text-align: center;">True</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">BF16</td>
+<td style="text-align: center;">INT8</td>
+<td style="text-align: center;">5.364</td>
+<td style="text-align: center;"><strong>1.454</strong></td>
+<td style="text-align: center;">True</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">FP16</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">5.363</td>
+<td style="text-align: center;">1.601</td>
+<td style="text-align: center;">True</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">BF16</td>
+<td style="text-align: center;">FP8</td>
+<td style="text-align: center;">5.363</td>
+<td style="text-align: center;"><strong>1.495</strong></td>
+<td style="text-align: center;">True</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 class="relative group flex items-baseline">
+<a id="the-promise-of-qint8" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#the-promise-of-qint8" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> The promise of <code>qint8</code> </span>
+</h3>
+<p>We found quantizing with <code>qint8</code> (instead of
+<code>qfloat8</code>) is generally better in terms of inference latency.
+This effect gets more pronounced when we horizontally fuse the attention
+QKV projections (calling <code>fuse_qkv_projections()</code> in
+Diffusers), thereby thickening the dimensions of the int8 kernels to
+speed up computation. We present some evidence below for PixArt:</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Batch Size</strong></th>
+<th style="text-align: center;"><strong>Quantization</strong></th>
+<th style="text-align: center;"><strong>Memory (GB)</strong></th>
+<th style="text-align: center;"><strong>Latency (Seconds)</strong></th>
+<th style="text-align: center;"><strong>Quantize TE</strong></th>
+<th style="text-align: center;"><strong>QKV Projection</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">INT8</td>
+<td style="text-align: center;">5.363</td>
+<td style="text-align: center;">1.538</td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;">False</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">INT8</td>
+<td style="text-align: center;">5.536</td>
+<td style="text-align: center;"><strong>1.504</strong></td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;">True</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">INT8</td>
+<td style="text-align: center;">5.365</td>
+<td style="text-align: center;">5.129</td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;">False</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">INT8</td>
+<td style="text-align: center;">5.538</td>
+<td style="text-align: center;"><strong>4.989</strong></td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;">True</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 class="relative group flex items-baseline">
+<a id="how-about-int4" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#how-about-int4" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> How about INT4? </span>
+</h3>
+<p>We additionally experimented with <code>qint4</code> when using
+<code>bfloat16</code>. This is only applicable to <code>bfloat16</code>
+on H100 because other configurations are not supported yet. With
+<code>qint4</code>, we can expect to see more improvements in memory
+consumption at the cost of increased inference latency. Increased
+latency is expected, because there is no native hardware support for
+int4 computation – the weights are transferred using 4 bits, but
+computation is still done in <code>bfloat16</code>. The table below
+shows our results for PixArt-Sigma:</p>
+<div class="max-w-full overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><strong>Batch Size</strong></th>
+<th style="text-align: center;"><strong>Quantize TE</strong></th>
+<th style="text-align: center;"><strong>Memory (GB)</strong></th>
+<th style="text-align: center;"><strong>Latency (Seconds)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">9.380</td>
+<td style="text-align: center;">7.431</td>
+</tr>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;"><strong>3.058</strong></td>
+<td style="text-align: center;">7.604</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Note, however, that due to the aggressive discretization of INT4, the
+end results can take a hit. This is why, for Transformer-based models in
+general, we usually leave the final projection layer out of
+quantization. In Quanto, we do this by:</p>
+<pre><code>quantize(pipeline.transformer, weights=qint4, exclude=&quot;proj_out&quot;)
+freeze(pipeline.transformer)</code></pre>
+<p><code>"proj_out"</code> corresponds to the final layer in
+<code>pipeline.transformer</code>. The table below presents results for
+various settings:</p>
+<table>
+<tbody>
+<tr>
+<th>Quantize TE: No, Layer exclusion: None</th>
+<th>Quantize TE: No, Layer exclusion: "proj_out"</th>
+<th>Quantize TE: Yes, Layer exclusion: None</th>
+<th>Quantize TE: Yes, Layer exclusion: "proj_out"</th>
+</tr>
+
+<tr>
+<td><img
+src="assets/91294aee0c37709d8724738a0d3b046324a0b7f57020af0e25610477b3d0ac90.png"
+class="mx-auto" width="300"
+alt="Image 1 without text encoder quantization." /></td>
+<td><img
+src="assets/3dbbd65dd69e56a28c8988a7fc1933e8d1205a581e6fa0c2c0f402d4fb25b78f.png"
+class="mx-auto" width="300"
+alt="Image 2 without text encoder quantization but with proj_out excluded in diffusion transformer quantization." /></td>
+<td><img
+src="assets/71aba7bfb723cd6b79c7e981fb36e807c6a9dfee3cbd77029b13550a7122d6d4.png"
+class="mx-auto" width="300"
+alt="Image 3 with text encoder quantization." /></td>
+<td><img
+src="assets/ca418c874aa1b8cff62d1e74176259c94014fb4e8a4a4f64540b82c6e7c0508d.png"
+class="mx-auto" width="300"
+alt="Image 3 with text encoder quantization but with proj_out excluded in diffusion transformer quantization.." /></td>
+</tr>
+</tbody>
+</table>
+<p>To recover the lost image quality, a common practice is to perform
+quantization-aware training, which is also supported in Quanto. This
+technique is out of the scope of this post, feel free to contact us if
+you're interested!</p>
+<p>All the results of our experiments for this post can be found <a
+href="https://huggingface.co/datasets/sayakpaul/sample-datasets/tree/main/quanto-exps-2">here</a>.</p>
+<h2 class="relative group flex items-baseline">
+<a id="bonus---saving-and-loading-diffusers-models-in-quanto" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#bonus---saving-and-loading-diffusers-models-in-quanto" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Bonus - saving and loading Diffusers models in
+Quanto </span>
+</h2>
+<p>Quantized Diffusers models can be saved and loaded:</p>
+<pre><code>from diffusers import PixArtTransformer2DModel
+from optimum.quanto import QuantizedPixArtTransformer2DModel, qfloat8
+
+model = PixArtTransformer2DModel.from_pretrained(&quot;PixArt-alpha/PixArt-Sigma-XL-2-1024-MS&quot;, subfolder=&quot;transformer&quot;)
+qmodel = QuantizedPixArtTransformer2DModel.quantize(model, weights=qfloat8)
+qmodel.save_pretrained(&quot;pixart-sigma-fp8&quot;)</code></pre>
+<p>The resulting checkpoint is <em><strong>587MB</strong></em> in size,
+instead of the original 2.44GB. We can then load it:</p>
+<pre><code>from optimum.quanto import QuantizedPixArtTransformer2DModel
+import torch
+
+transformer = QuantizedPixArtTransformer2DModel.from_pretrained(&quot;pixart-sigma-fp8&quot;) 
+transformer.to(device=&quot;cuda&quot;, dtype=torch.float16)</code></pre>
+<p>And use it in a <code>DiffusionPipeline</code>:</p>
+<pre><code>from diffusers import DiffusionPipeline
+import torch
+
+pipe = DiffusionPipeline.from_pretrained(
+    &quot;PixArt-alpha/PixArt-Sigma-XL-2-1024-MS&quot;, 
+    transformer=None,
+    torch_dtype=torch.float16,
+).to(&quot;cuda&quot;)
+pipe.transformer = transformer
+
+prompt = &quot;A small cactus with a happy face in the Sahara desert.&quot;
+image = pipe(prompt).images[0]</code></pre>
+<p>In the future, we can expect to pass the <code>transformer</code>
+directly when initializing the pipeline so that this will work:</p>
+<pre><code>pipe = PixArtSigmaPipeline.from_pretrained(
+    &quot;PixArt-alpha/PixArt-Sigma-XL-2-1024-MS&quot;, 
+-    transformer=None,
++    transformer=transformer,
+    torch_dtype=torch.float16,
+).to(&quot;cuda&quot;)</code></pre>
+<p><code>QuantizedPixArtTransformer2DModel</code> implementation is
+available <a
+href="https://github.com/huggingface/optimum-quanto/blob/601dc193ce0ed381c479fde54a81ba546bdf64d1/optimum/quanto/models/diffusers_models.py#L184"
+rel="nofollow">here</a> for reference. If you want more models from
+Diffusers supported in Quanto for saving and loading, please open an
+issue <a href="https://github.com/huggingface/optimum-quanto/issues/new"
+rel="nofollow">here</a> and mention <code>@sayakpaul</code>.</p>
+<h2 class="relative group flex items-baseline">
+<a id="tips" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#tips" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Tips </span>
+</h2>
+<ul>
+<li>Based on your requirements, you may want to apply different types of
+quantization to different pipeline modules. For example, you could use
+FP8 for the text encoder but INT8 for the diffusion transformer. Thanks
+to the flexibility of Diffusers and Quanto, this can be done
+seamlessly.</li>
+<li>To optimize for your use cases, you can even combine quantization
+with other <a
+href="https://huggingface.co/docs/diffusers/main/en/optimization/memory">memory
+optimization techniques</a> in Diffusers, such as
+<code>enable_model_cpu_offload()</code>.</li>
+</ul>
+<h2 class="relative group flex items-baseline">
+<a id="conclusion" class="block pr-1.5 text-lg md:absolute md:p-1.5 md:opacity-0 md:group-hover:opacity-100 md:right-full" href="#conclusion" rel="nofollow">
+<span class="header-link">
+<svg class="text-gray-500 hover:text-black dark:hover:text-gray-200 w-4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span> </a> <span> Conclusion </span>
+</h2>
+<p>In this post, we showed how to quantize Transformer models from
+Diffusers and optimize their memory consumption. The effects of
+quantization become more visible when we additionally quantize the text
+encoders involved in the mix. We hope you will apply some of the
+workflows to your projects and benefit from them 🤗.</p>
+<p>Thanks to <a href="https://github.com/pcuenca" rel="nofollow">Pedro
+Cuenca</a> for his extensive reviews on the post.</p>
+</div>
+</div>
+</body>
+</html>

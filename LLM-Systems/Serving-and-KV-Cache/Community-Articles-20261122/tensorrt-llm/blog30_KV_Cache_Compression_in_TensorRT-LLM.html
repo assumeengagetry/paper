@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>KV Cache Compression in TensorRT LLM</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">KV Cache Compression in TensorRT LLM</h1>
+</header>
+<section id="kv-cache-compression-in-tensorrt-llm" class="header">
+<h1>KV Cache Compression in TensorRT LLM</h1>
+<p>来源：<a
+href="https://nvidia.github.io/TensorRT-LLM/blogs/tech_blog/blog30_KV_Cache_Compression_in_TensorRT-LLM.html">https://nvidia.github.io/TensorRT-LLM/blogs/tech_blog/blog30_KV_Cache_Compression_in_TensorRT-LLM.html</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="bd-article">
+<section id="kv-cache-compression-in-tensorrt-llm"
+class="tex2jax_ignore mathjax_ignore">
+<h1 id="kv-cache-compression-in-tensorrt-llm-1">KV Cache Compression in
+TensorRT LLM<a href="#kv-cache-compression-in-tensorrt-llm"
+class="headerlink" title="Link to this heading">#</a></h1>
+<p><strong>Table of Contents</strong></p>
+<ul>
+<li><p><a href="#introduction-and-motivation"
+class="reference internal">Introduction and Motivation</a></p></li>
+<li><p><a href="#overview-of-kv-cache-compression-in-tensorrt-llm"
+class="reference internal">Overview of KV Cache Compression in TensorRT
+LLM</a></p></li>
+<li><p><a href="#kv-cache-compression-framework-design"
+class="reference internal">KV Cache Compression Framework Design</a></p>
+<ul>
+<li><p><a href="#design-philosophy" class="reference internal">Design
+Philosophy</a></p></li>
+<li><p><a href="#architecture-overview"
+class="reference internal">Architecture Overview</a></p></li>
+<li><p><a href="#configuration-and-setup-of-kv-cache-compression"
+class="reference internal">Configuration and Setup of KV Cache
+Compression</a></p></li>
+<li><p><a href="#kv-cache-compression-in-the-executor-iteration-loop"
+class="reference internal">KV Cache Compression in the Executor
+Iteration Loop</a></p></li>
+<li><p><a href="#kv-cache-compression-in-cross-request-kv-management"
+class="reference internal">KV Cache Compression in Cross-Request KV
+Management</a></p></li>
+</ul></li>
+<li><p><a href="#algorithm-implementations"
+class="reference internal">Algorithm Implementations</a></p>
+<ul>
+<li><p><a href="#nvfp4-cold-page-compression"
+class="reference internal">NVFP4 Cold-Page Compression</a></p></li>
+<li><p><a href="#triattention"
+class="reference internal">TriAttention</a></p></li>
+</ul></li>
+<li><p><a href="#evaluation"
+class="reference internal">Evaluation</a></p>
+<ul>
+<li><p><a href="#id4" class="reference internal">NVFP4 Cold-Page
+Compression</a></p></li>
+<li><p><a href="#id5"
+class="reference internal">TriAttention</a></p></li>
+</ul></li>
+<li><p><a href="#summary-and-future-work"
+class="reference internal">Summary and Future Work</a></p>
+<ul>
+<li><p><a href="#current-state" class="reference internal">Current
+State</a></p></li>
+<li><p><a href="#future-work" class="reference internal">Future
+Work</a></p></li>
+</ul></li>
+</ul>
+<h2 id="introduction-and-motivation">Introduction and Motivation<a
+href="#introduction-and-motivation" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>Agentic workloads change what a serving system has to do. Instead of
+answering once, an agent works through a job in many steps, and it calls
+the model again with every tool result. Each call carries the whole
+conversation so far, so the prompt grows turn by turn while the answer
+stays short. Figure 1 shows how far production traffic has already moved
+in this direction: prompts dominate and keep getting longer, the KV
+cache behind them runs to tens of gigabytes per conversation, almost
+every prompt is a prefix the system has seen before, and that prefix
+comes back within minutes. For this workload <strong>KV cache
+compression is critical</strong>. Every byte of KV cache saved pays back
+many times: a smaller cache keeps more turns resident, reuses more
+prefixes instead of recomputing them, and frees memory for more
+requests.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/9cee39c2c85eb24da13ea808352a69668ed68f8133f0e25bea10f065ceb1033e.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 1: LLM serving today. On a one-year production trace,
+requests are prompt-heavy, outputs are getting shorter, a single long
+context carries tens of gigabytes of KV, and almost all reuse arrives
+within minutes. In agentic coding traces, almost the entire prompt is
+reusable prefix. Sources: <a
+href="https://arxiv.org/abs/2608.13573">Nixon et al., A Year in LLM
+Serving (2026)</a> for the first six tiles, and our <a
+href="https://nvidia.github.io/TensorRT-LLM/blogs/tech_blog/blog27_Evaluating_Agentic_Serving_with_Trace_Replay_and_Job_Level_Metrics.html">trace-replay
+blog</a> for the last one.</em></sub></p>
+<p>Compression itself is not new. TensorRT LLM already stores the active
+cache in low precision and lets <a
+href="https://nvidia.github.io/TensorRT-LLM/blogs/tech_blog/blog17_Sparse_Attention_in_TensorRT-LLM.html"
+class="reference internal"><span class="std std-doc">sparse
+attention</span></a> skip part of it. Both act inside the forward pass.
+Yet a KV cache spends most of its life <strong>outside the attention
+kernel</strong>: waiting between prefill chunks and decode steps, parked
+while a tool runs, kept after the request for the next turn, and moved
+to host or disk memory when the GPU is full. Each of these moments is a
+chance to compress, and until now no part of the serving stack was in
+charge of them. This blog introduces a <strong>KV cache compression
+framework</strong> that turns these moments into well-defined attachment
+points and lets any compression method plug into the ones it needs. The
+cache manager keeps ownership of every page and the attention kernels
+never see a compressed page, so one framework serves every model and
+compression can be co-designed with storage, transfer and compute at the
+system level. Two methods ship on it today:</p>
+<ul>
+<li><p><strong><a href="#nvfp4-cold-page-compression"
+class="reference internal">NVFP4 cold-page compression</a></strong>:
+keeps attention KV pages in NVFP4 only while they are
+<strong>cold</strong>, that is, while they sit in host or disk memory.
+The conversion runs inside the copy, and the page returns to its
+original precision when it comes back to the GPU. On an agentic replay
+with a growing disk tier it completes up to <strong>1.64x the
+requests</strong> with up to <strong>1.9x lower time to first
+token</strong> on the same hardware.</p></li>
+<li><p><strong><a href="#triattention"
+class="reference internal">TriAttention</a></strong>: a training-free
+method that periodically scores the tokens generated so far and
+<strong>evicts the least useful ones</strong> between decoding steps
+once a sequence exceeds its budget. On Qwen3-8B it delivers up to
+<strong>1.6x the decode throughput</strong> at the same batch size and
+<strong>2.7x the dense peak</strong> once the dense cache runs out of
+memory, with accuracy within noise of dense from an 8k-token budget
+on.</p></li>
+</ul>
+<p>The next section gives an overview of what ships, followed by the
+framework design, how each method is built on it, and the
+evaluation.</p>
+<h2 id="overview-of-kv-cache-compression-in-tensorrt-llm">Overview of KV
+Cache Compression in TensorRT LLM<a
+href="#overview-of-kv-cache-compression-in-tensorrt-llm"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>The general idea is simple: <strong>shrink the KV cache at every safe
+point of the serving workflow, not only inside the forward
+pass</strong>. Figure 2 shows how this fits with the two paths TensorRT
+LLM already has. Active KV cache quantization sets the data type of the
+GPU cache and is read and written by every forward step. Sparse
+attention changes which KV entries attention keeps or reads. The
+<strong>KV cache compression framework</strong> covers the rest: it runs
+at stable boundaries outside the forward pass, between steps or when a
+page moves between cache tiers, and it works on KV pages across the
+whole inference system, from the GPU cache at runtime to host and disk
+storage.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/78ccf5df79aaec55342eb31b6e7c8eaff708a15134a5aaf15a6416c5dab29881.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 2: The TensorRT LLM stack. KV cache compression sits
+in the compression layer next to quantization and sparse attention. It
+changes what is stored in the KV cache and touches neither the kernels
+below nor the serving layers above.</em></sub></p>
+<p>To demonstrate the framework’s generality, we have built two methods
+on it that act at different points in the life of a KV cache:</p>
+<ul>
+<li><p><strong>NVFP4 cold-page compression</strong>: stores attention KV
+pages as NVFP4 while they sit in host or disk memory. A page is encoded
+on the way out and decoded on the way back, so the GPU cache and the
+attention kernels keep the model’s normal KV data type.</p></li>
+<li><p><strong>TriAttention</strong>: runs between decode steps. It
+scores the generated tokens with an importance measure calibrated
+offline per attention head and keeps only a fixed budget of them. The
+prompt is never touched.</p></li>
+</ul>
+<p>The two tables below summarize the current coverage.</p>
+<div data-align="center">
+<div class="pst-scrollable-table-container">
+<table class="table">
+<thead>
+<tr class="row-odd">
+<th class="head text-left"><p>Method</p></th>
+<th class="head text-left"><p>When It Runs</p></th>
+<th class="head text-left"><p>What It Changes</p></th>
+<th class="head text-left"><p>Supported Attention Types<a
+href="#attn-types" id="id1" class="footnote-reference brackets"><span
+class="fn-bracket">[</span>1<span
+class="fn-bracket">]</span></a></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even">
+<td class="text-left"><p><strong>NVFP4 cold-page
+compression</strong></p></td>
+<td class="text-left"><p>When a page moves between the GPU and host or
+disk memory</p></td>
+<td class="text-left"><p>How attention KV is stored while off the
+GPU</p></td>
+<td class="text-left"><p>MHA / MQA / GQA / MLA / hybrid</p></td>
+</tr>
+<tr class="row-odd">
+<td class="text-left"><p><strong>TriAttention</strong></p></td>
+<td class="text-left"><p>Periodically between decode steps</p></td>
+<td class="text-left"><p>Which KV tokens are kept</p></td>
+<td class="text-left"><p>MHA / MQA / GQA</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><sub><em>Table 1. The two methods built on the framework: when each
+one runs, what it changes, and the attention types it
+supports.</em></sub></p>
+</div>
+<div data-align="center">
+<div class="pst-scrollable-table-container">
+<table class="table">
+<thead>
+<tr class="row-odd">
+<th class="head text-left"><p>Memory Tier</p></th>
+<th class="head text-left"><p>NVFP4 Cold-Page Compression</p></th>
+<th class="head text-left"><p>TriAttention</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even">
+<td class="text-left"><p><strong>GPU (active KV)</strong></p></td>
+<td class="text-left"><p>Unchanged (FP16 / BF16 / FP8)</p></td>
+<td class="text-left"><p>Generated tokens evicted periodically</p></td>
+</tr>
+<tr class="row-odd">
+<td class="text-left"><p><strong>Host memory</strong></p></td>
+<td class="text-left"><p>NVFP4</p></td>
+<td class="text-left"><p>Not affected</p></td>
+</tr>
+<tr class="row-even">
+<td class="text-left"><p><strong>Disk</strong></p></td>
+<td class="text-left"><p>NVFP4</p></td>
+<td class="text-left"><p>Not affected</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><sub><em>Table 2. What each method does to the KV cache in each
+memory tier.</em></sub></p>
+</div>
+<p><strong>Note</strong>: Currently, this design targets and is
+optimized for NVIDIA Blackwell GPUs and newer architectures.</p>
+<p>The rest of the blog covers the framework design shared by all
+methods, with cold-page compression as the worked example. The framework
+landed in <a href="https://github.com/NVIDIA/TensorRT-LLM/pull/15106"
+class="reference external">#15106</a> and its runtime integration in <a
+href="https://github.com/NVIDIA/TensorRT-LLM/pull/15697"
+class="reference external">#15697</a>. The interface between the cache
+manager and a page encoder is in the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/developer-guide/kv-cache-cold-page-codec.md"
+class="reference external">cold-page codec design guide</a>, and the
+APIs for adding a method are in the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/developer-guide/kv-cache-compression-development.md"
+class="reference external">KV Cache Compression Development
+Guide</a>.</p>
+<h2 id="kv-cache-compression-framework-design">KV Cache Compression
+Framework Design<a href="#kv-cache-compression-framework-design"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>Our goals for the framework are two. A user turns a compression
+method on with <strong>one configuration block</strong> and nothing
+else. A developer adds a new method with <strong>plain Python and
+kernels</strong>, without touching the runtime. The framework takes care
+of the rest.</p>
+<h3 id="design-philosophy">Design Philosophy<a href="#design-philosophy"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>Beyond the forward pass, a serving system offers <strong>extra
+opportunities to compress the KV cache</strong>: moments where the KV
+already exists, nothing is reading it, and a dedicated algorithm can run
+at exactly that time. Using them well means three things:</p>
+<ul>
+<li><p><strong>Untouched attention</strong>: attention reads the KV
+cache as before.</p></li>
+<li><p><strong>Seamless insertion</strong>: no exposed overhead; the
+compression kernels hide inside existing steps and nothing else in the
+runtime changes.</p></li>
+<li><p><strong>General to models</strong>: works on KV pages, not on
+model-specific operators.</p></li>
+</ul>
+<p>To insert precisely, we define five stages in the life of a KV cache
+(Figure 3):</p>
+<ol>
+<li><p><strong>Prefill-chunk stage</strong>: after each prefill
+chunk.</p></li>
+<li><p><strong>After-prefill stage</strong>: right after prefill, before
+the first decode step.</p></li>
+<li><p><strong>Decode stage</strong>: between decode steps
+(TriAttention).</p></li>
+<li><p><strong>Tool-call stage</strong>: around a tool call, while the
+request waits.</p></li>
+<li><p><strong>After-request stage</strong>: after the request, KV kept
+for reuse on GPU, host or disk (cold-page compression).</p></li>
+</ol>
+<div data-align="center">
+<figure>
+<img
+src="assets/4bb3ff200d9e97240af7fadc77d4126bad4163e9c9c01d585f1b6b9f2493890b.svg"
+width="900" />
+</figure>
+</div>
+<p><sub><em>Figure 3: Five stages in the life of a KV cache where
+compression can run. TriAttention acts at the decode stage (stage 3) and
+cold-page compression at the after-request stage (stage 5). The dashed
+stages are in scope and have no method yet.</em></sub></p>
+<p>These stages fall into two groups, and each group has its own
+integration path. Stages 1 to 3 happen while a request is running, so
+<strong>iteration-driven</strong> methods hook into the executor loop at
+each stage boundary and transform the retained KV before the next step
+reads it; TriAttention is one. Stages 4 and 5 happen while no request is
+running: the cache manager holds the KV, keeps it across requests, and
+moves it between GPU, host and disk memory. For them we define
+<strong>cross-request KV management</strong> methods, which run inside
+the cache manager. A method may use either path or both, and in both the
+cache manager keeps ownership of every page.</p>
+<h3 id="architecture-overview">Architecture Overview<a
+href="#architecture-overview" class="headerlink"
+title="Link to this heading">#</a></h3>
+<p>To keep compression simple and straightforward, the whole design
+breaks down into three parts, shown in Figure 4, without modifying any
+existing runtime component:</p>
+<ul>
+<li><p><strong>Compression config</strong>: one block that selects the
+method and carries its options; a factory builds the method from it
+before the model runs.</p></li>
+<li><p><strong>Compression manager</strong>: the class a method
+inherits. It already sits at every hook in the executor loop and in the
+cache manager’s page migration; a method overrides the functions for the
+stages it needs and the compression flow is in place.</p></li>
+<li><p><strong>Method-specific kernels</strong>: a method could bring
+its own kernels, new algorithms as well as fusions with existing parts
+of the runtime.</p></li>
+</ul>
+<p>The executor and the KV cache manager are existing components. The
+framework does not replace them; it meets them at the hooks and leaves
+scheduling and memory ownership where they are.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/9c46a73aa800d32dd8316a6fcb835d9f5b82bd6bdbb43d974fdf18e521804848.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 4: The KV cache compression framework and its
+execution order. The config builds the manager (1). The manager inserts
+a hook into the executor and one into the KV cache manager (2). The
+concrete method inherits the manager and runs inside those hooks (3),
+launching its own kernels (4). Highlighted boxes are the framework
+parts; white boxes are existing system components, with the stages each
+one hosts today and in the future.</em></sub></p>
+<p>In the current implementation, <strong>storage-bound</strong>
+compression is the first cross-request mechanism: it acts when a page
+moves to host or disk memory and defines how the page is stored there.
+Today TriAttention implements the decode stage (stage 3) and NVFP4
+cold-page compression the offload part of the after-request stage (stage
+5). The other stages are reachable the same way and will be filled as
+new methods need them. The rest of this section covers the configuration
+and the two paths.</p>
+<h3 id="configuration-and-setup-of-kv-cache-compression">Configuration
+and Setup of KV Cache Compression<a
+href="#configuration-and-setup-of-kv-cache-compression"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>Turning compression on takes one configuration block, and everything
+else follows from it: which modules to engage and whether the rest of
+the setup allows it. The block, <span class="pre"><code
+class="docutils literal notranslate">kv_cache_compression_config</code></span>,
+holds:</p>
+<ul>
+<li><p><strong><span class="pre"><code
+class="docutils literal notranslate">algorithm</code></span></strong>:
+which method to run. One method can be active per LLM instance.</p></li>
+<li><p><strong>Method options</strong>: the method’s own parameters,
+e.g. for TriAttention the token <span class="pre"><code
+class="docutils literal notranslate">budget</code></span>, the eviction
+period, the <span class="pre"><code
+class="docutils literal notranslate">eviction_mode</code></span> and the
+calibration file.</p></li>
+</ul>
+<p>It works the same in the Python API, in <span class="pre"><code
+class="docutils literal notranslate">trtllm-serve</code></span> YAML and
+in <span class="pre"><code
+class="docutils literal notranslate">trtllm-bench</code></span>; the
+full option table is in the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/features/kv-cache-compression.md"
+class="reference external">KV Cache Compression feature
+documentation</a>.</p>
+<p>Because compression can happen at many places and stages of TensorRT
+LLM, initialization has to be deliberate: with the config in hand, the
+compression manager decides which parts of the runtime to modify and
+invoke for compression. Before anything is built, a factory reads the
+block and wires things up: which modules the method engages (the cache
+manager’s page migration for cold-page compression, the executor loop
+for TriAttention), whether block reuse and the configured speculative
+decoding mode stay valid, and whether the platform matches, since some
+methods target a specific one (e.g. TriAttention currently requires
+Blackwell or a newer architecture).</p>
+<p>An unsupported combination is rejected with a clear message;
+otherwise the compression manager is built and bound to <span
+class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span>. For
+the interfaces, see the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/developer-guide/kv-cache-compression-development.md"
+class="reference external">KV cache compression development
+guide</a>.</p>
+<h3 id="kv-cache-compression-in-the-executor-iteration-loop">KV Cache
+Compression in the Executor Iteration Loop<a
+href="#kv-cache-compression-in-the-executor-iteration-loop"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>The most important property of the framework is seamless insertion:
+compression reaches the whole lifecycle of a request inside TensorRT LLM
+without the runtime learning anything new. This section shows how.</p>
+<p>In the TensorRT LLM executor every iteration follows the same cycle.
+The scheduler picks a batch of requests; each resource manager prepares
+its resources for that batch (<span class="pre"><code
+class="docutils literal notranslate">prepare_resources</code></span>);
+the model runs one forward pass; each manager updates its state (<span
+class="pre"><code
+class="docutils literal notranslate">update_resources</code></span>);
+and a finished request releases its resources (<span class="pre"><code
+class="docutils literal notranslate">free_resources</code></span>).
+These three callbacks are exactly the moments when nothing is reading
+the cache, so the five stages of Figure 3 become hooks here.</p>
+<p><span class="pre"><code
+class="docutils literal notranslate">KVCacheCompressionManager</code></span>
+inherits <span class="pre"><code
+class="docutils literal notranslate">BaseResourceManager</code></span>
+and is registered as the last resource manager, so every hook sees the
+cache already updated. In <span class="pre"><code
+class="docutils literal notranslate">prepare_resources</code></span> it
+fires <span class="pre"><code
+class="docutils literal notranslate">on_request_init</code></span> for a
+request’s first prefill chunk (stage 1) and <span class="pre"><code
+class="docutils literal notranslate">on_generation_step_begin</code></span>
+(stage 3); in <span class="pre"><code
+class="docutils literal notranslate">update_resources</code></span> it
+fires <span class="pre"><code
+class="docutils literal notranslate">on_context_step_end</code></span>
+for the requests whose last prefill chunk just ran (stage 2) and <span
+class="pre"><code
+class="docutils literal notranslate">on_generation_step_end</code></span>
+(stage 3); in <span class="pre"><code
+class="docutils literal notranslate">free_resources</code></span> it
+fires <span class="pre"><code
+class="docutils literal notranslate">on_request_finish</code></span>
+(stages 4 and 5). Every hook does nothing by default, and a method
+overrides the hooks of the stages it wants (Figure 5). The manager owns
+no pages, so it never touches admission or memory accounting.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/0138e7953812700f874e50b1a2a4ca9657c74c55c5b271f8e6bda1370ebbe366.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 5: How the hooks reach the executor iteration loop.
+Every BaseResourceManager receives three callbacks per iteration: before
+the forward pass, after it, and when a request ends.
+KVCacheCompressionManager inherits BaseResourceManager and turns the
+three callbacks into the five hooks. A method overrides the hooks it
+needs.</em></sub></p>
+<p>Inside a hook a method runs its own kernels on the cache. A shared,
+algorithm-neutral compaction kernel packs the kept tokens and returns
+the freed pages, so a method only decides what to keep. Two rules: the
+keep policy stays separate from the compaction, and GPU work finishes
+before any page is shrunk or freed. TriAttention overrides <span
+class="pre"><code
+class="docutils literal notranslate">on_generation_step_end</code></span>,
+scores and selects tokens with its own kernels, and calls the shared
+compaction.</p>
+<h3 id="kv-cache-compression-in-cross-request-kv-management">KV Cache
+Compression in Cross-Request KV Management<a
+href="#kv-cache-compression-in-cross-request-kv-management"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>Once a request pauses or ends, its KV belongs to the cache manager,
+so that is where compression plugs in: at the points where pages move.
+During a tool call (stage 4 in Figure 3) and after the request (stage
+5), <span class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span>
+decides which pages stay on the GPU, move to host or disk memory, are
+reused by a later request or transferred to another worker; it does no
+compression itself. Every page that is reused skips its prefill
+outright, the largest saving a serving system can get, and compression
+lets the tiers hold more of these pages. Today the framework covers the
+first and busiest of these movements, offload and onboard, with the
+<strong>storage-bound</strong> mechanism.</p>
+<p><strong>Compression is more than the algorithm.</strong> A page that
+crosses a storage boundary is already being read, moved and written by
+the cache manager’s own copy kernels, so a compression method should not
+add a pass of its own on top. The storage-bound path is built around
+that: quantization is fused into the offload copy and dequantization
+into the onboard copy, so compression rides the transfer’s bandwidth
+instead of competing with it.</p>
+<p><strong>How it plugs into <span class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span>.</strong>
+<span class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span>
+keeps a hot representation on the GPU, one page spread over several
+kernel-facing pools, and a cold representation off the GPU, one
+fixed-size block per page, with a codec translating between the two. The
+default codec concatenates the pools into the block; NVFP4 cold-page
+compression is a codec that produces a smaller one, quantizing on the
+way out and dequantizing on the way back inside the same copy. <span
+class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span>
+calls the codec with batches of pages on its own stream and never looks
+inside the block, so it keeps ownership of pools, mappings and migration
+while the codec decides how a page is stored while cold. The codec and
+its kernels are described in the NVFP4 cold-page compression section
+below and in the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/developer-guide/kv-cache-cold-page-codec.md"
+class="reference external">cold-page codec design guide</a>.</p>
+<p>The same fusion could later apply to the other movements on this
+path: the KV transfer between workers in disaggregated serving and the
+pause at a tool call.</p>
+<h2 id="algorithm-implementations">Algorithm Implementations<a
+href="#algorithm-implementations" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>In this section, we walk through the two KV cache compression methods
+currently implemented in TensorRT LLM, focusing on how each method works
+and how it integrates with the framework. For a quick-start guide and
+runnable configurations, please refer to the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/kv_cache_compression"
+class="reference external">KV cache compression examples</a>.</p>
+<h3 id="nvfp4-cold-page-compression">NVFP4 Cold-Page Compression<a
+href="#nvfp4-cold-page-compression" class="headerlink"
+title="Link to this heading">#</a></h3>
+<h4 id="introduction">Introduction<a href="#introduction"
+class="headerlink" title="Link to this heading">#</a></h4>
+<p>NVFP4 cold-page compression stores KV cache pages in NVIDIA’s 4-bit
+NVFP4 format while they sit in host or disk memory, and keeps the
+model’s normal data type on the GPU. The design starts from one
+observation: the moment a page leaves the GPU is the <strong>best place
+to compress</strong> it. The page is being copied anyway, nothing reads
+it while it is cold, and only the pages pushed out by memory pressure
+are touched, so the compression is effectively free and lands exactly
+where capacity is short. It also happens only under pressure and never
+on the whole cache, which makes it <strong>far friendlier to
+accuracy</strong> than compressing every page on every step. NVFP4
+itself is the format TensorRT LLM already uses for weights and for the
+active KV cache, 4.5 bits per value including scales, so a cold page
+shrinks to about a quarter of FP16 and half of FP8, and the attention
+kernels never see the compressed form. To try it, see the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/examples/kv_cache_compression/nvfp4_cold_page.md"
+class="reference external">NVFP4 cold-page example</a>. Figure 6
+compares the three layouts of one KV page. The method was added in <a
+href="https://github.com/NVIDIA/TensorRT-LLM/pull/18091"
+class="reference external">#18091</a>.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/4955ccbaecd634a5fe77dc24225de1cf1d14c3f19d6db5bbaccc9b8d9d5f40b7.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 6: One KV page of one layer, holding K and V for 32
+tokens, in three layouts. The hot page on the GPU stores 16 bits per
+value in one pool. The NVFP4 active KV cache and the NVFP4 cold page
+hold the same bytes, 4-bit data plus one 8-bit block scale per 16
+values. The active cache keeps them in two pools that attention reads
+together; the cold page packs them into one fixed-size block with one
+base address.</em></sub></p>
+<h4 id="how-it-works-in-tensorrt-llm">How It Works in TensorRT LLM<a
+href="#how-it-works-in-tensorrt-llm" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p>Within TensorRT LLM, cold-page compression is a compression manager
+on the cross-request path, enabled with <span class="pre"><code
+class="docutils literal notranslate">algorithm:</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">quantization_for_cold_page</code></span>
+and <span class="pre"><code
+class="docutils literal notranslate">quant:</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">nvfp4</code></span>. Below we
+highlight the fused encode and decode kernels, the single-block
+cold-page layout, and the handling of position-encoded values; Figure 7
+follows one page out of the GPU and back.</p>
+<p><strong>Encode and decode, fused with the copy.</strong> When <span
+class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span>
+offloads a batch of pages, one fused kernel quantizes them and writes
+the cold pages straight into the host slots; on the way back its
+counterpart dequantizes them into the GPU pool before attention reads
+them. The kernels build on the NVFP4 conversion path TensorRT LLM
+already uses, so no calibration is needed, and they are shaped like the
+cache manager’s own copy kernel, streaming the page through shared
+memory and storing directly into host memory, so quantization rides the
+transfer instead of adding a pass. Only attention K and V are quantized;
+everything else in a page, such as the recurrent state of hybrid layers,
+is copied unchanged in the same launch. Target and draft caches are both
+covered, so speculative decoding works with the codec enabled.</p>
+<p><strong>One block per page.</strong> A hot page is spread over
+several GPU pools because that is the layout attention reads. A cold
+page is read by nobody, so its layout is chosen purely for storage and
+transfer: one fixed-size block holding the NVFP4 data, the scales and
+the lossless buffers (Figure 6). Host and disk address it as base plus
+slot times size, one copy moves a whole page instead of one per buffer,
+disk issues one I/O operation per page instead of one per pool, and a
+move between host and disk copies the bytes unchanged. This is exactly
+the contract <span class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span> asks
+of a codec, which is what lets it slot in without changing the cache
+manager.</p>
+<p><strong>The RoPE part of K.</strong> The position-encoded (RoPE) part
+of each K vector is the most sensitive to quantization, so it is where
+compression ratio and accuracy pull against each other. By default we
+quantize it like the rest for the best ratio; DeepSeek-V4 follows its
+native scheme and stores it as two FP4 components (2FP4), the second
+holding the first one’s rounding error, which keeps accuracy at that
+ratio (<a href="https://github.com/NVIDIA/TensorRT-LLM/pull/18783"
+class="reference external">#18783</a>). For users who want to explore
+the other side of the trade, <span class="pre"><code
+class="docutils literal notranslate">skip_rope_quantization:</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">true</code></span> keeps the RoPE
+part at its original precision at a lower ratio (<a
+href="https://github.com/NVIDIA/TensorRT-LLM/pull/19391"
+class="reference external">#19391</a>). Validate the choice on your
+workload; see the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/examples/kv_cache_compression/nvfp4_cold_page.md#deepseek-v4"
+class="reference external">NVFP4 cold-page example</a>.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/72b2fef01d7ad94a97c445be6f0e86d7cbbb2649fb835c1cc9535a8d7c6ce422.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 7: One page leaving and returning to the GPU inside
+the KV cache manager. A page goes cold when its request pauses or ends,
+or under memory pressure. A fused kernel quantizes the 16-bit hot page
+and copies it to the host and disk tiers as one 4.5-bit cold block in a
+single pass, and a fused decode kernel dequantizes and copies it back
+when an active request reuses it.</em></sub></p>
+<p>The implementation lives in <span class="pre"><code
+class="docutils literal notranslate">tensorrt_llm/_torch/kv_cache_compression/quantization_for_cold_page/</code></span>
+(manager and layout policy), <span class="pre"><code
+class="docutils literal notranslate">cpp/tensorrt_llm/batch_manager/kv_cache_compression/</code></span>
+(native codec) and <span class="pre"><code
+class="docutils literal notranslate">cpp/tensorrt_llm/kernels/nvfp4ColdPageKernels.cu</code></span>
+(fused encode and decode kernels).</p>
+<h3 id="triattention">TriAttention<a href="#triattention"
+class="headerlink" title="Link to this heading">#</a></h3>
+<section id="id2">
+<span id="introduction-1"></span>
+<h4 id="introduction-1">Introduction<a href="#id2" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p>In a long generation most of the KV cache is generated tokens, and
+most of them will not matter to the queries still to come. <a
+href="https://arxiv.org/abs/2604.04921"
+class="reference external">TriAttention</a> (ICML 2026) predicts which
+ones matter from per-head query statistics collected once offline, and
+every few tokens evicts the rest and compacts the cache, so decoding
+reads a shorter cache and more sequences fit on the GPU. Figure 8 shows
+one round. For details, see the paper.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/06a4a868fff537be09af8ddc0db0f600502018a328097680bb9122d2b263037a.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 8: TriAttention keeps the prompt intact and evicts
+generated tokens. Every β new tokens, the generated tokens are scored
+with the calibrated query statistics of each head. The `budget`
+highest-scoring tokens stay, the rest are evicted, and the cache is
+compacted, so decoding continues over a shorter cache.</em></sub></p>
+</section>
+<section id="id3">
+<span id="how-it-works-in-tensorrt-llm-1"></span>
+<h4 id="how-it-works-in-tensorrt-llm-1">How It Works in TensorRT LLM<a
+href="#id3" class="headerlink" title="Link to this heading">#</a></h4>
+<p><strong>Migrating the mechanism to high-performance kernels.</strong>
+A round scores the generated tokens, selects the keep set, and compacts
+the cache (Figure 9). TriAttention was added in <a
+href="https://github.com/NVIDIA/TensorRT-LLM/pull/16957"
+class="reference external">#16957</a>, with the batched compaction
+kernels of <a href="https://github.com/NVIDIA/TensorRT-LLM/pull/16836"
+class="reference external">#16836</a>. Each step is implemented with the
+best-suited kernel path, CuTe DSL for scoring and selection, native CUDA
+for compaction, working on the paged cache in place. A round runs every
+<span class="pre"><code
+class="docutils literal notranslate">beta</code></span> generated tokens
+once a sequence exceeds its <span class="pre"><code
+class="docutils literal notranslate">budget</code></span>; the prompt is
+never evicted, so block reuse stays valid.</p>
+<p><strong>Keeping the extra work off the critical path.</strong> These
+steps are work that attention does not have. The kernels keep the GPU
+time to a small fraction of a decode step, and the round is driven from
+the executor’s own callbacks, so no CPU-side overhead is exposed
+either.</p>
+<p><strong>Injection into decoding.</strong> A round has to run after a
+decode step has written its tokens and before the next step reads the
+cache. That is the <span class="pre"><code
+class="docutils literal notranslate">on_generation_step_end</code></span>
+hook, the only one TriAttention overrides. It is enabled with <span
+class="pre"><code
+class="docutils literal notranslate">algorithm:</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">triattention</code></span> plus
+<span class="pre"><code
+class="docutils literal notranslate">budget</code></span>, <span
+class="pre"><code
+class="docutils literal notranslate">beta</code></span>, <span
+class="pre"><code
+class="docutils literal notranslate">eviction_mode</code></span> and
+<span class="pre"><code
+class="docutils literal notranslate">calibration_path</code></span>.
+When the hook fires, only the requests that are due run the round in
+Figure 9, and a speculative step that confirms several tokens triggers
+at most one.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/c4483001f67328618f9f091ee020b5fed8fa4c555148e11d484274025fa85333.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 9: One TriAttention eviction round in TensorRT LLM,
+one box per kernel. The generation-end hook picks the due requests; a
+Triton kernel gathers the mean-phase rows; the fused CuTe DSL kernel
+scores every generated token from the K pages; the selection rows are
+produced in the same kernel for `union` mode and by a Triton reduction
+for the per-head modes; a CuTe DSL radix top-k and a Triton tie-settling
+pass choose the kept tokens; a native CUDA kernel compacts K and V; and
+the cache manager takes the new length and the freed
+pages.</em></sub></p>
+<p>For calibration, configuration and current requirements, see the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/examples/kv_cache_compression/triattention.md"
+class="reference external">TriAttention example</a>.</p>
+</section>
+<h2 id="evaluation">Evaluation<a href="#evaluation" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>This section consolidates performance and accuracy results for the KV
+cache compression methods supported in TensorRT LLM. Every comparison is
+against TensorRT LLM’s own uncompressed configuration on the same
+hardware, software build, and serving configuration; only the
+compression setting differs.</p>
+<section id="id4">
+<span id="nvfp4-cold-page-compression-1"></span>
+<h3 id="nvfp4-cold-page-compression-1">NVFP4 Cold-Page Compression<a
+href="#id4" class="headerlink" title="Link to this heading">#</a></h3>
+<p>Unless otherwise specified, the experiments below use GB300 GPUs, the
+paged KV cache manager, and block reuse enabled. Before any result was
+accepted we confirmed that pages were actually compressed during the
+measured window, using the offload and onboard byte counters on the
+<span class="pre"><code
+class="docutils literal notranslate">/metrics</code></span> endpoint and
+an Nsight Systems trace.</p>
+<h4 id="performance">Performance<a href="#performance"
+class="headerlink" title="Link to this heading">#</a></h4>
+<p>The NVFP4 format alone brings a large reduction: a cold page costs
+0.5625 bytes per value against 2 for FP16 or BF16 and 1 for FP8. Figure
+10 compares the measured size of one attention KV page off the GPU with
+its uncompressed baseline for four models; the recurrent-state buffers
+of hybrid models are stored as they are and do not shrink.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/d90104328ede84bf331ee3f428a5719e8435f7732a927bde9826ed6a070c53fc.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 10: Measured size, in MiB, of one attention KV page
+off the GPU, uncompressed and as an NVFP4 cold page. A page holds 64
+tokens for Qwen3.5-397B-A17B and GLM-5.2 and 32 tokens for Qwen3-8B. FP8
+pages shrink by 43.75%, BF16 pages by 71.9%; the GLM-5.2 MLA page
+shrinks a little less because its index buffer stays
+lossless.</em></sub></p>
+<p>A smaller cold page means <strong>more capacity in the host and disk
+tiers, and therefore a higher prefix-cache hit rate</strong> when the
+working set does not fit. To show what that buys in practice, we take a
+large model on a complex agentic workload, GLM-5.2 serving AgentX traces
+across many GPU counts and concurrencies, and compare the serving Pareto
+frontier with and without NVFP4 cold pages; we then look at where the
+gain comes from.</p>
+<p>Put together, compression and the cold-page mechanism <strong>move
+the serving frontier for agentic workloads</strong>. Figure 11 takes the
+ten highest-throughput points of the GLM-5.2 frontier with NVFP4 cold
+pages and shows, for each, the run of that serving point with an
+uncompressed FP8 host cache. The gain is largest where the FP8 tier
+misses most, <strong>up to 84% more throughput per GPU and 4x the P90
+interactivity</strong>, and fades to nothing where it already reads most
+prefixes; averaged over the ten points it is <strong>+21% throughput and
++92% interactivity</strong>.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/40fcee0a2dc8e1b3c0c648bc6cde2cdeeb7e96bd6c79f535fa7d085feda2cff2.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 11: GLM-5.2 Pareto frontier · GB300 · 128 GiB of host
+cache per prefill rank · the ten highest-throughput NVFP4 points and the
+FP8 host-cache run of each. Top: each green numbered point is a serving
+point with NVFP4 cold pages, the hollow point is its run with an
+uncompressed FP8 host cache, and the arrow shows the change. Bottom: the
+gain of each numbered configuration in tok/s/GPU (green) and in P90
+interactivity (blue). Two repeats per setting; AgentX
+replay.</em></sub></p>
+<p>The gain is not tied to one setup. Figure 12 details the four
+configurations with the largest gains, across two models (GLM-5.2 and
+Qwen3.5-397B-A17B), from 8 to 40 GPUs, and from concurrency 128 to 1536:
+in every one <strong>both the hit rate and the TTFT improve</strong>.
+The improvement comes from two sources, not one: the smaller cold page
+lets the tiers <strong>hold more prefixes, so the hit rate
+rises</strong>, and it also means <strong>fewer bytes to move, so
+offloading and onboarding themselves get faster</strong>.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/2557107220df2fd317c48d361280ccc6546dc3755bfbe1ea0c53c0a2b355217a.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 12: The four serving configurations with the largest
+NVFP4 gains · AgentX replay. Each panel is one serving point run with an
+uncompressed FP8 host cache and with an NVFP4 host cache, two or three
+repeats per setting; bars are throughput per GPU and P90 interactivity,
+with the cache-read hit rate and P90 TTFT below.</em></sub></p>
+<h4 id="where-the-gain-comes-from">Where the Gain Comes From<a
+href="#where-the-gain-comes-from" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p>The frontier gains above come mostly from a higher hit rate, but the
+benefit does not stop when the hit rate saturates. There are <strong>two
+cases</strong>.</p>
+<p><strong>The hit rate rises.</strong> When the host tier cannot hold
+the working set, a smaller cold page means more prefixes are still there
+when the next turn arrives. In the configurations of Figure 12 the hit
+rate rises by <strong>5 to 34 points</strong>. The effect is clearest in
+a GPU-limited deployment (Figure 13), where the uncompressed tier reads
+barely half of the prefixes: at every disk-tier size NVFP4 hits more,
+completes more and answers sooner, peaking at <strong>64% more requests
+completed and 48% lower TTFT</strong>.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/e9c3f3170816e17125f0b04331a010c945b80213841f387140829a314be6bd4e.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 13: Qwen3.5-397B-A17B · ten GB300s · concurrency 192
+· growing disk tier. NVFP4 completes more requests, hits more, and
+answers sooner at every disk size.</em></sub></p>
+<p><strong>The hit rate is saturated, and the hits move from disk to
+host.</strong> Even when the hit rate cannot rise further, cold pages
+still pay: a hit served from disk costs far more than one served from
+host memory, and a hit rate alone does not tell them apart. TensorRT LLM
+now counts every hit by the tier that served it (<a
+href="https://github.com/NVIDIA/TensorRT-LLM/pull/18583"
+class="reference external">#18583</a>). Figure 14 shows two cases on one
+GB300 node with the GPU cache capped: the hit rate barely changes, but
+the share of hits served from disk falls from <strong>31% to
+19%</strong> for GLM-5.2 and from <strong>14% to 0%</strong> for
+Qwen3.5-397B-A17B, <strong>tail TTFT roughly halves</strong>, and
+<strong>40% to 50% more requests complete</strong> in the same window.
+The same host memory holds more pages, so <strong>less disk is used and
+the prefixes come back faster</strong>.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/06589452b16826db0e998bc96426f95a6fe011f3eb058d59aa7abdf8ef05ef74.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 14: GLM-5.2 · 4 GB300 · concurrency 48 (left) and
+Qwen3.5-397B-A17B · 4 GB300 · concurrency 128 (right) · where reuse hits
+are served from. Each bar splits the full-block hits of a 30-minute
+AgentX replay by tier. The hit rate is similar in both settings of each
+pair; with NVFP4 cold pages fewer hits are served from disk, the tail
+TTFT falls, and more requests complete in the window. GPU cache capped
+at 50% (GLM-5.2) and 35% (Qwen3.5) of free GPU memory.</em></sub></p>
+<h4 id="accuracy">Accuracy<a href="#accuracy" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p>A page is quantized only when it leaves the GPU, so the accuracy
+question is whether repeated <strong>quantize-dequantize (QDQ) round
+trips</strong> accumulate error as a page is offloaded and brought back
+again and again. <strong>They do not.</strong> Figure 15 measures every
+representable FP8, FP16 and BF16 value through up to four round trips:
+the distance to the original value is the one-time quantization error
+and stays the same after every trip, and the distance to the previous
+trip is zero from the second trip on. End to end, Qwen3-8B on AIME24 and
+AIME25 reproduces every output of the first round trip on the
+second.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/61827ceb7502e52fe35d36cdf51e3524a2f27db4e278071b38613397ed9556d3.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 15: NVFP4 round trips do not accumulate error. Left:
+distance to the original value after 1 to 4 round trips, for every FP8,
+FP16 and BF16 value; it is the quantization error and does not change
+with the number of round trips. Middle: distance to the previous round
+trip; from the second round trip on it is zero. Right: Qwen3-8B accuracy
+on AIME24 and AIME25 after 0, 1 and 2 round trips; the second round trip
+reproduces every output of the first.</em></sub></p>
+<p>End to end, on a <strong>large model, hard reasoning tasks, and with
+very different shares of pages offloaded</strong>, accuracy is
+<strong>indistinguishable from the uncompressed baseline</strong>.
+Figure 16 shows Qwen3.5-397B-A17B with and without NVFP4 cold pages:
+AIME25 stays at 90.0% when 28% of the reused pages are compressed and
+90.2% when 61% are, and MATH-500 stays within 0.4 points whether 9% or
+23% of the pages are compressed.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/ce712d3d8c058f7739d2a0d7d90e48d0804f48a97cbf7a054e2655ceee6b8f4e.svg"
+width="620" />
+</figure>
+</div>
+<p><sub><em>Figure 16: Qwen3.5-397B-A17B accuracy with and without NVFP4
+cold pages on AIME25 (16 seeds, error bar is the standard error) and
+MATH-500 (greedy). Labels give the share of reused pages that had been
+compressed before scoring.</em></sub></p>
+</section>
+<section id="id5">
+<span id="triattention-1"></span>
+<h3 id="triattention-1">TriAttention<a href="#id5" class="headerlink"
+title="Link to this heading">#</a></h3>
+<section id="id6">
+<span id="performance-1"></span>
+<h4 id="performance-1">Performance<a href="#id6" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p>TriAttention helps in two ways: decoding reads a shorter cache at the
+same batch size, and more sequences fit on the GPU. Figure 17 shows both
+on Qwen3-8B on one B200 with 1,024 input and 16,384 output tokens per
+request. At batch size 32 the compacted cache decodes <strong>27% to 60%
+faster</strong> than dense, depending on the budget. Where the dense
+cache runs out of memory at batch size 64, TriAttention keeps scaling to
+batch size 128 and reaches <strong>2.7x the dense peak
+throughput</strong> on the same GPU.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/b00e8338941853f5719c40671183b2847923bfa8f81b8a2704b63ee2f9205b25.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 17: TriAttention on Qwen3-8B, one B200, 1,024 input
+and 16,384 output tokens. Output throughput per GPU against batch size
+for the dense KV cache and for TriAttention with budgets of 4,096 and
+2,048 tokens. The dense cache runs out of memory at batch size 64;
+TriAttention continues to batch size 128.</em></sub></p>
+</section>
+<section id="id7">
+<span id="accuracy-1"></span>
+<h4 id="accuracy-1">Accuracy<a href="#id7" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p>Eviction is lossy by design, and the budget sets the trade. Figure 18
+shows AIME25 accuracy against the decode KV budget for Qwen3-8B and
+GPT-OSS-120B. From <strong>8,192 tokens on, accuracy is within noise of
+dense</strong> on both models while the decode KV still shrinks 2 to 4x;
+at 4,096 tokens, the budget behind the throughput results above, the
+drop is about 5 points for a 7.9x smaller decode KV. The budget is
+therefore a dial: a known amount of accuracy for a known amount of
+capacity.</p>
+<div data-align="center">
+<figure>
+<img
+src="assets/f70412ea51f6c3672337e9ac48ea45990b8833c9e98dce610ddf424435ef5a7a.svg"
+width="1000" />
+</figure>
+</div>
+<p><sub><em>Figure 18: AIME25 accuracy against the decode KV budget for
+TriAttention on Qwen3-8B (left) and GPT-OSS-120B (right); the dashed
+line is the dense cache, the label under each bar is the decode-KV
+compression at that budget.</em></sub></p>
+<p>For configuration, the calibration workflow, and validated modes,
+please refer to the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/examples/kv_cache_compression/triattention.md"
+class="reference external">TriAttention example</a>.</p>
+</section>
+</section>
+<h2 id="summary-and-future-work">Summary and Future Work<a
+href="#summary-and-future-work" class="headerlink"
+title="Link to this heading">#</a></h2>
+<h3 id="current-state">Current State<a href="#current-state"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>The KV cache compression framework, NVFP4 cold-page compression, and
+TriAttention are in TensorRT LLM today and ready to use. Both methods
+are turned on with one configuration block and work with the mainstream
+model families; the tested list is in the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/features/kv-cache-compression.md#tested-models"
+class="reference external">KV Cache Compression feature
+documentation</a>, and runnable configurations are in the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/kv_cache_compression"
+class="reference external">examples</a>. The framework is ready to
+extend: a new method inherits the manager base, plugs into the stages it
+needs, and brings its own kernels, without changes to the attention
+kernels, the cache manager, or the serving loop.</p>
+<h3 id="future-work">Future Work<a href="#future-work"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>The framework is built to grow. We will keep adding compression
+techniques for the new era of long-context, reasoning and agentic
+workloads, as the workload and the hardware evolve.</p>
+<p>The goals do not change: better use of GPU memory and bandwidth,
+higher throughput and lower latency, and accuracy that holds on real
+tasks. New methods will land through the same framework, with the same
+one-block configuration and no changes to the attention kernels, the
+cache manager or the serving loop.</p>
+<h2 id="references">References<a href="#references" class="headerlink"
+title="Link to this heading">#</a></h2>
+<ul>
+<li><p>W. Nixon, J. Durbin, F. Standhartinger, H. S. Gunawi, and J.
+Yang. A Year in LLM Serving: Workload Evolution, Caching and
+Load-Balancing. <a href="https://arxiv.org/abs/2608.13573"
+class="reference external">arXiv:2608.13573</a>, 2026.</p></li>
+<li><p>W. Mao et al. TriAttention. ICML 2026. <a
+href="https://arxiv.org/abs/2604.04921"
+class="reference external">arXiv:2604.04921</a>.</p></li>
+<li><p>RocketKV: Accelerating Long-Context LLM Inference via Two-Stage
+KV Cache Compression. ICML 2025. <a
+href="https://arxiv.org/abs/2502.14051"
+class="reference external">arXiv:2502.14051</a>.</p></li>
+<li><p>TensorRT LLM, <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/features/kv-cache-compression.md"
+class="reference external">KV Cache Compression feature
+documentation</a> and <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/kv_cache_compression"
+class="reference external">examples</a>.</p></li>
+</ul>
+</section>
+<hr />
+<div class="footnote-list brackets">
+<div id="attn-types" class="footnote brackets">
+<span class="label"><span class="fn-bracket">[</span><a href="#id1"
+role="doc-backlink">1</a><span class="fn-bracket">]</span></span>
+<p>MHA: multi-head attention. MQA: multi-query attention. GQA:
+grouped-query attention. MLA: multi-head latent attention. For hybrid
+models, only the KV of the attention layers is compressed.</p>
+</div>
+</div>
+</article>
+</body>
+</html>

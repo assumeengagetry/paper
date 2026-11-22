@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>TeaCache Acceleration</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">TeaCache Acceleration</h1>
+</header>
+<section id="teacache-acceleration" class="header">
+<h1>TeaCache Acceleration</h1>
+<p>来源：<a
+href="https://docs.sglang.io/docs/sglang-diffusion/teacache">https://docs.sglang.io/docs/sglang-diffusion/teacache</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
+<defs><symbol id="mi-mint-1-Sparkle" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M5.65799 2.99L4.39499 2.569L3.97399 1.306C3.83699 0.898 3.16199 0.898 3.02499 1.306L2.60399 2.569L1.34099 2.99C1.13699 3.058 0.998993 3.249 0.998993 3.464C0.998993 3.679 1.13699 3.87 1.34099 3.938L2.60399 4.359L3.02499 5.622C3.09299 5.826 3.28499 5.964 3.49999 5.964C3.71499 5.964 3.90599 5.826 3.97499 5.622L4.39599 4.359L5.65899 3.938C5.86299 3.87 6.00099 3.679 6.00099 3.464C6.00099 3.249 5.86199 3.058 5.65799 2.99Z" fill="currentColor" stroke="none"></path><path d="M9.5 2.75L11.412 7.587L16.25 9.5L11.412 11.413L9.5 16.25L7.587 11.413L2.75 9.5L7.587 7.587L9.5 2.75Z" stroke="currentColor"></path>
+</svg>
+</symbol></defs>
+</svg>
+<div id="content"
+class="mdx-content @container/columns-container relative mt-8 prose prose-gray dark:prose-invert [contain:inline-size] isolate empty:hidden mb-14"
+data-page-title="TeaCache Acceleration"
+data-page-href="/docs/sglang-diffusion/teacache">
+<blockquote>
+<span data-as="p"><strong>Note</strong>: This is one of several caching
+strategies in SGLang (Cache-DiT, TeaCache, Spectrum, plus exact
+conditioning reuse). For an overview of all caching options, see <a
+href="caching-acceleration.html"
+class="link">caching</a>.</span>
+</blockquote>
+<span data-as="p">TeaCache (Temporal similarity-based caching)
+accelerates diffusion inference by detecting when consecutive denoising
+steps are similar enough to skip computation entirely.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_59crmhkd74t9_" id="overview"><a href="#overview"
+class="anchor-link" aria-label="Navigate to header: Overview"></a><span
+id="_R_59crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Overview</span></h2>
+<span data-as="p">TeaCache works by:</span>
+<ol>
+<li>Tracking the L1 distance between modulated inputs across consecutive
+timesteps</li>
+<li>Accumulating the rescaled L1 distance over steps</li>
+<li>When accumulated distance is below a threshold, reusing the cached
+residual</li>
+<li>Using separate positive/negative caches for supported CFG model
+families</li>
+</ol>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_b9crmhkd74t9_" id="how-it-works"><a
+href="#how-it-works" class="anchor-link"
+aria-label="Navigate to header: How It Works"></a><span
+id="_R_b9crmhkd74t9_" class="cursor-pointer">How It Works</span></h2>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_d9crmhkd74t9_" id="l1-distance-tracking"><a
+href="#l1-distance-tracking" class="anchor-link"
+aria-label="Navigate to header: L1 Distance Tracking"></a><span
+id="_R_d9crmhkd74t9_" class="cursor-pointer">L1 Distance
+Tracking</span></h3>
+<span data-as="p">At each denoising step, TeaCache computes the relative
+L1 distance between the current and previous modulated inputs:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="2"
+data-language="text">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_fih9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fqh9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_ch9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="text"><code>rel_l1 = |current - previous|.mean() / |previous|.mean()</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">This distance is then rescaled using polynomial
+coefficients and accumulated:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="2"
+data-language="text">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_fil9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fql9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_cl9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="text"><code>accumulated += poly(coefficients)(rel_l1)</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_n9crmhkd74t9_" id="cache-decision"><a
+href="#cache-decision" class="anchor-link"
+aria-label="Navigate to header: Cache Decision"></a><span
+id="_R_n9crmhkd74t9_" class="cursor-pointer">Cache Decision</span></h3>
+<ul>
+<li>If <code>accumulated &gt;= threshold</code>: Force computation,
+reset accumulator</li>
+<li>If <code>accumulated &lt; threshold</code>: Skip computation, use
+cached residual</li>
+</ul>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_r9crmhkd74t9_" id="cfg-support"><a
+href="#cfg-support" class="anchor-link"
+aria-label="Navigate to header: CFG Support"></a><span
+id="_R_r9crmhkd74t9_" class="cursor-pointer">CFG Support</span></h3>
+<span data-as="p">For models that support CFG cache separation, TeaCache
+maintains separate caches for positive and negative branches:</span>
+<ul>
+<li><code>previous_modulated_input</code> /
+<code>previous_residual</code> for positive branch</li>
+<li><code>previous_modulated_input_negative</code> /
+<code>previous_residual_negative</code> for negative branch</li>
+</ul>
+<span data-as="p">Flux and Qwen do not separate CFG caches and do not
+implement TeaCache yet (see <a href="#supported-models"
+class="link">Supported Models</a>).</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_139crmhkd74t9_" id="configuration"><a
+href="#configuration" class="anchor-link"
+aria-label="Navigate to header: Configuration"></a><span
+id="_R_139crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Configuration</span></h2>
+<span data-as="p">TeaCache is configured via <code>TeaCacheParams</code>
+in the sampling parameters. Start from the matching model’s calibrated
+parameters; this example changes the threshold for
+<code>Wan-AI/Wan2.1-T2V-1.3B-Diffusers</code> while preserving its
+coefficients and skip window:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="8" data-language="python">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0"
+title="Configuration">Configuration</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_1uj79crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_1vj79crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_d79crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="python"><code>from dataclasses import replace
+from sglang.multimodal_gen.configs.sample.wan import WanT2V_1_3B_SamplingParams
+
+params = replace(
+    WanT2V_1_3B_SamplingParams().teacache_params,
+    teacache_thresh=0.1,
+)
+sampling_params_kwargs = {&quot;enable_teacache&quot;: True, &quot;teacache_params&quot;: params}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p"><code>--enable-teacache</code> /
+<code>enable_teacache</code> use the model’s built-in
+<code>TeaCacheParams</code>. To customize them from Python, pass
+<code>sampling_params_kwargs</code> to
+<code>DiffGenerator.generate()</code>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1b9crmhkd74t9_" id="parameters"><a
+href="#parameters" class="anchor-link"
+aria-label="Navigate to header: Parameters"></a><span
+id="_R_1b9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Parameters</span></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>teacache_thresh</code></td>
+<td>float</td>
+<td>Threshold for accumulated L1 distance. Higher = more caching, faster
+but potentially lower quality</td>
+</tr>
+<tr>
+<td><code>coefficients</code></td>
+<td>list[float]</td>
+<td>Polynomial coefficients for L1 rescaling, highest power first
+(<code>c[0]*x**4 + c[1]*x**3 + c[2]*x**2 + c[3]*x + c[4]</code>).
+Model-specific tuning</td>
+</tr>
+<tr>
+<td><code>start_skipping</code></td>
+<td>int or float</td>
+<td>Steps before this always compute. A float is a fraction of the
+denoising steps; a negative int counts back from the end. Default
+<code>5</code></td>
+</tr>
+<tr>
+<td><code>end_skipping</code></td>
+<td>int or float</td>
+<td>Skipping stops at this step (exclusive); same encoding as
+<code>start_skipping</code>. Default <code>-1</code></td>
+</tr>
+</tbody>
+</table>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1f9crmhkd74t9_"
+id="model-specific-configurations"><a
+href="#model-specific-configurations" class="anchor-link"
+aria-label="Navigate to header: Model-Specific Configurations"></a><span
+id="_R_1f9crmhkd74t9_" class="cursor-pointer">Model-Specific
+Configurations</span></h3>
+<span data-as="p">Different models may have different optimal
+configurations. The coefficients are typically tuned per-model to
+balance speed and quality.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1j9crmhkd74t9_" id="supported-models"><a
+href="#supported-models" class="anchor-link"
+aria-label="Navigate to header: Supported Models"></a><span
+id="_R_1j9crmhkd74t9_" class="cursor-pointer">Supported
+Models</span></h2>
+<span data-as="p">TeaCache support status by model family:</span>
+<table>
+<thead>
+<tr>
+<th>Model Family</th>
+<th>CFG Cache Separation</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wan2.1</td>
+<td>Yes</td>
+<td>Full support</td>
+</tr>
+<tr>
+<td>Wan2.2</td>
+<td>Yes</td>
+<td>Coefficients are not calibrated yet; enabling TeaCache is accepted
+but currently no-ops</td>
+</tr>
+<tr>
+<td>Z-Image</td>
+<td>—</td>
+<td>Not wired yet; <code>—enable-teacache</code> is accepted but
+currently no-ops</td>
+</tr>
+<tr>
+<td>HunyuanVideo</td>
+<td>No</td>
+<td>Not supported yet</td>
+</tr>
+<tr>
+<td>Flux</td>
+<td>No</td>
+<td>To be supported</td>
+</tr>
+<tr>
+<td>Qwen</td>
+<td>No</td>
+<td>To be supported</td>
+</tr>
+</tbody>
+</table>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1p9crmhkd74t9_" id="references"><a
+href="#references" class="anchor-link"
+aria-label="Navigate to header: References"></a><span
+id="_R_1p9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">References</span></h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2411.14324" class="link"
+target="_blank" rel="noreferrer">TeaCache: Accelerating Diffusion Models
+with Temporal Similarity</a></li>
+</ul>
+</div>
+</body>
+</html>

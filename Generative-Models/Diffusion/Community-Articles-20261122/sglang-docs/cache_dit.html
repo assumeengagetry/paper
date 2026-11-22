@@ -1,0 +1,2541 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Cache-DiT Acceleration</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Cache-DiT Acceleration</h1>
+</header>
+<section id="cache-dit-acceleration" class="header">
+<h1>Cache-DiT Acceleration</h1>
+<p>来源：<a
+href="https://docs.sglang.io/docs/sglang-diffusion/cache_dit">https://docs.sglang.io/docs/sglang-diffusion/cache_dit</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
+<defs><symbol id="mi-mint-1-CalloutNote" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 9 1.6714 C 13.0371 1.6714 16.3286 4.9629 16.3286 9 C 16.3286 13.0371 13.0371 16.3286 9 16.3286 C 7.0574 16.3252 5.1953 15.552 3.8217 14.1783 C 2.448 12.8047 1.6748 10.9426 1.6714 9 C 1.6714 4.9629 4.9629 1.6714 9 1.6714 Z M 9 0 C 4.0371 0 0 4.0371 0 9 C 0 13.9629 4.0371 18 9 18 C 13.9629 18 18 13.9629 18 9 C 18 4.0371 13.9629 0 9 0 Z M 10.2857 3.8571 H 7.7143 V 10.2857 H 10.2857 V 3.8571 Z M 10.2857 11.5714 H 7.7143 V 14.1429 H 10.2857 V 11.5714 Z" fill="currentColor" stroke="none" fill-rule="evenodd" clip-rule="evenodd"></path>
+</svg>
+</symbol><symbol id="mi-mint-1-Sparkle" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M5.65799 2.99L4.39499 2.569L3.97399 1.306C3.83699 0.898 3.16199 0.898 3.02499 1.306L2.60399 2.569L1.34099 2.99C1.13699 3.058 0.998993 3.249 0.998993 3.464C0.998993 3.679 1.13699 3.87 1.34099 3.938L2.60399 4.359L3.02499 5.622C3.09299 5.826 3.28499 5.964 3.49999 5.964C3.71499 5.964 3.90599 5.826 3.97499 5.622L4.39599 4.359L5.65899 3.938C5.86299 3.87 6.00099 3.679 6.00099 3.464C6.00099 3.249 5.86199 3.058 5.65799 2.99Z" fill="currentColor" stroke="none"></path><path d="M9.5 2.75L11.412 7.587L16.25 9.5L11.412 11.413L9.5 16.25L7.587 11.413L2.75 9.5L7.587 7.587L9.5 2.75Z" stroke="currentColor"></path>
+</svg>
+</symbol></defs>
+</svg>
+<div id="content"
+class="mdx-content @container/columns-container relative mt-8 prose prose-gray dark:prose-invert [contain:inline-size] isolate empty:hidden mb-14"
+data-page-title="Cache-DiT Acceleration"
+data-page-href="/docs/sglang-diffusion/cache_dit">
+<span data-as="p">SGLang integrates <a
+href="https://github.com/vipshop/cache-dit" class="link" target="_blank"
+rel="noreferrer">Cache-DiT</a>, a caching acceleration engine for
+Diffusion Transformers (DiT), to achieve up to <strong>1.69x inference
+speedup</strong> with minimal quality loss.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_39crmhkd74t9_" id="overview"><a href="#overview"
+class="anchor-link" aria-label="Navigate to header: Overview"></a><span
+id="_R_39crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Overview</span></h2>
+<span data-as="p"><strong>Cache-DiT</strong> uses intelligent caching
+strategies to skip redundant computation in the denoising loop:</span>
+<ul>
+<li><strong>DBCache (Dual Block Cache)</strong>: Dynamically decides
+when to cache transformer blocks based on residual differences</li>
+<li><strong>TaylorSeer</strong>: Uses Taylor expansion for calibration
+to optimize caching decisions</li>
+<li><strong>DMD Calibrator</strong>: An
+<strong>exponential-basis</strong> forecasting calibrator (Dynamic Mode
+Decomposition, not Distribution Matching Distillation) that serves as a
+drop-in alternative to TaylorSeer’s polynomial basis; strongest on
+flow-matching models</li>
+<li><strong>SCM (Step Computation Masking)</strong>: Step-level caching
+control for additional speedup</li>
+</ul>
+<span data-as="p">Cache-DiT also ships <strong>SVDQuant</strong> W4A4
+(int4 / NVFP4) dynamic quantization, which can be combined with DBCache
+caching (see <a href="#quantization"
+class="link">Quantization</a>).</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_b9crmhkd74t9_" id="basic-usage"><a
+href="#basic-usage" class="anchor-link"
+aria-label="Navigate to header: Basic Usage"></a><span
+id="_R_b9crmhkd74t9_" class="cursor-pointer">Basic Usage</span></h2>
+<span data-as="p">Cache-DiT is a <strong>per-request</strong> switch:
+each request decides whether to run cached or lossless, and requests
+with different Cache-DiT settings never share a batch. The
+<code>SGLANG_CACHE_DIT_*</code> environment variables remain available
+as server-wide defaults for requests that leave the switch unset.</span>
+<span data-as="p">Enable it for a single generation:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="3"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sgh9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ugh9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_30h9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate --model-path Qwen/Qwen-Image \
+    --prompt &quot;A beautiful sunset over the mountains&quot; \
+    --enable-cache-dit true</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Or per request against a running server, via the
+OpenAI-compatible API:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="9"
+data-language="python">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sgl9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ugl9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_30l9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="python"><code>client.images.generate(
+    model=&quot;Qwen/Qwen-Image&quot;,
+    prompt=&quot;A beautiful sunset over the mountains&quot;,
+    extra_body={
+        &quot;enable_cache_dit&quot;: True,
+        # optional knob overrides for this request only
+        &quot;cache_dit_params&quot;: {&quot;residual_diff_threshold&quot;: 0.12, &quot;scm_preset&quot;: &quot;fast&quot;},
+    },
+)</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p"><code>enable_cache_dit</code> accepts three states:
+<code>true</code> (on for this request), <code>false</code> (off for
+this request, overriding the server default), and unset (follow the
+<code>SGLANG_CACHE_DIT_ENABLED</code> server default).
+<code>cache_dit_params</code> accepts the DBCache knobs
+(<code>Fn_compute_blocks</code>, <code>Bn_compute_blocks</code>,
+<code>max_warmup_steps</code>, <code>residual_diff_threshold</code>,
+<code>max_continuous_cached_steps</code>,
+<code>enable_taylorseer</code>, <code>taylorseer_order</code>), the DMD
+knobs (<code>enable_dmd</code>, <code>dmd_history</code>,
+<code>dmd_rank</code>, <code>dmd_ridge</code>,
+<code>dmd_svd_precision</code>; DMD and TaylorSeer are mutually
+exclusive calibrators and cannot be enabled together), the SCM knobs
+(<code>scm_preset</code>, <code>scm_compute_bins</code>,
+<code>scm_cache_bins</code>, <code>scm_policy</code>), and a nested
+<code>secondary</code> dict with the DBCache knobs for the second
+transformer of dual-DiT models (unset secondary keys inherit the
+request’s primary values, then the
+<code>SGLANG_CACHE_DIT_SECONDARY_*</code> defaults).</span> <span
+data-as="p">To make Cache-DiT the default for every request instead,
+export the environment variable when launching:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="2"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sgr9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ugr9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_30r9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>SGLANG_CACHE_DIT_ENABLED=true \
+sglang serve --model-path Qwen/Qwen-Image</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_t9crmhkd74t9_" id="diffusers-backend"><a
+href="#diffusers-backend" class="anchor-link"
+aria-label="Navigate to header: Diffusers Backend"></a><span
+id="_R_t9crmhkd74t9_" class="cursor-pointer">Diffusers
+Backend</span></h2>
+<span data-as="p">Cache-DiT supports loading acceleration configs from a
+custom YAML file. For diffusers pipelines (<code>diffusers</code>
+backend), pass the YAML/JSON path via <code>--cache-dit-config</code>.
+This flow requires cache-dit &gt;= 1.2.0
+(<code>cache_dit.load_configs</code>).</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_119crmhkd74t9_" id="single-gpu-inference"><a
+href="#single-gpu-inference" class="anchor-link"
+aria-label="Navigate to header: Single GPU inference"></a><span
+id="_R_119crmhkd74t9_" class="cursor-pointer">Single GPU
+inference</span></h3>
+<span data-as="p">Define a <code>cache.yaml</code> file that
+contains:</span>
+<ul>
+<li>DBCache + TaylorSeer</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="10"
+data-language="yaml">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sh79crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uh79crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3179crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0
+  residual_diff_threshold: 0.12
+  enable_taylorseer: true
+  taylorseer_order: 1</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then apply the config with:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="5"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3shb9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uhb9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_31b9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --backend diffusers \
+  --model-path Qwen/Qwen-Image \
+  --cache-dit-config cache.yaml \
+  --prompt &quot;A beautiful sunset over the mountains&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>DBCache + TaylorSeer + SCM (Step Computation Mask)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="15" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkhf9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fshf9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_31f9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0
+  residual_diff_threshold: 0.12
+  enable_taylorseer: true
+  taylorseer_order: 1
+  # Must set the num_inference_steps for SCM. The SCM will automatically
+  # generate the steps computation mask based on the num_inference_steps.
+  # Reference: https://cache-dit.readthedocs.io/en/latest/user_guide/CACHE_API/#scm-steps-computation-masking
+  num_inference_steps: 28
+  steps_computation_mask: fast</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>DBCache + TaylorSeer + SCM (Step Computation Mask) + Cache CFG</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="13" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkhj9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fshj9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_31j9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0
+  residual_diff_threshold: 0.12
+  enable_taylorseer: true
+  taylorseer_order: 1
+  num_inference_steps: 28
+  steps_computation_mask: fast
+  enable_sperate_cfg: true # e.g, Qwen-Image, Wan, Chroma, Ovis-Image, etc.</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>DBCache + DMD Calibrator</li>
+</ul>
+<span data-as="p">Instead of TaylorSeer, you can use the DMD calibrator:
+an <strong>exponential-basis</strong> forecasting calibrator that serves
+as a drop-in alternative to TaylorSeer’s polynomial basis. DMD models
+the cached feature stream as a linear dynamical system
+(<code>Y_{t+1} ~= A @ Y_t</code>), forecasts cached features from the
+fitted eigen-modes, and stays accurate over longer cache skips where
+polynomial extrapolation diverges. DMD here refers to Dynamic Mode
+Decomposition (Schmid 2010), <strong>not</strong> Distribution Matching
+Distillation. DMD works best on flow-matching models (e.g., FLUX), while
+TaylorSeer is often better on DDPM-style models — try both. DMD and
+TaylorSeer are mutually exclusive — enable only one of
+<code>enable_dmd</code> / <code>enable_taylorseer</code>:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="11" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkhp9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fshp9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_31p9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0 # Bn=0 since the DMD calibrator replaces the Bn calibrator
+  residual_diff_threshold: 0.12
+  enable_dmd: true
+  dmd_history: 6 # snapshot window length, 5-6 typical
+  dmd_svd_precision: &quot;medium&quot; # &quot;low&quot;, &quot;medium&quot; or &quot;high&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">A <code>dmd_history</code> window of 5–6 snapshots is
+typically the sweet spot — longer histories do not always help, because
+the feature dynamics drift across timesteps. With fewer than 4 uniformly
+spaced snapshots available, DMD transparently falls back to the Taylor
+expansion it maintains internally. See the <a
+href="https://cache-dit.readthedocs.io/en/latest/user_guide/CACHE_API/#dmd-calibrator-dynamic-mode-decomposition"
+class="link" target="_blank" rel="noreferrer">Cache-DiT DMD
+documentation</a> for the mathematical principle and quantitative
+comparisons. A ready-made config is available at <a
+href="https://github.com/vipshop/cache-dit/blob/main/examples/configs/cache_dmd.yaml"
+class="link" target="_blank"
+rel="noreferrer">examples/configs/cache_dmd.yaml</a> in the Cache-DiT
+repository. Apply it with the same <code>--cache-dit-config</code>
+flag:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="5"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sht9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uht9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_31t9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --backend diffusers \
+  --model-path Qwen/Qwen-Image \
+  --cache-dit-config cache_dmd.yaml \
+  --prompt &quot;A beautiful sunset over the mountains&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1v9crmhkd74t9_" id="distributed-inference"><a
+href="#distributed-inference" class="anchor-link"
+aria-label="Navigate to header: Distributed inference"></a><span
+id="_R_1v9crmhkd74t9_" class="cursor-pointer">Distributed
+inference</span></h3>
+<ul>
+<li>1D Parallelism</li>
+</ul>
+<span data-as="p">Define a parallelism only config yaml
+<code>parallel.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="3" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fki59crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsi59crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3259crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: auto
+  attention_backend: native</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the distributed inference acceleration
+config from yaml. <code>ulysses_size: auto</code> means that cache-dit
+will auto detect the <code>world_size</code> as the ulysses_size.
+Otherwise, you should manually set it as specific int number, e.g,
+4.</span> <span data-as="p">Then apply the distributed config with:
+(Note: please add <code>--num-gpus N</code> to specify the number of
+gpus for distributed inference)</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="6"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sib9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uib9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_32b9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --backend diffusers \
+  --num-gpus 4 \
+  --model-path Qwen/Qwen-Image \
+  --cache-dit-config parallel.yaml \
+  --prompt &quot;A futuristic cityscape at sunset&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>2D Parallelism</li>
+</ul>
+<span data-as="p">You can also define a 2D parallelism config yaml
+<code>parallel_2d.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkih9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsih9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_32h9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: auto
+  tp_size: 2
+  attention_backend: native</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the 2D parallelism config from yaml. Here
+<code>tp_size: 2</code> means using tensor parallelism with size 2. The
+<code>ulysses_size: auto</code> means that cache-dit will auto detect
+the <code>world_size // tp_size</code> as the ulysses_size.</span>
+<ul>
+<li>3D Parallelism</li>
+</ul>
+<span data-as="p">You can also define a 3D parallelism config yaml
+<code>parallel_3d.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="5" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkip9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsip9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_32p9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: 2
+  ring_size: 2
+  tp_size: 2
+  attention_backend: native</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the 3D parallelism config from yaml. Here
+<code>ulysses_size: 2</code>, <code>ring_size: 2</code>,
+<code>tp_size: 2</code> means using ulysses parallelism with size 2,
+ring parallelism with size 2 and tensor parallelism with size 2.</span>
+<ul>
+<li>Ulysses Anything Attention</li>
+</ul>
+<span data-as="p">To enable Ulysses Anything Attention, you can define a
+parallelism config yaml <code>parallel_uaa.yaml</code> file that
+contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkj19crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsj19crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3319crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: auto
+  attention_backend: native
+  ulysses_anything: true</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Ulysses FP8 Communication</li>
+</ul>
+<span data-as="p">For device that don’t have NVLink support, you can
+enable Ulysses FP8 Communication to further reduce the communication
+overhead. You can define a parallelism config yaml
+<code>parallel_fp8.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkj79crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsj79crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3379crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: auto
+  attention_backend: native
+  ulysses_float8: true</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Async Ulysses CP</li>
+</ul>
+<span data-as="p">You can also enable async ulysses CP to overlap the
+communication and computation. Define a parallelism config yaml
+<code>parallel_async.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkjd9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsjd9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_33d9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: auto
+  attention_backend: native
+  ulysses_async: true # Now, only support for FLUX.1, Qwen-Image, Ovis-Image and Z-Image.</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the config from yaml. Here
+<code>ulysses_async: true</code> means enabling async ulysses CP.</span>
+<ul>
+<li>TE-P and VAE-P</li>
+</ul>
+<span data-as="p">You can also specify the extra parallel modules in the
+yaml config. For example, define a parallelism config yaml
+<code>parallel_extra.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkjl9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsjl9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_33l9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>parallelism_config:
+  ulysses_size: auto
+  attention_backend: native
+  extra_parallel_modules: [&quot;text_encoder&quot;, &quot;vae&quot;]</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_3n9crmhkd74t9_" id="hybrid-cache-and-parallelism"><a
+href="#hybrid-cache-and-parallelism" class="anchor-link"
+aria-label="Navigate to header: Hybrid Cache and Parallelism"></a><span
+id="_R_3n9crmhkd74t9_" class="cursor-pointer">Hybrid Cache and
+Parallelism</span></h3>
+<span data-as="p">Define a hybrid cache and parallel acceleration config
+yaml <code>hybrid.yaml</code> file that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="14" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkjr9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsjr9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_33r9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0
+  residual_diff_threshold: 0.12
+  enable_taylorseer: true
+  taylorseer_order: 1
+parallelism_config:
+  ulysses_size: auto
+  attention_backend: native
+  extra_parallel_modules: [&quot;text_encoder&quot;, &quot;vae&quot;]</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the hybrid cache and parallel acceleration
+config from yaml.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="6"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sjv9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ujv9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_33v9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --backend diffusers \
+  --num-gpus 4 \
+  --model-path Qwen/Qwen-Image \
+  --cache-dit-config hybrid.yaml \
+  --prompt &quot;A beautiful sunset over the mountains&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_419crmhkd74t9_" id="attention-backend"><a
+href="#attention-backend" class="anchor-link"
+aria-label="Navigate to header: Attention Backend"></a><span
+id="_R_419crmhkd74t9_" class="cursor-pointer">Attention
+Backend</span></h3>
+<span data-as="p">In some cases, users may want to only specify the
+attention backend without any other optimization configs. In this case,
+you can define a yaml file <code>attention.yaml</code> that only
+contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="1" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkk59crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsk59crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3459crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>attention_backend: &quot;flash&quot; # &#39;_flash_3&#39; for Hopper</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_479crmhkd74t9_" id="quantization"><a
+href="#quantization" class="anchor-link"
+aria-label="Navigate to header: Quantization"></a><span
+id="_R_479crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Quantization</span></h3>
+<span data-as="p">You can also specify the quantization config in the
+yaml file, required <code>torchao&gt;=0.16.0</code>. For example, define
+a yaml file <code>quantize.yaml</code> that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="10" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkkb9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fskb9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34b9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>quantize_config: # quantization configuration for transformer modules
+  # float8 (DQ), float8_weight_only, float8_blockwise, int8 (DQ), int8_weight_only, etc.
+  quant_type: &quot;float8&quot;
+  # layers to exclude from quantization (transformer). layers that contains any of the
+  # keywords in the exclude_layers list will be excluded from quantization. This is useful
+  # for some sensitive layers that are not robust to quantization, e.g., embedding layers.
+  exclude_layers:
+    - &quot;embedder&quot;
+    - &quot;embed&quot;
+  verbose: false # whether to print verbose logs during quantization</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the quantization config from yaml. Please
+also enable torch.compile for better performance if you are using
+quantization. For example:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="9" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkkf9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fskf9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34f9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --backend diffusers \
+  --model-path Qwen/Qwen-Image \
+  --warmup-mode request \
+  --cache-dit-config quantize.yaml \
+  --enable-torch-compile \
+  --dit-cpu-offload false \
+  --text-encoder-cpu-offload false \
+  --prompt &quot;A beautiful sunset over the mountains&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h4 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_4h9crmhkd74t9_" id="svdquant-w4a4-int4-/-nvfp4"><a
+href="#svdquant-w4a4-int4-/-nvfp4" class="anchor-link"
+aria-label="Navigate to header: SVDQuant (W4A4 int4 / NVFP4)"></a><span
+id="_R_4h9crmhkd74t9_" class="cursor-pointer">SVDQuant (W4A4 int4 /
+NVFP4)</span></h4>
+<span data-as="p">SVDQuant is Cache-DiT’s built-in W4A4 PTQ quantization
+(weights and activations in int4 or NVFP4, with smoothed low-rank
+branches). It can be freely combined with DBCache caching and the DMD
+calibrator for the largest speedups.</span>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20"
+role="note" aria-label="Note" data-callout-type="note">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 text-blue-800 dark:text-blue-300">
+<use href="#mi-mint-1-CalloutNote"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-blue-800 dark:text-blue-300"
+data-component-part="callout-content">
+<span data-as="p">SVDQuant requires a cache-dit build <strong>with CUDA
+extension support</strong> — a plain <code>pip install cache-dit</code>
+does NOT include it. Install one of:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="8" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qd4l9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ud4l9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1l4l9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code># Option 1: prebuilt CUDA 13 wheel
+pip install cache-dit-cu13==&lt;version&gt; --no-deps
+
+# Option 2: build from source with SVDQuant enabled
+git clone https://github.com/vipshop/cache-dit
+cd cache-dit
+export CUDA_HOME=/usr/local/cuda
+CACHE_DIT_BUILD_SVDQUANT=1 pip install &quot;.[quantization]&quot; --no-build-isolation</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+</div>
+</div>
+<span data-as="p">Valid <code>quant_type</code> values are
+<code>svdq_int4_r{32,64,128,256}_dq</code> (int4 W4A4) and
+<code>svdq_nvfp4_r{32,64,128,256}_dq</code> (NVFP4 W4A4; requires a
+Blackwell GPU). Example config combining SVDQuant NVFP4 with DBCache +
+DMD (see <a
+href="https://github.com/vipshop/cache-dit/blob/main/examples/configs/blackwell/cache_dmd_svdq.yaml"
+class="link" target="_blank"
+rel="noreferrer">examples/configs/blackwell/cache_dmd_svdq.yaml</a>):</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="20" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkkp9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fskp9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34p9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0
+  residual_diff_threshold: 0.12
+  enable_dmd: true
+  dmd_history: 6
+  dmd_svd_precision: &quot;medium&quot;
+quantize_config:
+  quant_type: &quot;svdq_nvfp4_r128_dq&quot; # nvfp4 for Blackwell; use svdq_int4_r128_dq for int4
+  svdq_kwargs:
+    quantize_device: &quot;cuda&quot;
+    fused_mlp: true
+  exclude_layers:
+    - &quot;embedder&quot;
+    - &quot;embed&quot;
+  verbose: false</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">For int4 W4A4 (pre-Blackwell GPUs), the same config
+with <code>quant_type: "svdq_int4_r128_dq"</code> is available at <a
+href="https://github.com/vipshop/cache-dit/blob/main/examples/configs/cache_dmd_svdq.yaml"
+class="link" target="_blank"
+rel="noreferrer">examples/configs/cache_dmd_svdq.yaml</a> (add
+<code>runtime_kernel: "v2"</code> to <code>svdq_kwargs</code>).</span>
+<span data-as="p">Enable <code>torch.compile</code> for the best
+SVDQuant performance, and make sure <code>--warmup-steps</code> covers
+the compile warmup (use the same value as
+<code>--num-inference-steps</code>):</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="11" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkkv9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fskv9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34v9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --backend diffusers \
+  --model-path black-forest-labs/FLUX.1-dev \
+  --num-inference-steps=28 \
+  --warmup-mode request \
+  --warmup-steps 28 \
+  --cache-dit-config cache_dmd_svdq.yaml \
+  --enable-torch-compile \
+  --dit-cpu-offload false \
+  --text-encoder-cpu-offload false \
+  --prompt &quot;A beautiful sunset over the mountains&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">You can verify from the log that the quantization is
+active:
+<code>[Cache-DiT] SVDQuant Type: svdq_nvfp4_r128_dq, Rank: 128</code>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_539crmhkd74t9_"
+id="combined-configs-cache-+-parallelism-+-quantization"><a
+href="#combined-configs-cache-+-parallelism-+-quantization"
+class="anchor-link"
+aria-label="Navigate to header: Combined Configs: Cache + Parallelism + Quantization"></a><span
+id="_R_539crmhkd74t9_" class="cursor-pointer">Combined Configs: Cache +
+Parallelism + Quantization</span></h3>
+<span data-as="p">You can also combine all the above configs together in
+a single yaml file <code>combined.yaml</code> that contains:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="20" data-language="yaml">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Config">Config</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkl79crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsl79crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3579crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="yaml"><code>cache_config:
+  max_warmup_steps: 8
+  warmup_interval: 2
+  max_cached_steps: -1
+  max_continuous_cached_steps: 2
+  Fn_compute_blocks: 1
+  Bn_compute_blocks: 0
+  residual_diff_threshold: 0.12
+  enable_taylorseer: true
+  taylorseer_order: 1
+parallelism_config:
+  ulysses_size: auto
+  attention_backend: native
+  extra_parallel_modules: [&quot;text_encoder&quot;, &quot;vae&quot;]
+quantize_config:
+  quant_type: &quot;float8&quot;
+  exclude_layers:
+    - &quot;embedder&quot;
+    - &quot;embed&quot;
+  verbose: false</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Then, apply the combined cache, parallelism and
+quantization config from yaml. Please also enable torch.compile for
+better performance if you are using quantization.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5b9crmhkd74t9_" id="advanced-configuration"><a
+href="#advanced-configuration" class="anchor-link"
+aria-label="Navigate to header: Advanced Configuration"></a><span
+id="_R_5b9crmhkd74t9_" class="cursor-pointer">Advanced
+Configuration</span></h2>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5d9crmhkd74t9_" id="dbcache-parameters"><a
+href="#dbcache-parameters" class="anchor-link"
+aria-label="Navigate to header: DBCache Parameters"></a><span
+id="_R_5d9crmhkd74t9_" class="cursor-pointer">DBCache
+Parameters</span></h3>
+<span data-as="p">DBCache controls block-level caching behavior:</span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Env Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fn</td>
+<td><code>SGLANG_CACHE_DIT_FN</code></td>
+<td>1</td>
+<td>Number of first blocks to always compute</td>
+</tr>
+<tr>
+<td>Bn</td>
+<td><code>SGLANG_CACHE_DIT_BN</code></td>
+<td>0</td>
+<td>Number of last blocks to always compute</td>
+</tr>
+<tr>
+<td>W</td>
+<td><code>SGLANG_CACHE_DIT_WARMUP</code></td>
+<td>4</td>
+<td>Warmup steps before caching starts</td>
+</tr>
+<tr>
+<td>R</td>
+<td><code>SGLANG_CACHE_DIT_RDT</code></td>
+<td>0.24</td>
+<td>Residual difference threshold</td>
+</tr>
+<tr>
+<td>MC</td>
+<td><code>SGLANG_CACHE_DIT_MC</code></td>
+<td>3</td>
+<td>Maximum continuous cached steps</td>
+</tr>
+</tbody>
+</table>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5j9crmhkd74t9_" id="taylorseer-configuration"><a
+href="#taylorseer-configuration" class="anchor-link"
+aria-label="Navigate to header: TaylorSeer Configuration"></a><span
+id="_R_5j9crmhkd74t9_" class="cursor-pointer">TaylorSeer
+Configuration</span></h3>
+<span data-as="p">TaylorSeer improves caching accuracy using Taylor
+expansion:</span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Env Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enable</td>
+<td><code>SGLANG_CACHE_DIT_TAYLORSEER</code></td>
+<td>false</td>
+<td>Enable TaylorSeer calibrator</td>
+</tr>
+<tr>
+<td>Order</td>
+<td><code>SGLANG_CACHE_DIT_TS_ORDER</code></td>
+<td>1</td>
+<td>Taylor expansion order (1 or 2)</td>
+</tr>
+</tbody>
+</table>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5p9crmhkd74t9_" id="dmd-calibrator-configuration"><a
+href="#dmd-calibrator-configuration" class="anchor-link"
+aria-label="Navigate to header: DMD Calibrator Configuration"></a><span
+id="_R_5p9crmhkd74t9_" class="cursor-pointer">DMD Calibrator
+Configuration</span></h3>
+<span data-as="p">DMD (Dynamic Mode Decomposition, Schmid 2010 —
+<strong>not</strong> Distribution Matching Distillation) is an
+<strong>exponential-basis</strong> forecasting calibrator and a drop-in
+alternative to TaylorSeer’s polynomial basis. At each full-compute step
+it records a snapshot of the computed features; at a cached step it
+identifies a linear propagator from the recent snapshot window (one
+economy SVD with rank truncation, then eigendecomposition) and forecasts
+the current features via eigenvalue powers — cheap to advance, and
+stable over longer cache skips where polynomial extrapolation diverges.
+It typically improves both speed and quality over pure DBCache.
+<strong>DMD and TaylorSeer are mutually exclusive</strong> (enabling
+both raises a <code>ValueError</code>); DMD is best for flow-matching
+models, TaylorSeer for DDPM-style ones. See the <a
+href="https://cache-dit.readthedocs.io/en/latest/user_guide/CACHE_API/#dmd-calibrator-dynamic-mode-decomposition"
+class="link" target="_blank" rel="noreferrer">Cache-DiT DMD
+documentation</a> for details:</span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Env Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enable</td>
+<td><code>SGLANG_CACHE_DIT_DMD</code></td>
+<td>false</td>
+<td>Enable the DMD calibrator</td>
+</tr>
+<tr>
+<td>History</td>
+<td><code>SGLANG_CACHE_DIT_DMD_HISTORY</code></td>
+<td>6</td>
+<td>Snapshot window length; 5-6 typical. Needs &gt;= 4 uniformly spaced
+snapshots, otherwise DMD falls back to TaylorSeer</td>
+</tr>
+<tr>
+<td>Rank</td>
+<td><code>SGLANG_CACHE_DIT_DMD_RANK</code></td>
+<td>0</td>
+<td>SVD truncation rank; 0 = automatic (drop modes below 1e-4 of the
+leading singular value)</td>
+</tr>
+<tr>
+<td>Ridge</td>
+<td><code>SGLANG_CACHE_DIT_DMD_RIDGE</code></td>
+<td>1e-8</td>
+<td>Tikhonov regularization added to the inverted singular values</td>
+</tr>
+<tr>
+<td>SVD Precision</td>
+<td><code>SGLANG_CACHE_DIT_DMD_SVD_PRECISION</code></td>
+<td>medium</td>
+<td>SVD precision: “low”, “medium” or “high”</td>
+</tr>
+</tbody>
+</table>
+<span data-as="p">Usage (SGLD backend, env-driven):</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkm19crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsm19crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3619crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>SGLANG_CACHE_DIT_ENABLED=true \
+SGLANG_CACHE_DIT_DMD=true \
+sglang generate --model-path black-forest-labs/FLUX.1-dev \
+    --prompt &quot;A curious raccoon in a forest&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">On the diffusers backend, enable DMD from the yaml
+config instead (<code>enable_dmd: true</code> in
+<code>cache_config</code>, see <a href="#diffusers-backend"
+class="link">Diffusers Backend</a>); DMD can also be set per request via
+<code>cache_dit_params: {"enable_dmd": true}</code>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_659crmhkd74t9_"
+id="combined-configuration-example"><a
+href="#combined-configuration-example" class="anchor-link"
+aria-label="Navigate to header: Combined Configuration Example"></a><span
+id="_R_659crmhkd74t9_" class="cursor-pointer">Combined Configuration
+Example</span></h3>
+<span data-as="p">DBCache and TaylorSeer are complementary strategies
+that work together, you can configure both sets of parameters
+simultaneously:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="10" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkm99crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsm99crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3699crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>SGLANG_CACHE_DIT_ENABLED=true \
+SGLANG_CACHE_DIT_FN=2 \
+SGLANG_CACHE_DIT_BN=1 \
+SGLANG_CACHE_DIT_WARMUP=4 \
+SGLANG_CACHE_DIT_RDT=0.4 \
+SGLANG_CACHE_DIT_MC=4 \
+SGLANG_CACHE_DIT_TAYLORSEER=true \
+SGLANG_CACHE_DIT_TS_ORDER=2 \
+sglang generate --model-path black-forest-labs/FLUX.1-dev \
+    --prompt &quot;A curious raccoon in a forest&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_6b9crmhkd74t9_" id="scm-step-computation-masking"><a
+href="#scm-step-computation-masking" class="anchor-link"
+aria-label="Navigate to header: SCM (Step Computation Masking)"></a><span
+id="_R_6b9crmhkd74t9_" class="cursor-pointer">SCM (Step Computation
+Masking)</span></h3>
+<span data-as="p">SCM provides step-level caching control for additional
+speedup. It decides which denoising steps to compute fully and which to
+use cached results.</span> <span data-as="p"><strong>SCM
+Presets</strong></span> <span data-as="p">SCM is configured with
+presets:</span>
+<table>
+<thead>
+<tr>
+<th>Preset</th>
+<th>Compute Ratio</th>
+<th>Speed</th>
+<th>Quality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>none</code></td>
+<td>100%</td>
+<td>Baseline</td>
+<td>Best</td>
+</tr>
+<tr>
+<td><code>slow</code></td>
+<td>~75%</td>
+<td>~1.3x</td>
+<td>High</td>
+</tr>
+<tr>
+<td><code>medium</code></td>
+<td>~50%</td>
+<td>~2x</td>
+<td>Good</td>
+</tr>
+<tr>
+<td><code>fast</code></td>
+<td>~35%</td>
+<td>~3x</td>
+<td>Acceptable</td>
+</tr>
+<tr>
+<td><code>ultra</code></td>
+<td>~25%</td>
+<td>~4x</td>
+<td>Lower</td>
+</tr>
+</tbody>
+</table>
+<span data-as="p"><strong>Usage</strong></span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkmn9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsmn9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_36n9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>SGLANG_CACHE_DIT_ENABLED=true \
+SGLANG_CACHE_DIT_SCM_PRESET=medium \
+sglang generate --model-path Qwen/Qwen-Image \
+    --prompt &quot;A futuristic cityscape at sunset&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p"><strong>Custom SCM Bins</strong></span> <span
+data-as="p">For fine-grained control over which steps to compute vs
+cache:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="5" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkmt9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsmt9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_36t9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>SGLANG_CACHE_DIT_ENABLED=true \
+SGLANG_CACHE_DIT_SCM_COMPUTE_BINS=&quot;8,3,3,2,2&quot; \
+SGLANG_CACHE_DIT_SCM_CACHE_BINS=&quot;1,2,2,2,3&quot; \
+sglang generate --model-path Qwen/Qwen-Image \
+    --prompt &quot;A futuristic cityscape at sunset&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p"><strong>SCM Policy</strong></span>
+<table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Env Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dynamic</code></td>
+<td><code>SGLANG_CACHE_DIT_SCM_POLICY=dynamic</code></td>
+<td>Adaptive caching based on content (default)</td>
+</tr>
+<tr>
+<td><code>static</code></td>
+<td><code>SGLANG_CACHE_DIT_SCM_POLICY=static</code></td>
+<td>Fixed caching pattern</td>
+</tr>
+</tbody>
+</table>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_739crmhkd74t9_" id="environment-variables"><a
+href="#environment-variables" class="anchor-link"
+aria-label="Navigate to header: Environment Variables"></a><span
+id="_R_739crmhkd74t9_" class="cursor-pointer">Environment
+Variables</span></h2>
+<span data-as="p">All Cache-DiT parameters can also be configured via
+environment variables, which act as the server-wide defaults for
+requests that don’t set <code>enable_cache_dit</code> /
+<code>cache_dit_params</code>. See <a
+href="https://docs.sglang.io/docs/sglang-diffusion/environment_variables"
+class="link">Environment Variables</a> for the complete list.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_779crmhkd74t9_" id="supported-models"><a
+href="#supported-models" class="anchor-link"
+aria-label="Navigate to header: Supported Models"></a><span
+id="_R_779crmhkd74t9_" class="cursor-pointer">Supported
+Models</span></h2>
+<span data-as="p">SGLang Diffusion x Cache-DiT supports almost all
+models originally supported in SGLang Diffusion:</span>
+<table>
+<thead>
+<tr>
+<th>Model Family</th>
+<th>Example Models</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wan</td>
+<td>Wan2.1, Wan2.2</td>
+</tr>
+<tr>
+<td>Flux</td>
+<td>FLUX.1-dev, FLUX.2-dev, FLUX.3 Image Klein</td>
+</tr>
+<tr>
+<td>Z-Image</td>
+<td>Z-Image-Turbo</td>
+</tr>
+<tr>
+<td>Qwen</td>
+<td>Qwen-Image, Qwen-Image-Edit, Qwen-Image 2.1</td>
+</tr>
+<tr>
+<td>Hunyuan</td>
+<td>HunyuanVideo</td>
+</tr>
+<tr>
+<td>MiniMax</td>
+<td>MiniMax-H3 (T2VA, FL2VA, and Ref2VA)</td>
+</tr>
+</tbody>
+</table>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7d9crmhkd74t9_" id="performance-tips"><a
+href="#performance-tips" class="anchor-link"
+aria-label="Navigate to header: Performance Tips"></a><span
+id="_R_7d9crmhkd74t9_" class="cursor-pointer">Performance
+Tips</span></h2>
+<ol>
+<li><strong>Start with defaults</strong>: The default parameters work
+well for most models</li>
+<li><strong>Use TaylorSeer</strong>: It typically improves both speed
+and quality</li>
+<li><strong>Tune R threshold</strong>: Lower values = better quality,
+higher values = faster</li>
+<li><strong>SCM for extra speed</strong>: Use <code>medium</code> preset
+for good speed/quality balance</li>
+<li><strong>Warmup matters</strong>: Higher warmup = more stable caching
+decisions</li>
+</ol>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7h9crmhkd74t9_" id="limitations"><a
+href="#limitations" class="anchor-link"
+aria-label="Navigate to header: Limitations"></a><span
+id="_R_7h9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Limitations</span></h2>
+<ul>
+<li><strong>SGLang-native pipelines</strong>: Distributed Cache-DiT
+paths exist for supported pipelines. Hybrid SP+TP configurations add
+communication and cache coordination overhead, so validate them on the
+target model and hardware before using them as production defaults.</li>
+<li><strong>DiT layerwise offload</strong>: Compatible. Skipped blocks
+are not streamed, and the first layer after a skip may sync-load. Still
+incompatible with <code>--use-fsdp-inference</code>.</li>
+<li><strong>SCM minimum steps</strong>: SCM presets require &gt;= 8
+inference steps (or exactly 4 or 6). Some pipelines report
+<code>steps - 1</code> NFEs (for example MiniMax-H3
+<code>num_inference_steps=8</code> is 7 NFEs), which trips the upstream
+<code>steps_mask</code> assertion; use at least 9 requested steps or
+custom bins.</li>
+<li><strong>Model support</strong>: The model must be registered in
+Cache-DiT’s <code>BlockAdapterRegister</code> or have an SGLang custom
+block adapter.</li>
+</ul>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7l9crmhkd74t9_" id="troubleshooting"><a
+href="#troubleshooting" class="anchor-link"
+aria-label="Navigate to header: Troubleshooting"></a><span
+id="_R_7l9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Troubleshooting</span></h2>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7n9crmhkd74t9_" id="scm-with-low-step-counts"><a
+href="#scm-with-low-step-counts" class="anchor-link"
+aria-label="Navigate to header: SCM with low step counts"></a><span
+id="_R_7n9crmhkd74t9_" class="cursor-pointer">SCM with low step
+counts</span></h3>
+<span data-as="p">With fewer than 8 steps, SGLang does not disable SCM
+automatically. cache-dit’s preset masks support only 4 or 6 steps there,
+and other step counts fail with an assertion. For low-step (e.g.
+distilled) models, leave <code>scm_preset</code> at <code>none</code> or
+pass custom <code>scm_compute_bins</code>/<code>scm_cache_bins</code>.
+DBCache acceleration still works.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7r9crmhkd74t9_"
+id="svdquant-unavailable-or-load-failure"><a
+href="#svdquant-unavailable-or-load-failure" class="anchor-link"
+aria-label="Navigate to header: SVDQuant unavailable or load failure"></a><span
+id="_R_7r9crmhkd74t9_" class="cursor-pointer">SVDQuant unavailable or
+load failure</span></h3>
+<span data-as="p">SVDQuant cases raise
+<code>svdq_is_available() = False</code> or
+<code>undefined symbol: ... materialize_cow_storage ...</code> when the
+installed cache-dit has no CUDA extension, or the prebuilt wheel was
+compiled against an incompatible torch. Fix: reinstall from the
+<code>cache-dit-cu13</code> wheel matching your torch version, or build
+cache-dit from source with <code>CACHE_DIT_BUILD_SVDQUANT=1</code> (see
+<a href="#quantization" class="link">Quantization</a>). Quick
+self-check:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="1" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fknv9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsnv9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="archived-control-label">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 shrink-0 text-gray-400 group-hover/ask-assistant-button:text-gray-500 dark:text-white/40 dark:group-hover/ask-assistant-button:text-white/60">
+<use href="#mi-mint-1-Sparkle"></use>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_37v9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python -c &quot;from cache_dit.quantization.svdquant import svdq_is_available, svdq_get_load_error as e; print(svdq_is_available(), e())&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_819crmhkd74t9_" id="references"><a
+href="#references" class="anchor-link"
+aria-label="Navigate to header: References"></a><span
+id="_R_819crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">References</span></h2>
+<ul>
+<li><a href="https://github.com/vipshop/cache-dit" class="link"
+target="_blank" rel="noreferrer">Cache-DiT</a></li>
+<li><a
+href="https://docs.sglang.io/docs/sglang-diffusion/performance-optimization"
+class="link">SGLang Diffusion</a></li>
+</ul>
+</div>
+</body>
+</html>

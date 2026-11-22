@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>NVIDIA Dynamo, A Low-Latency Distributed Inference Framework for Scaling Reasoning AI Models</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">NVIDIA Dynamo, A Low-Latency Distributed Inference
+Framework for Scaling Reasoning AI Models</h1>
+</header>
+<section
+id="nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models"
+class="header">
+<h1>NVIDIA Dynamo, A Low-Latency Distributed Inference Framework for
+Scaling Reasoning AI Models</h1>
+<p>来源：<a
+href="https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models">https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<div class="entry-content">
+<p>NVIDIA announced the release of <a
+href="https://developer.nvidia.com/dynamo" data-wpel-link="internal"
+target="_self" rel="follow">NVIDIA Dynamo</a> at <a
+href="https://www.nvidia.com/gtc/" data-wpel-link="internal"
+target="_self" rel="follow">GTC 2025</a>. NVIDIA Dynamo is a
+high-throughput, low-latency open-source inference serving framework for
+deploying generative AI and reasoning models in large-scale distributed
+environments. The framework boosts the number of requests served by up
+to 30x, when running the open-source DeepSeek-R1 models on NVIDIA
+Blackwell. NVIDIA Dynamo is compatible with open-source tools, including
+PyTorch, SGLang, <a
+href="https://docs.nvidia.com/tensorrt-llm/index.html"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA
+TensorRT-LLM</a>, and vLLM, joining the expanding community of inference
+tools that empower developers and AI researchers  to accelerate AI. </p>
+<p>NVIDIA Dynamo introduces several key innovations, including: </p>
+<ul>
+<li>Disaggregated prefill and decode inference stages to increase
+throughput per GPU</li>
+<li>Dynamic scheduling of GPUs based on fluctuating demand to optimize
+performance </li>
+<li>LLM-aware request routing to avoid KV cache recomputation costs</li>
+<li>Accelerated asynchronous data transfer between GPUs to reduce
+inference response time</li>
+<li>KV cache offloading across different memory hierarchies to increase
+system throughput</li>
+</ul>
+<p>Starting today, NVIDIA Dynamo is available for developers on the <a
+href="http://github.com/ai-dynamo/dynamo" data-wpel-link="external"
+target="_blank" rel="follow">ai-dynamo/dynamo</a> GitHub repo. For
+enterprises looking for faster time to production and enterprise-grade
+security, support, and stability, NVIDIA Dynamo will be included with <a
+href="https://www.nvidia.com/en-us/ai-data-science/products/nim-microservices/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA NIM</a>
+microservices, part of <a
+href="https://www.nvidia.com/en-us/data-center/products/ai-enterprise/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA AI
+Enterprise</a>. </p>
+<p>This post explains the architecture and key components of NVIDIA
+Dynamo, highlighting how they facilitate cost-effective disaggregated
+serving and scaling of generative AI models, from a single GPU to
+thousands of GPUs. </p>
+<figure
+class="wp-block-embed aligncenter is-type-video is-provider-youtube wp-block-embed-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio">
+<div class="wp-block-embed__wrapper">
+<span class="embed-youtube"></span>
+<p><a
+href="https://www.youtube.com/embed/02aR_BJROt0?version=3&amp;rel=1&amp;showsearch=0&amp;showinfo=1&amp;iv_load_policy=1&amp;fs=1&amp;hl=en-US&amp;autohide=2&amp;wmode=transparent">外部嵌入内容未离线保存；联网查看原内容</a></p>
+</span>
+</div>
+<figcaption><em>Video 1. Learn how NVIDIA Dynamo can increase AI model
+throughout by up to 30x</em></figcaption>
+</figure>
+<h2 class="wp-block-heading"
+id="accelerating_ai_inference_in_multinode_deployments">Accelerating AI
+inference in multinode deployments<a
+href="#accelerating_ai_inference_in_multinode_deployments"
+class="heading-anchor-link"
+aria-label="Scroll to Accelerating AI inference in multinode deployments section"><em></em></a></h2>
+<p>AI inference will help developers create new groundbreaking
+applications by integrating reasoning models into their workflows,
+allowing apps to understand and interact with users in more intuitive
+ways. However, it also represents a significant recurring cost, posing
+considerable challenges for those looking to scale their models cost
+efficiently to meet the insatiable demand for AI. </p>
+<p>When NVIDIA first introduced NVIDIA Triton Inference Server in 2018,
+the goal was to accelerate AI innovation and drive down inference costs.
+<a
+href="https://developer.nvidia.com/open-source?sortBy=open_source_projects%2Fsort%2Ftitle%3Aasc&amp;query=Triton+"
+data-wpel-link="internal" target="_self" rel="follow">Triton was the
+first open-source</a> AI inference server that consolidated bespoke
+framework-specific inference serving, including TensorFlow, PyTorch,
+ONNX, OpenVINO and more, into a single unified platform—significantly
+reducing inference costs and accelerating time to market (TTM) for new
+AI models. </p>
+<p>Triton has been downloaded over 1 million times from <a
+href="https://catalog.ngc.nvidia.com/?filters=&amp;orderBy=weightPopularDESC&amp;query=&amp;page=&amp;pageSize="
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA NGC</a> and
+is today used by some of the world’s leading organizations to deploy AI
+models in production, including <a
+href="https://aws.amazon.com/blogs/machine-learning/how-amazon-music-uses-sagemaker-with-nvidia-to-optimize-ml-training-and-inference-performance-and-cost/"
+data-wpel-link="external" target="_blank" rel="follow">Amazon</a>, <a
+href="https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/leveraging-nvidia-triton-inference-server-and-azure-ai-for/ba-p/4084776"
+data-wpel-link="external" target="_blank" rel="follow">Microsoft</a>, <a
+href="https://blogs.nvidia.com/blog/ai-inference-oci-triton/"
+data-wpel-link="internal" target="_self" rel="follow">Oracle Cloud</a>,
+<a
+href="https://www.nvidia.com/en-us/case-studies/docusign-accelerates-agreement-management-with-inference-platform/"
+data-wpel-link="internal" target="_self" rel="follow">DocuSign</a>, <a
+href="https://youtu.be/NR_iUl2Ooc0?si=zBIUJgfmGia-iAqW&amp;t=1102"
+data-wpel-link="external" target="_blank" rel="follow"></a> <a
+href="https://developer.nvidia.com/blog/spotlight-perplexity-ai-serves-400-million-search-queries-a-month-using-nvidia-inference-stack/"
+data-wpel-link="internal" target="_self" rel="follow">Perplexity</a>, <a
+href="https://blogs.nvidia.com/blog/siemens-energy-taps-nvidia-triton-inference-server-for-power-plant-inspections-autonomy/"
+data-wpel-link="internal" target="_self" rel="follow"></a> <a
+href="https://developer.nvidia.com/blog/enhancing-the-apparel-shopping-experience-with-ai-emoji-aware-ocr-and-snapchats-screenshop/"
+data-wpel-link="internal" target="_self" rel="follow">Snap</a>, and many
+others. </p>
+<p>Since the launch of Triton, open-source model sizes have grown
+dramatically—by almost 2,000x—and are now increasingly integrated into
+<a href="https://www.nvidia.com/en-us/glossary/ai-agents/"
+data-wpel-link="internal" target="_self" rel="follow">agentic AI</a>
+workflows that require interaction with multiple other models. Deploying
+these models and workflows in production environments involves
+distributing them across multiple nodes, which demands careful
+orchestration and coordination across large fleets of GPUs. The
+complexity intensifies with the introduction of new distributed
+inference optimization methods, such as disaggregated serving, that
+split the response to a single user request across different GPUs. This
+makes collaboration and efficient data transfer between them even more
+challenging. </p>
+<p>To tackle the challenges of distributed generative AI inference
+serving, we are releasing NVIDIA Dynamo. Dynamo builds on the successes
+of Triton with  a new modular architecture designed to serve generative
+AI models in multinode distributed environments.</p>
+<p>NVIDIA Dynamo enables seamless scaling of inference workloads across
+GPU nodes and dynamic GPU worker allocation to efficiently respond to
+fluctuating user demand and handle traffic bottlenecks in multimodel AI
+pipelines. NVIDIA Dynamo supports all major LLM frameworks including <a
+href="https://github.com/NVIDIA/TensorRT-LLM" data-wpel-link="external"
+target="_blank" rel="follow">NVIDIA TensorRT-LLM</a>, vLLM, and SGLang.
+It incorporates state-of-the-art LLM inference serving optimization
+techniques such as disaggregated serving, which separates the different
+phases of inference onto distinct GPU devices to boost inference
+performance. </p>
+<h2 class="wp-block-heading"
+id="boosting_inference_performance_on_nvidia_gb200_nvl72_by_30x">Boosting
+inference performance on NVIDIA GB200 NVL72 by 30x<a
+href="#boosting_inference_performance_on_nvidia_gb200_nvl72_by_30x"
+class="heading-anchor-link"
+aria-label="Scroll to Boosting inference performance on NVIDIA GB200 NVL72 by 30x section"><em></em></a></h2>
+<p>Traditional LLM deployments placed both the prefill and decode phases
+of inference on a single GPU or node, despite each phase having
+different resource requirements. This approach hindered performance
+optimization and prevented developers from fully utilizing GPU
+resources. </p>
+<p>The prefill phase processes user input to generate the first output
+token and is compute-bound, while the decode phase generates subsequent
+tokens and is memory-bound. Co-locating these phases on the same GPU or
+GPU node leads to inefficient resource use, especially for long input
+sequences. Additionally, the distinct hardware needs of each phase limit
+model parallelism flexibility, causing missed performance
+opportunities.</p>
+<p>To address these issues, disaggregated serving separates the prefill
+and decode phases onto different GPUs or nodes. This enables developers
+to optimize each phase independently, applying different model
+parallelism strategies and assigning different GPU devices to each phase
+(Figure 1).</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e5913a2a3&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e5913a2a3">
+<img
+src="assets/c1c29af892821ef176a0a6a2a2aab3f94b07f8d2cbc267d45e4236f9d929e283.png"
+class="lazyload wp-image-97486"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999" height="962"
+alt="Two diagrams side-by-side. On the left: ‘Traditional Serving’ shows where the input for multi-GPU is sent to prefill and the first token is then sent to the Compute Bound stage while the remaining tokens are sent to decode and channeled to Memory bound stage for KV Cache. On the right: ‘Disaggregated Serving’ shows where the input is sent to prefill and the first token is then partitioned out while the remaining tokens are transferred as KV cache to another group of GPUs and then decoded. " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 1. Disaggregated serving separates prefill
+and decode on different GPUs to optimize
+performance</em></em></figcaption>
+</figure>
+</div>
+<p>For instance, low tensor parallelism can be used in the prefill phase
+to reduce communication overhead, while high tensor parallelism can
+improve memory operations in the decode phase. This approach enables
+more efficient resource allocation, reduces inference-serving costs, and
+provides better control over service-level objectives (SLOs) such as
+TTFT and inter-token latency (ITL). </p>
+<p>When serving the open-source DeepSeek-R1 model on <a
+href="https://www.nvidia.com/en-us/data-center/gb200-nvl72/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA GB200
+NVL72</a>, NVIDIA Dynamo, using disaggregated serving, increased the
+number of requests served by up to 30x. NVIDIA Dynamo more than doubled
+the throughput performance when serving the Llama 70B model on NVIDIA
+Hopper.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e5913bd5b&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e5913bd5b">
+<img
+src="assets/bea3a0d7e66aaa84d0feb09df959ee4f11930ae4b45533e10645dee43b6d8de1.png"
+class="lazyload wp-image-97495"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999"
+height="1015"
+alt="Bar chart showing NVIDIA Dynamo throughput performance when running DeepSeek-R1 671B model on NVIDIA GB200 NVL72 boosting performance by 30x. It more than doubles performance on the Llama 70B model running on NVIDIA Hopper GPUs. " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 2. NVIDIA Dynamo delivers exceptional throughput
+performance when running DeepSeek-R1 671B model on NVIDIA GB200 NVL72
+boosting performance by 30x. It more than doubles performance on the
+Llama 70B model running on NVIDIA Hopper GPUs</em></figcaption>
+</figure>
+</div>
+<p>Left: TensorRT-LLM, FP4, ISL/OSL: 32K/8K. Without Dynamo: Inflight
+Batching, TEP16PP4DP4. With Dynamo: Disaggregated Serving, Context:
+EP4DP16, Generation: EP64DP3. Projected performance subject to
+change. Right: vLLM, FP8, ISL/OSL: 3K/50 . Without Dynamo: Inflight
+Batching, TP8DP2. With Dynamo: Disaggregated Serving, Context: TP2DP4,
+Generation: TP8. </p>
+<p>To enable large-scale distributed and disaggregated inference
+serving, NVIDIA Dynamo includes four key innovations:</p>
+<ul>
+<li>NVIDIA Dynamo Planner</li>
+<li>NVIDIA Dynamo Smart Router</li>
+<li>NVIDIA Dynamo Distributed KV Cache Manager</li>
+<li>NVIDIA Inference Transfer Library (NIXL)</li>
+</ul>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e5913d2c6&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e5913d2c6">
+<img
+src="assets/d3d7e88cb9c8026e63a37d4a6be140dbdd31c621534b5f4e4be2daedb2ffb3dd.png"
+class="lazyload wp-image-97886"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 2500px) 100vw, 2500px" width="2500"
+height="1406"
+alt="Diagram of NVIDIA Dynamo Architecture begins with the API Server, then smart router, disaggregated serving (which includes prefill worker and decode worker) and then finally ends with NVIDIA Inference Transfer Engine (NIXL) for low-latency interconnect-agnostic multinode data transfer. " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 3. NVIDIA Dynamo
+architecture </em></em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading"
+id="nvidia_dynamo_planner_optimizing_gpu_resources_for_distributed_inference ">NVIDIA
+Dynamo Planner: Optimizing GPU resources for distributed inference <a
+href="#nvidia_dynamo_planner_optimizing_gpu_resources_for_distributed_inference%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to NVIDIA Dynamo Planner: Optimizing GPU resources for distributed inference  section"><em></em></a></h2>
+<p>In large-scale distributed and disaggregated-serving inference
+systems, efficiently managing GPU resources is essential to maximize
+throughput and minimize latency. While disaggregated serving can
+significantly enhance inference throughput and efficiency, it might not
+always be the most effective solution for every incoming request. </p>
+<p>Imagine a scenario where a surge of summarization requests with long
+input sequence lengths (ISLs) but short output sequence lengths (OSLs)
+overwhelms the prefill GPUs. While the decode GPUs remain underutilized,
+the prefill GPUs become a bottleneck. In this case, allowing decode GPUs
+to perform both prefill and decode tasks in a traditional aggregated
+manner, or shifting decode GPUs to perform prefill tasks, might be more
+efficient. This approach can help balance the load, alleviate pressure
+on the prefill GPUs, and ultimately improve overall throughput.</p>
+<p>Deciding between disaggregated and aggregated serving or how many
+GPUs should be assigned to each phase requires careful consideration of
+several factors. These factors include the time needed to transfer the
+KV cache between the prefill and decode GPUs, the GPUs’ queue wait times
+for incoming requests, and the estimated processing times for both
+disaggregated and aggregated configurations. In large-scale environments
+with hundreds of GPUs, these decisions can quickly become very
+complex.</p>
+<p>This is where NVIDIA Dynamo Planner comes into play. It continuously
+monitors key GPU capacity metrics in distributed inference environments,
+and combines them with application SLOs such as TTFT and ITL to make
+informed decisions on whether to serve incoming requests with or without
+disaggregation or if additional GPUs should be added to either phase.
+NVIDIA Dynamo Planner ensures that GPU resources are allocated
+efficiently across prefill and decode, adapting to fluctuating workloads
+while maintaining peak system performance. </p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e5913e76c&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e5913e76c">
+<img
+src="assets/d8b0d87bf67f6f1888ec8310f7011032801f43731ea4dd688d79dba4f54238a8.png"
+class="lazyload wp-image-97329"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999" height="988"
+alt="User requests are input to the Dynamo GPU planner - where GPU capacity metrics are integrated - and then sent to disaggregated serving, shift GPUs between prefill and decode, and traditional serving." />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 4. GPU Planner analyzes GPU capacity metrics
+to make the optimal decision on how to serve incoming requests or
+allocate GPU workers</em></em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading"
+id="nvidia_dynamo_smart_router_reducing_costly_recomputation_of_kv_cache ">NVIDIA
+Dynamo Smart Router: Reducing costly recomputation of KV cache <a
+href="#nvidia_dynamo_smart_router_reducing_costly_recomputation_of_kv_cache%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to NVIDIA Dynamo Smart Router: Reducing costly recomputation of KV cache  section"><em></em></a></h2>
+<p>Before responding to a user’s prompt, LLMs must build a contextual
+understanding of the input request known as the KV cache. This process
+is compute intensive and scales quadratically with the size of the input
+request. Reusing KV cache avoids the need to recompute it from scratch,
+reducing inference time and compute resources. This is particularly
+advantageous in use cases where the same request is frequently executed,
+such as system prompts, single-user multiturn chatbot interactions, and
+agentic workflows. An efficient data management mechanism is required to
+check when and where the KV cache can be reused.</p>
+<p>The NVIDIA Dynamo Smart Router tracks KV cache across large fleets of
+GPUs in multinode and disaggregated deployments, and efficiently routes
+incoming requests, minimizing the need for their costly recomputation.
+It hashes incoming requests and stores them in a Radix Tree, which
+allows the tracking of KV locations in large scale distributed inference
+environments. It also utilizes specialized algorithms for KV cache
+insertion and eviction ensuring that the most relevant blocks are
+retained. </p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e5913f8ff&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e5913f8ff">
+<img
+src="assets/6f83e2fd4ba8f327111a4b212dbc606153a06e8f6bf956a0db5ea80657d61010.png"
+class="lazyload wp-image-97498"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999"
+height="1069"
+alt="Two side-by-side bar charts. The chart on the left shows TTFT speedup with and without NVIDIA Dynamo Smart Router. The chart on the right shows average request latency speedup with and without NVIDIA Dynamo Smart Router. " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 5. NVIDIA Dynamo Smart Router avoids KV cache
+recomputations accelerating model response time and enhancing user
+experience </em></em></figcaption>
+</figure>
+</div>
+<p><em>2x HGX-H100 nodes. 8x DeepSeek-R1- Distill-Llama-70B. vLLM, FP8,
+Tensor Parallel: 2</em><br />
+<em>Data Source: 100K real R1 requests, Avg ISL/OSL: 4K/800</em></p>
+<p>When new inference requests arrive, the NVIDIA Dynamo Smart Router
+computes an overlap score <strong></strong> between incoming requests
+and the KV cache blocks already active across all the memory of all GPUs
+in the distributed cluster. By factoring in the overlap score and the
+distribution of workload across the GPU fleet, it intelligently routes
+requests to the most suitable workers, minimizing KV cache recomputation
+while ensuring a balanced load across the cluster. </p>
+<p>Unlike round-robin or load-based routing, this approach optimizes
+overall system performance by factoring in cache hit rate, workload
+balance, and GPU capacity, ensuring efficient request handling and
+eliminating resource bottlenecks. By reducing unnecessary re-computation
+of KV cache, NVIDIA Dynamo Smart Router frees up GPU resources. This
+enables AI service providers to respond to more user requests,
+maximizing returns on their accelerated compute investments.</p>
+<h2 class="wp-block-heading"
+id="nvidia_dynamo_distributed_kv_cache_manager_offloading_kv_cache_to_cost-effective_storage">NVIDIA
+Dynamo Distributed KV Cache Manager: Offloading KV cache to
+cost-effective storage<a
+href="#nvidia_dynamo_distributed_kv_cache_manager_offloading_kv_cache_to_cost-effective_storage"
+class="heading-anchor-link"
+aria-label="Scroll to NVIDIA Dynamo Distributed KV Cache Manager: Offloading KV cache to cost-effective storage section"><em></em></a></h2>
+<p>Calculating KV cache for user requests is resource-intensive and thus
+expensive. Reusing KV cache to minimize the need for its recomputation
+is common practice. However, as AI demand increases, the volume of KV
+cache that must be stored in GPU memory for reuse can quickly become
+prohibitively costly. This creates a significant challenge for AI
+inference teams trying to efficiently manage KV cache reuse without
+exceeding their budget.</p>
+<p>The NVIDIA Dynamo KV Cache Manager feature addresses this challenge
+by enabling the offloading of older or less frequently accessed KV cache
+blocks to more cost-effective memory and storage solutions, such as CPU
+host memory, local storage or networked object storage. This capability
+enables organizations to store up to petabytes of KV cache data at a
+fraction of the cost of keeping it in GPU memory. By offloading KV cache
+to alternative memory hierarchies, developers can free up valuable GPU
+resources while still retaining and reusing historical KV cache to
+reduce inference computation costs.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59141402&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59141402">
+<img
+src="assets/6336797f4481fefaf10ee9c9deda8ebbaff15eb48454be94958c0b8bcd464a4e.png"
+class="lazyload wp-image-97330"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1072px) 100vw, 1072px" width="1072" height="682"
+alt="A triangular diagram shows a hierarchy with GPU memory at the very top, then host memory, local SSD, and finally, shared network storage at the bottom. A note on the side shows an arrow scaling down from the top to bottom with the text ‘Dynamo Distributed KV Cache Manager - offloading KV cache to cost effective storage.’ " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 6. NVIDIA Dynamo Distributed KV Cache Manager
+offloads less frequently accessed KV cache to more economical memory
+hierarchies</em></em></figcaption>
+</figure>
+</div>
+<p>The NVIDIA Dynamo KV Cache Manager uses advanced caching policies
+that prioritize placing frequently accessed data in GPU memory, while
+less accessed data is moved to shared CPU host memory, SSDs, or
+networked object storage. It incorporates intelligent eviction policies
+that strike a balance between over-caching (which can introduce lookup
+latencies) and under-caching (which leads to missed lookups and KV cache
+recomputation). </p>
+<p>Additionally, this feature can manage KV cache across multiple GPU
+nodes, supporting both distributed and disaggregated inference serving,
+and offers hierarchical caching capabilities, creating offloading
+strategies at the GPU, node, and cluster levels.</p>
+<p>The NVIDIA Dynamo KV Cache Manager is designed to be
+framework-agnostic to support various backends, including PyTorch,
+SGLang, TensorRT-LLM, and vLLM, and to facilitate the scaling of KV
+cache storage across large, distributed clusters using <a
+href="https://www.nvidia.com/en-us/data-center/nvlink/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA NVLink</a>,
+<a href="https://www.nvidia.com/en-us/networking/products/infiniband/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA Quantum</a>
+switches, and <a
+href="https://www.nvidia.com/en-us/networking/products/ethernet/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA
+Spectrum</a> switches.</p>
+<h2 class="wp-block-heading"
+id="nvidia_inference_transfer_library_nixl_low-latency_hardware-agnostic_communication ">NVIDIA
+Inference Transfer Library (NIXL): Low-latency, hardware-agnostic
+communication <a
+href="#nvidia_inference_transfer_library_nixl_low-latency_hardware-agnostic_communication%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to NVIDIA Inference Transfer Library (NIXL): Low-latency, hardware-agnostic communication  section"><em></em></a></h2>
+<p>Large-scale distributed inference leverages model parallelism
+techniques such as Tensor, pipeline, and expert parallelism, which rely
+on internode and intranode, low-latency, high-throughput communication
+leveraging GPUDirect RDMA. These systems also require rapid KV cache
+transfer between prefill and decode GPU workers in disaggregated serving
+environments. </p>
+<p>Additionally, they must support accelerated communication libraries
+that are both hardware- and network-agnostic, capable of efficiently
+moving data across GPUs and memory hierarchies including storage—like
+CPU memory, and block, file, and object storage—and compatible with a
+range of networking protocols.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e5914283a&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e5914283a">
+<img
+src="assets/573f47b276982a064ba97e6ed49647dc93ed6804e0a100e9af19c7322b587713.png"
+class="lazyload wp-image-97333"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 909px) 100vw, 909px" width="909" height="456"
+alt="A diagram showing the NIXL API at the top which intakes post requests and deploys request completion on one side. NIXL Core including metadata and memory is in the center and on the bottom is the Backend API which supports KV data intakes and out-takes over UCX, GDS, S3, and custom backend communication libraries. From the NIXL core memory, four arrows extend to the right pointing to different data storage options: DRAM, HBM, file storage, and object storage. " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 7. NVIDIA Inference Transfer Library (NIXL)
+abstracts the complexity of data movement across heterogeneous memory
+and storage devices</em></em></figcaption>
+</figure>
+</div>
+<p><a href="https://github.com/ai-dynamo/nixl" data-wpel-link="external"
+target="_blank" rel="follow">NVIDIA Inference Transfer Library
+(NIXL)</a> is a high-throughput, low-latency point-to-point
+communication library that provides a consistent data movement API to
+move data rapidly and asynchronously across different tiers of memory
+and storage using the same semantics. It is specifically optimized for
+inference data movement, supporting nonblocking and noncontiguous data
+transfers between various types of memory and storage. </p>
+<p>NIXL supports heterogeneous data paths as well as different types of
+memory and local SSDs, plus networked storage from key NVIDIA storage
+partners.  </p>
+<p>NIXL enables NVIDIA Dynamo to interface with other communications
+libraries such as GPUDirect Storage, UCX, and S3 with a common API
+regardless of whether the transfer is over  NVLink (C2C or NVSwitch),
+InfiniBand, RoCE, or Ethernet. NIXL, in conjunction with the NVIDIA
+Dynamo policy engine, automatically chooses the best backend connection
+and abstracts away the differences between multiple types of memory and
+storage. This is accomplished through generalized “memory sections”
+which can be HBM, DRAM, local SSD, or networked storage (Block, Object,
+or File). </p>
+<h2 class="wp-block-heading" id="get_started_with_nvidia_dynamo">Get
+started with NVIDIA Dynamo<a href="#get_started_with_nvidia_dynamo"
+class="heading-anchor-link"
+aria-label="Scroll to Get started with NVIDIA Dynamo section"><em></em></a></h2>
+<p>Modern LLMs have expanded in parameter size, incorporated reasoning
+capabilities, and are increasingly embedded in agentic AI workflows. As
+a result, they generate a far greater number of tokens during inference
+and require deployment in distributed environments driving up costs.
+Therefore, optimizing inference-serving strategies to lower costs and
+support seamless scaling in distributed environments is crucial. </p>
+<p><a href="https://developer.nvidia.com/dynamo"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA Dynamo</a>
+builds on the successes NVIDIA Triton, with a new modular architecture,
+distributed inference capabilities, and support for disaggregated
+serving, enabling it to deliver outstanding scaling performance in large
+scale multinode deployments.</p>
+<p>AI Inference developers and researchers are invited to contribute to
+NVIDIA Dynamo on GitHub at <a href="http://github.com/ai-dynamo/dynamo"
+data-wpel-link="external" target="_blank"
+rel="follow">ai-dynamo/dynamo</a> and join the <a
+href="https://discord.com/invite/ZXRE8epz" data-wpel-link="external"
+target="_blank" rel="follow">new NVIDIA Dynamo Discord Server</a>, the
+official NVIDIA server for developers and users of NVIDIA Dynamo. NVIDIA
+Dynamo is planned to be supported by <a
+href="https://www.nvidia.com/en-us/data-center/products/ai-enterprise/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA AI
+Enterprise</a> and available with <a
+href="https://www.nvidia.com/en-us/ai-data-science/products/nim-microservices/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA NIM</a>
+microservices for quick and easy deployment. NVIDIA AI Enterprise
+customers using Triton will continue to receive production branch
+support for their existing Triton deployments.</p>
+</div>
+</body>
+</html>

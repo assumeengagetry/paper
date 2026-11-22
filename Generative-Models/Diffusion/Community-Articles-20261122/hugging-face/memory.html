@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Reduce memory usage</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Reduce memory usage</h1>
+</header>
+<section id="reduce-memory-usage" class="header">
+<h1>Reduce memory usage</h1>
+<p>来源：<a
+href="https://huggingface.co/docs/diffusers/en/optimization/memory">https://huggingface.co/docs/diffusers/en/optimization/memory</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<div class="prose-doc prose relative mx-auto max-w-4xl break-words">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/entry/start.0S0_iEoG.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/I9eooN77.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/Bupkjr9f.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/entry/app.CPdOxCbw.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/CyvZ3FS5.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/l0QnnOED.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/DnVIJfC5.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/DsnmJJEf.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/nodes/0.DteTvmQZ.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/CoSrdQax.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/nodes/339.DJYaCibf.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/DSPDl1gz.js" rel="modulepreload">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/chunks/D5eijdnr.js" rel="modulepreload">
+<meta name="hf:doc:metadata" content="{&quot;title&quot;:&quot;Reduce memory usage&quot;,&quot;local&quot;:&quot;reduce-memory-usage&quot;,&quot;sections&quot;:[{&quot;title&quot;:&quot;Multiple GPUs&quot;,&quot;local&quot;:&quot;multiple-gpus&quot;,&quot;sections&quot;:[{&quot;title&quot;:&quot;Sharded checkpoints&quot;,&quot;local&quot;:&quot;sharded-checkpoints&quot;,&quot;sections&quot;:[],&quot;depth&quot;:3},{&quot;title&quot;:&quot;Device placement&quot;,&quot;local&quot;:&quot;device-placement&quot;,&quot;sections&quot;:[],&quot;depth&quot;:3}],&quot;depth&quot;:2},{&quot;title&quot;:&quot;VAE slicing&quot;,&quot;local&quot;:&quot;vae-slicing&quot;,&quot;sections&quot;:[],&quot;depth&quot;:2},{&quot;title&quot;:&quot;VAE tiling&quot;,&quot;local&quot;:&quot;vae-tiling&quot;,&quot;sections&quot;:[],&quot;depth&quot;:2},{&quot;title&quot;:&quot;Offloading&quot;,&quot;local&quot;:&quot;offloading&quot;,&quot;sections&quot;:[{&quot;title&quot;:&quot;CPU offloading&quot;,&quot;local&quot;:&quot;cpu-offloading&quot;,&quot;sections&quot;:[],&quot;depth&quot;:3},{&quot;title&quot;:&quot;Model offloading&quot;,&quot;local&quot;:&quot;model-offloading&quot;,&quot;sections&quot;:[],&quot;depth&quot;:3},{&quot;title&quot;:&quot;Group offloading&quot;,&quot;local&quot;:&quot;group-offloading&quot;,&quot;sections&quot;:[{&quot;title&quot;:&quot;CUDA stream&quot;,&quot;local&quot;:&quot;cuda-stream&quot;,&quot;sections&quot;:[],&quot;depth&quot;:4},{&quot;title&quot;:&quot;Offloading to disk&quot;,&quot;local&quot;:&quot;offloading-to-disk&quot;,&quot;sections&quot;:[],&quot;depth&quot;:4}],&quot;depth&quot;:3}],&quot;depth&quot;:2},{&quot;title&quot;:&quot;Layerwise casting&quot;,&quot;local&quot;:&quot;layerwise-casting&quot;,&quot;sections&quot;:[],&quot;depth&quot;:2},{&quot;title&quot;:&quot;torch.channels_last&quot;,&quot;local&quot;:&quot;torchchannelslast&quot;,&quot;sections&quot;:[],&quot;depth&quot;:2},{&quot;title&quot;:&quot;Memory-efficient attention&quot;,&quot;local&quot;:&quot;memory-efficient-attention&quot;,&quot;sections&quot;:[],&quot;depth&quot;:2}],&quot;depth&quot;:1}">
+<link href="https://huggingface.co/docs/diffusers/main/en/_app/immutable/assets/0.tn0RQdqM.css" rel="modulepreload">
+<div
+class="items-center shrink-0 min-w-[100px] max-sm:min-w-[50px] justify-end ml-auto flex">
+<div class="inline-flex rounded-md max-sm:rounded-sm" dir="ltr">
+<span class="archived-control-label">
+<span class="inline-flex items-center justify-center rounded-md p-0.5 max-sm:p-0 hover:text-gray-800 dark:hover:text-gray-200">
+<svg class="sm:size-3.5 size-3" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+</span> <span dir="auto">Copy page</span></span>
+</div>
+</div>
+<h1 class="relative group">
+<a id="reduce-memory-usage" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#reduce-memory-usage">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Reduce memory usage</span>
+</h1>
+<p>Modern diffusion models like <a
+href="https://huggingface.co/docs/diffusers/en/api/pipelines/flux">Flux</a>
+and <a
+href="https://huggingface.co/docs/diffusers/en/api/pipelines/wan">Wan</a>
+have billions of parameters that take up a lot of memory on your
+hardware for inference. This is challenging because common GPUs often
+don’t have sufficient memory. To overcome the memory limitations, you
+can use more than one GPU (if available), offload some of the pipeline
+components to the CPU, and more.</p>
+<p>This guide will show you how to reduce your memory usage.</p>
+<blockquote>
+<p>Keep in mind these techniques may need to be adjusted depending on
+the model. For example, a transformer-based diffusion model may not
+benefit equally from these memory optimizations as a UNet-based
+model.</p>
+</blockquote>
+<h2 class="relative group">
+<a id="multiple-gpus" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#multiple-gpus">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Multiple GPUs</span>
+</h2>
+<p>If you have access to more than one GPU, there a few options for
+efficiently loading and distributing a large model across your hardware.
+These features are supported by the <a
+href="https://huggingface.co/docs/accelerate/index"
+rel="nofollow">Accelerate</a> library, so make sure it is installed
+first.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-U</span> accelerate</span></code></pre></div>
+</div>
+<h3 class="relative group">
+<a id="sharded-checkpoints" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#sharded-checkpoints">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Sharded checkpoints</span>
+</h3>
+<p>Loading large checkpoints in several shards in useful because the
+shards are loaded one at a time. This keeps memory usage low, only
+requiring enough memory for the model size and the largest shard size.
+We recommend sharding when the fp32 checkpoint is greater than 5GB. The
+default shard size is 5GB.</p>
+<p>Shard a checkpoint in <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.save_pretrained">save_pretrained()</a>
+with the <code>max_shard_size</code> parameter.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>unet <span class="op">=</span> AutoModel.from_pretrained(</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>, subfolder<span class="op">=</span><span class="st">&quot;unet&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>unet.save_pretrained(<span class="st">&quot;sdxl-unet-sharded&quot;</span>, max_shard_size<span class="op">=</span><span class="st">&quot;5GB&quot;</span>)</span></code></pre></div>
+</div>
+<p>Now you can use the sharded checkpoint, instead of the regular
+checkpoint, to save memory.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel, StableDiffusionXLPipeline</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>unet <span class="op">=</span> AutoModel.from_pretrained(</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;username/sdxl-unet-sharded&quot;</span>, dtype<span class="op">=</span>torch.float16</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> StableDiffusionXLPipeline.from_pretrained(</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    unet<span class="op">=</span>unet,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.float16</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>).to(<span class="st">&quot;cuda&quot;</span>)  <span class="co"># or &quot;mps&quot;, &quot;xpu&quot;, &quot;cpu&quot;</span></span></code></pre></div>
+</div>
+<h3 class="relative group">
+<a id="device-placement" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#device-placement">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Device placement</span>
+</h3>
+<blockquote>
+<p>Device placement is an experimental feature and the API may change.
+Only the <code>balanced</code> strategy is supported at the moment. We
+plan to support additional mapping strategies in the future.</p>
+</blockquote>
+<p>The <code>device_map</code> parameter controls how the model
+components in a pipeline or the layers in an individual model are
+distributed across devices.</p>
+<div
+class="flex space-x-2 items-center my-1.5 mr-8 h-7 !pl-0 -mx-3 md:mx-0">
+<div
+class="flex items-center border rounded-lg px-1.5 py-1 leading-none select-none text-smd border-gray-800 bg-black dark:bg-gray-700 text-white">
+pipeline level
+</div>
+<div
+class="flex items-center border rounded-lg px-1.5 py-1 leading-none select-none text-smd text-gray-500 cursor-pointer opacity-90 hover:text-gray-700 dark:hover:text-gray-200 hover:shadow-sm">
+model level
+</div>
+</div>
+<div class="language-select">
+<h4 class="archived-tab-heading" id="pipeline-level">pipeline level</h4>
+<p>The <code>balanced</code> device placement strategy evenly splits the
+pipeline across all available devices.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel, StableDiffusionXLPipeline</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> StableDiffusionXLPipeline.from_pretrained(</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.float16,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    device_map<span class="op">=</span><span class="st">&quot;balanced&quot;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<p>You can inspect a pipeline’s device map with
+<code>hf_device_map</code>.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(pipeline.hf_device_map)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>{<span class="st">&#39;unet&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;vae&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;safety_checker&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;text_encoder&#39;</span>: <span class="dv">0</span>}</span></code></pre></div>
+</div>
+<h4 class="archived-tab-heading" id="model-level">model level</h4>
+<p>The <code>device_map</code> is useful for loading large models, such
+as the Flux diffusion transformer which has 12.5B parameters. Set it to
+<code>"auto"</code> to automatically distribute a model across the
+fastest device first before moving to slower devices. Refer to the <a
+href="#sharded-checkpoints">Sharded checkpoints</a> section for more
+details.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>transformer <span class="op">=</span> AutoModel.from_pretrained(</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;black-forest-labs/FLUX.1-dev&quot;</span>, </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    subfolder<span class="op">=</span><span class="st">&quot;transformer&quot;</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    device_map<span class="op">=</span><span class="st">&quot;auto&quot;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<p>You can inspect a model’s device map with
+<code>hf_device_map</code>.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(transformer.hf_device_map)</span></code></pre></div>
+</div>
+</div>
+<p>When designing your own <code>device_map</code>, it should be a
+dictionary of a model’s specific module name or layer and a device
+identifier (an integer for GPUs, <code>cpu</code> for CPUs, and
+<code>disk</code> for disk).</p>
+<p>Call <code>hf_device_map</code> on a model to see how model layers
+are distributed and then design your own.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(transformer.hf_device_map)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>{<span class="st">&#39;pos_embed&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;time_text_embed&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;context_embedder&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;x_embedder&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;transformer_blocks&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.0&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.1&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.2&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.3&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.4&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.5&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.6&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.7&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.8&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.9&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.10&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.11&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.12&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.13&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.14&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.15&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.16&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.17&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.18&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.19&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.20&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.21&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.22&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.23&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.24&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.25&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.26&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.27&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.28&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.29&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.30&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.31&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.32&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.33&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.34&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.35&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.36&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.37&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;norm_out&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;proj_out&#39;</span>: <span class="st">&#39;cpu&#39;</span>}</span></code></pre></div>
+</div>
+<p>For example, the <code>device_map</code> below places
+<code>single_transformer_blocks.10</code> through
+<code>single_transformer_blocks.20</code> on a second GPU
+(<code>1</code>).</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode py"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>device_map <span class="op">=</span> {</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;pos_embed&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;time_text_embed&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;context_embedder&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;x_embedder&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;transformer_blocks&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.0&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.1&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.2&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.3&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.4&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.5&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.6&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.7&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.8&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.9&#39;</span>: <span class="dv">0</span>, <span class="st">&#39;single_transformer_blocks.10&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.11&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.12&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.13&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.14&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.15&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.16&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.17&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.18&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.19&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.20&#39;</span>: <span class="dv">1</span>, <span class="st">&#39;single_transformer_blocks.21&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.22&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.23&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.24&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.25&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.26&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.27&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.28&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.29&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.30&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.31&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.32&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.33&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.34&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.35&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.36&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;single_transformer_blocks.37&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;norm_out&#39;</span>: <span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;proj_out&#39;</span>: <span class="st">&#39;cpu&#39;</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>transformer <span class="op">=</span> AutoModel.from_pretrained(</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;black-forest-labs/FLUX.1-dev&quot;</span>, </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    subfolder<span class="op">=</span><span class="st">&quot;transformer&quot;</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    device_map<span class="op">=</span>device_map,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<p>Pass a dictionary mapping maximum memory usage to each device to
+enforce a limit. If a device is not in <code>max_memory</code>, it is
+ignored and pipeline components won’t be distributed to it.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel, StableDiffusionXLPipeline</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>max_memory <span class="op">=</span> {<span class="dv">0</span>:<span class="st">&quot;1GB&quot;</span>, <span class="dv">1</span>:<span class="st">&quot;1GB&quot;</span>}</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> StableDiffusionXLPipeline.from_pretrained(</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.float16,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    device_map<span class="op">=</span><span class="st">&quot;balanced&quot;</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    max_memory<span class="op">=</span>max_memory</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<p>Diffusers uses the maximum memory of all devices by default, but if
+they don’t fit on the GPUs, then you’ll need to use a single GPU and
+offload to the CPU with the methods below.</p>
+<ul>
+<li><a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_model_cpu_offload">enable_model_cpu_offload()</a>
+only works on a single GPU but a very large model may not fit on it</li>
+<li><a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_sequential_cpu_offload">enable_sequential_cpu_offload()</a>
+may work but it is extremely slow and also limited to a single GPU</li>
+</ul>
+<p>Use the <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.reset_device_map">reset_device_map()</a>
+method to reset the <code>device_map</code>. This is necessary if you
+want to use methods like <code>.to()</code>, <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_sequential_cpu_offload">enable_sequential_cpu_offload()</a>,
+and <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_model_cpu_offload">enable_model_cpu_offload()</a>
+on a pipeline that was device-mapped.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>pipeline.reset_device_map()</span></code></pre></div>
+</div>
+<h2 class="relative group">
+<a id="vae-slicing" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#vae-slicing">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>VAE slicing</span>
+</h2>
+<p>VAE slicing saves memory by splitting large batches of inputs into a
+single batch of data and separately processing them. This method works
+best when generating more than one image at a time.</p>
+<p>For example, if you’re generating 4 images at once, decoding would
+increase peak activation memory by 4x. VAE slicing reduces this by only
+decoding 1 image at a time instead of all 4 images at once.</p>
+<p>Call <code>enable_slicing()</code> to enable sliced VAE. You can
+expect a small increase in performance when decoding multi-image batches
+and no performance impact for single-image batches.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoModel, StableDiffusionXLPipeline</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> StableDiffusionXLPipeline.from_pretrained(</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.float16,</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>).to(<span class="st">&quot;cuda&quot;</span>)  <span class="co"># or &quot;mps&quot;, &quot;xpu&quot;, &quot;cpu&quot;</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>pipeline.vae.enable_slicing()</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>pipeline([<span class="st">&quot;An astronaut riding a horse on Mars&quot;</span>]<span class="op">*</span><span class="dv">32</span>).images[<span class="dv">0</span>]</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span></code></pre></div>
+</div>
+<blockquote>
+<p>The <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/autoencoder_kl_wan#diffusers.AutoencoderKLWan">AutoencoderKLWan</a>
+and <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/asymmetricautoencoderkl#diffusers.AsymmetricAutoencoderKL">AsymmetricAutoencoderKL</a>
+classes don’t support slicing.</p>
+</blockquote>
+<h2 class="relative group">
+<a id="vae-tiling" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#vae-tiling">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>VAE tiling</span>
+</h2>
+<p>VAE tiling saves memory by dividing an image into smaller overlapping
+tiles instead of processing the entire image at once. This also reduces
+peak memory usage because the GPU is only processing a tile at a
+time.</p>
+<p>Call <code>enable_tiling()</code> to enable VAE tiling. The generated
+image may have some tone variation from tile-to-tile because they’re
+decoded separately, but there shouldn’t be any obvious seams between the
+tiles. Tiling is disabled for resolutions lower than a pre-specified
+(but configurable) limit. For example, this limit is 512x512 for the VAE
+in <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/stable_diffusion/text2img#diffusers.StableDiffusionPipeline">StableDiffusionPipeline</a>.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> AutoPipelineForImage2Image</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.utils <span class="im">import</span> load_image</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> AutoPipelineForImage2Image.from_pretrained(</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>, dtype<span class="op">=</span>torch.float16</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>).to(<span class="st">&quot;cuda&quot;</span>)  <span class="co"># or &quot;mps&quot;, &quot;xpu&quot;, &quot;cpu&quot;</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>pipeline.vae.enable_tiling()</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>init_image <span class="op">=</span> load_image(<span class="st">&quot;https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/img2img-sdxl-init.png&quot;</span>)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">&quot;Astronaut in a jungle, cold color palette, muted colors, detailed, 8k&quot;</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>pipeline(prompt, image<span class="op">=</span>init_image, strength<span class="op">=</span><span class="fl">0.5</span>).images[<span class="dv">0</span>]</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span></code></pre></div>
+</div>
+<blockquote>
+<p><a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/autoencoder_kl_wan#diffusers.AutoencoderKLWan">AutoencoderKLWan</a>
+and <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/asymmetricautoencoderkl#diffusers.AsymmetricAutoencoderKL">AsymmetricAutoencoderKL</a>
+don’t support tiling.</p>
+</blockquote>
+<p>To skip VAE memory on your GPU entirely, encode and decode on a
+remote endpoint with <a
+href="https://huggingface.co/docs/diffusers/en/hybrid_inference/overview">Remote
+inference</a>.</p>
+<h2 class="relative group">
+<a id="offloading" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#offloading">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Offloading</span>
+</h2>
+<p>Offloading strategies move not currently active layers or models to
+the CPU to avoid increasing GPU memory. These strategies can be combined
+with quantization and torch.compile to balance inference speed and
+memory usage.</p>
+<p>Refer to the <a
+href="https://huggingface.co/docs/diffusers/en/optimization/speed-memory-optims">Compile
+and offloading quantized models</a> guide for more details.</p>
+<h3 class="relative group">
+<a id="cpu-offloading" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#cpu-offloading">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>CPU offloading</span>
+</h3>
+<p>CPU offloading selectively moves weights from the GPU to the CPU.
+When a component is required, it is transferred to the GPU and when it
+isn’t required, it is moved to the CPU. This method works on submodules
+rather than whole models. It saves memory by avoiding storing the entire
+model on the GPU.</p>
+<p>CPU offloading dramatically reduces memory usage, but it is also
+<strong>extremely slow</strong> because submodules are passed back and
+forth multiple times between devices. It can often be impractical due to
+how slow it is.</p>
+<blockquote>
+<p>Don’t move the pipeline to CUDA before calling <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_sequential_cpu_offload">enable_sequential_cpu_offload()</a>,
+otherwise the amount of memory saved is only minimal (refer to this <a
+href="https://github.com/huggingface/diffusers/issues/1934"
+rel="nofollow">issue</a> for more details). This is a stateful operation
+that installs hooks on the model.</p>
+</blockquote>
+<p>Call <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_sequential_cpu_offload">enable_sequential_cpu_offload()</a>
+to enable it on a pipeline.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> DiffusionPipeline</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> DiffusionPipeline.from_pretrained(</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;black-forest-labs/FLUX.1-schnell&quot;</span>, dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>pipeline.enable_sequential_cpu_offload()</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>pipeline(</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    prompt<span class="op">=</span><span class="st">&quot;An astronaut riding a horse on Mars&quot;</span>,</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    guidance_scale<span class="op">=</span><span class="fl">0.</span>,</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    height<span class="op">=</span><span class="dv">768</span>,</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    width<span class="op">=</span><span class="dv">1360</span>,</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    num_inference_steps<span class="op">=</span><span class="dv">4</span>,</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>    max_sequence_length<span class="op">=</span><span class="dv">256</span>,</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>).images[<span class="dv">0</span>]</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span></code></pre></div>
+</div>
+<h3 class="relative group">
+<a id="model-offloading" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#model-offloading">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Model offloading</span>
+</h3>
+<p>Model offloading moves entire models to the GPU instead of
+selectively moving <em>some</em> layers or model components. One of the
+main pipeline models, usually the text encoder, UNet, and VAE, is placed
+on the GPU while the other components are held on the CPU. Components
+like the UNet that run multiple times stays on the GPU until its
+completely finished and no longer needed. This eliminates the
+communication overhead of <a href="#cpu-offloading">CPU offloading</a>
+and makes model offloading a faster alternative. The tradeoff is memory
+savings won’t be as large.</p>
+<blockquote>
+<p>Keep in mind that if models are reused outside the pipeline after
+hookes have been installed (see <a
+href="https://huggingface.co/docs/accelerate/en/package_reference/big_modeling#accelerate.hooks.remove_hook_from_module"
+rel="nofollow">Removing Hooks</a> for more details), you need to run the
+entire pipeline and models in the expected order to properly offload
+them. This is a stateful operation that installs hooks on the model.</p>
+</blockquote>
+<p>Call <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_model_cpu_offload">enable_model_cpu_offload()</a>
+to enable it on a pipeline.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> DiffusionPipeline</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> DiffusionPipeline.from_pretrained(</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;black-forest-labs/FLUX.1-schnell&quot;</span>, dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>pipeline.enable_model_cpu_offload()</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>pipeline(</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    prompt<span class="op">=</span><span class="st">&quot;An astronaut riding a horse on Mars&quot;</span>,</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    guidance_scale<span class="op">=</span><span class="fl">0.</span>,</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    height<span class="op">=</span><span class="dv">768</span>,</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>    width<span class="op">=</span><span class="dv">1360</span>,</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>    num_inference_steps<span class="op">=</span><span class="dv">4</span>,</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>    max_sequence_length<span class="op">=</span><span class="dv">256</span>,</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>).images[<span class="dv">0</span>]</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span></code></pre></div>
+</div>
+<p><a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_model_cpu_offload">enable_model_cpu_offload()</a>
+also helps when you’re using the <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/stable_diffusion/stable_diffusion_xl#diffusers.StableDiffusionXLPipeline.encode_prompt">encode_prompt()</a>
+method on its own to generate the text encoders hidden state.</p>
+<h3 class="relative group">
+<a id="group-offloading" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#group-offloading">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Group offloading</span>
+</h3>
+<p>Group offloading moves groups of internal layers (<a
+href="https://pytorch.org/docs/stable/generated/torch.nn.ModuleList.html"
+rel="nofollow">torch.nn.ModuleList</a> or <a
+href="https://pytorch.org/docs/stable/generated/torch.nn.Sequential.html"
+rel="nofollow">torch.nn.Sequential</a>) to the CPU. It uses less memory
+than <a href="#model-offloading">model offloading</a> and it is faster
+than <a href="#cpu-offloading">CPU offloading</a> because it reduces
+communication overhead.</p>
+<blockquote>
+<p>Group offloading may not work with all models if the forward
+implementation contains weight-dependent device casting of inputs
+because it may clash with group offloading’s device casting
+mechanism.</p>
+</blockquote>
+<p>Enable group offloading by configuring the <code>offload_type</code>
+parameter to <code>block_level</code> or <code>leaf_level</code>.</p>
+<ul>
+<li><code>block_level</code> offloads groups of layers based on the
+<code>num_blocks_per_group</code> parameter. For example, if
+<code>num_blocks_per_group=2</code> on a model with 40 layers, 2 layers
+are onloaded and offloaded at a time (20 total onloads/offloads). This
+drastically reduces memory requirements.</li>
+<li><code>leaf_level</code> offloads individual layers at the lowest
+level and is equivalent to <a href="#cpu-offloading">CPU offloading</a>.
+But it can be made faster if you use streams without giving up inference
+speed.</li>
+</ul>
+<p>Group offloading is supported for entire pipelines or individual
+models. Applying group offloading to the entire pipeline is the easiest
+option while selectively applying it to individual models gives users
+more flexibility to use different offloading techniques for different
+models.</p>
+<div
+class="flex space-x-2 items-center my-1.5 mr-8 h-7 !pl-0 -mx-3 md:mx-0">
+<div
+class="flex items-center border rounded-lg px-1.5 py-1 leading-none select-none text-smd border-gray-800 bg-black dark:bg-gray-700 text-white">
+pipeline
+</div>
+<div
+class="flex items-center border rounded-lg px-1.5 py-1 leading-none select-none text-smd text-gray-500 cursor-pointer opacity-90 hover:text-gray-700 dark:hover:text-gray-200 hover:shadow-sm">
+model
+</div>
+</div>
+<div class="language-select">
+<h4 class="archived-tab-heading" id="pipeline">pipeline</h4>
+<p>Call <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/pipelines/overview#diffusers.DiffusionPipeline.enable_group_offload">enable_group_offload()</a>
+on a pipeline.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> CogVideoXPipeline</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.hooks <span class="im">import</span> apply_group_offloading</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.utils <span class="im">import</span> export_to_video</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>onload_device <span class="op">=</span> torch.device(<span class="st">&quot;cuda&quot;</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>offload_device <span class="op">=</span> torch.device(<span class="st">&quot;cpu&quot;</span>)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> CogVideoXPipeline.from_pretrained(<span class="st">&quot;THUDM/CogVideoX-5b&quot;</span>, dtype<span class="op">=</span>torch.bfloat16)</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>pipeline.enable_group_offload(</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    onload_device<span class="op">=</span>onload_device,</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    offload_device<span class="op">=</span>offload_device,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    offload_type<span class="op">=</span><span class="st">&quot;leaf_level&quot;</span>,</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>    use_stream<span class="op">=</span><span class="va">True</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> (</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;A panda, dressed in a small, red jacket and a tiny hat, sits on a wooden stool in a serene bamboo forest. &quot;</span></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;The panda&#39;s fluffy paws strum a miniature acoustic guitar, producing soft, melodic tunes. Nearby, a few other &quot;</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;pandas gather, watching curiously and some clapping in rhythm. Sunlight filters through the tall bamboo, &quot;</span></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;casting a gentle glow on the scene. The panda&#39;s face is expressive, showing concentration and joy as it plays. &quot;</span></span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;The background includes a small, flowing stream and vibrant green foliage, enhancing the peaceful and magical &quot;</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;atmosphere of this unique musical performance.&quot;</span></span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>video <span class="op">=</span> pipeline(prompt<span class="op">=</span>prompt, guidance_scale<span class="op">=</span><span class="dv">6</span>, num_inference_steps<span class="op">=</span><span class="dv">50</span>).frames[<span class="dv">0</span>]</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>export_to_video(video, <span class="st">&quot;output.mp4&quot;</span>, fps<span class="op">=</span><span class="dv">8</span>)</span></code></pre></div>
+</div>
+<h4 class="archived-tab-heading" id="model">model</h4>
+<p>Call <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/overview#diffusers.ModelMixin.enable_group_offload">enable_group_offload()</a>
+on standard Diffusers model components that inherit from <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/overview#diffusers.ModelMixin">ModelMixin</a>.
+For other model components that don’t inherit from <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/overview#diffusers.ModelMixin">ModelMixin</a>,
+such as a generic <a
+href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html"
+rel="nofollow">torch.nn.Module</a>, use <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/utilities#diffusers.hooks.apply_group_offloading">apply_group_offloading()</a>
+instead.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> CogVideoXPipeline</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.hooks <span class="im">import</span> apply_group_offloading</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.utils <span class="im">import</span> export_to_video</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>onload_device <span class="op">=</span> torch.device(<span class="st">&quot;cuda&quot;</span>)</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>offload_device <span class="op">=</span> torch.device(<span class="st">&quot;cpu&quot;</span>)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> CogVideoXPipeline.from_pretrained(<span class="st">&quot;THUDM/CogVideoX-5b&quot;</span>, dtype<span class="op">=</span>torch.bfloat16)</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Use the enable_group_offload method for Diffusers model implementations</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>pipeline.transformer.enable_group_offload(onload_device<span class="op">=</span>onload_device, offload_device<span class="op">=</span>offload_device, offload_type<span class="op">=</span><span class="st">&quot;leaf_level&quot;</span>)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>pipeline.vae.enable_group_offload(onload_device<span class="op">=</span>onload_device, offload_type<span class="op">=</span><span class="st">&quot;leaf_level&quot;</span>)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Use the apply_group_offloading method for other model components</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>apply_group_offloading(pipeline.text_encoder, onload_device<span class="op">=</span>onload_device, offload_type<span class="op">=</span><span class="st">&quot;block_level&quot;</span>, num_blocks_per_group<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> (</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;A panda, dressed in a small, red jacket and a tiny hat, sits on a wooden stool in a serene bamboo forest. &quot;</span></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;The panda&#39;s fluffy paws strum a miniature acoustic guitar, producing soft, melodic tunes. Nearby, a few other &quot;</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;pandas gather, watching curiously and some clapping in rhythm. Sunlight filters through the tall bamboo, &quot;</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;casting a gentle glow on the scene. The panda&#39;s face is expressive, showing concentration and joy as it plays. &quot;</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;The background includes a small, flowing stream and vibrant green foliage, enhancing the peaceful and magical &quot;</span></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;atmosphere of this unique musical performance.&quot;</span></span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>video <span class="op">=</span> pipeline(prompt<span class="op">=</span>prompt, guidance_scale<span class="op">=</span><span class="dv">6</span>, num_inference_steps<span class="op">=</span><span class="dv">50</span>).frames[<span class="dv">0</span>]</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>export_to_video(video, <span class="st">&quot;output.mp4&quot;</span>, fps<span class="op">=</span><span class="dv">8</span>)</span></code></pre></div>
+</div>
+</div>
+<h4 class="relative group">
+<a id="cuda-stream" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#cuda-stream">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>CUDA stream</span>
+</h4>
+<p>The <code>use_stream</code> parameter can be activated for CUDA
+devices that support asynchronous data transfer streams to reduce
+overall execution time compared to <a href="#cpu-offloading">CPU
+offloading</a>. It overlaps data transfer and computation by using layer
+prefetching. The next layer to be executed is loaded onto the GPU while
+the current layer is still being executed. It can increase CPU memory
+significantly so ensure you have 2x the amount of memory as the model
+size.</p>
+<p>Set <code>record_stream=True</code> for more of a speedup at the cost
+of slightly increased memory usage. Refer to the <a
+href="https://pytorch.org/docs/stable/generated/torch.Tensor.record_stream.html"
+rel="nofollow">torch.Tensor.record_stream</a> docs to learn more.</p>
+<blockquote>
+<p>When <code>use_stream=True</code> on VAEs with tiling enabled, make
+sure to do a dummy forward pass (possible with dummy inputs as well)
+before inference to avoid device mismatch errors. This may not work on
+all implementations, so feel free to open an issue if you encounter any
+problems.</p>
+</blockquote>
+<p>If you’re using <code>block_level</code> group offloading with
+<code>use_stream</code> enabled, the <code>num_blocks_per_group</code>
+parameter should be set to <code>1</code>, otherwise a warning will be
+raised.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>pipeline.transformer.enable_group_offload(onload_device<span class="op">=</span>onload_device, offload_device<span class="op">=</span>offload_device, offload_type<span class="op">=</span><span class="st">&quot;leaf_level&quot;</span>, use_stream<span class="op">=</span><span class="va">True</span>, record_stream<span class="op">=</span><span class="va">True</span>)</span></code></pre></div>
+</div>
+<p>The <code>low_cpu_mem_usage</code> parameter can be set to
+<code>True</code> to reduce CPU memory usage when using streams during
+group offloading. It is best for <code>leaf_level</code> offloading and
+when CPU memory is bottlenecked. Memory is saved by creating pinned
+tensors on the fly instead of pre-pinning them. However, this may
+increase overall execution time.</p>
+<h4 class="relative group">
+<a id="offloading-to-disk" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#offloading-to-disk">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Offloading to disk</span>
+</h4>
+<p>Group offloading can consume significant system memory depending on
+the model size. On systems with limited memory, try group offloading
+onto the disk as a secondary memory.</p>
+<p>Set the <code>offload_to_disk_path</code> argument in either <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/overview#diffusers.ModelMixin.enable_group_offload">enable_group_offload()</a>
+or <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/utilities#diffusers.hooks.apply_group_offloading">apply_group_offloading()</a>
+to offload the model to the disk.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>pipeline.transformer.enable_group_offload(onload_device<span class="op">=</span>onload_device, offload_device<span class="op">=</span>offload_device, offload_type<span class="op">=</span><span class="st">&quot;leaf_level&quot;</span>, offload_to_disk_path<span class="op">=</span><span class="st">&quot;path/to/disk&quot;</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>apply_group_offloading(pipeline.text_encoder, onload_device<span class="op">=</span>onload_device, offload_type<span class="op">=</span><span class="st">&quot;block_level&quot;</span>, num_blocks_per_group<span class="op">=</span><span class="dv">2</span>, offload_to_disk_path<span class="op">=</span><span class="st">&quot;path/to/disk&quot;</span>)</span></code></pre></div>
+</div>
+<p>Refer to these <a
+href="https://github.com/huggingface/diffusers/pull/11682#issue-3129365363"
+rel="nofollow">two</a> <a
+href="https://github.com/huggingface/diffusers/pull/11682#issuecomment-2955715126"
+rel="nofollow">tables</a> to compare the speed and memory
+trade-offs.</p>
+<h2 class="relative group">
+<a id="layerwise-casting" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#layerwise-casting">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Layerwise casting</span>
+</h2>
+<blockquote>
+<p>Combine layerwise casting with <a href="#group-offloading">group
+offloading</a> for even more memory savings.</p>
+</blockquote>
+<p>Layerwise casting stores weights in a smaller data format (for
+example, <code>torch.float8_e4m3fn</code> and
+<code>torch.float8_e5m2</code>) to use less memory and upcasts those
+weights to a higher precision like <code>torch.float16</code> or
+<code>torch.bfloat16</code> for computation. Certain layers
+(normalization and modulation related weights) are skipped because
+storing them in fp8 can degrade generation quality.</p>
+<blockquote>
+<p>Layerwise casting may not work with all models if the forward
+implementation contains internal typecasting of weights. The current
+implementation of layerwise casting assumes the forward pass is
+independent of the weight precision and the input datatypes are always
+specified in <code>compute_dtype</code> (see <a
+href="https://github.com/huggingface/transformers/blob/7f5077e53682ca855afc826162b204ebf809f1f9/src/transformers/models/t5/modeling_t5.py#L294-L299"
+rel="nofollow">here</a> for an incompatible implementation).</p>
+<p>Layerwise casting may also fail on custom modeling implementations
+with <a href="https://huggingface.co/docs/peft/index"
+rel="nofollow">PEFT</a> layers. There are some checks available but they
+are not extensively tested or guaranteed to work in all cases.</p>
+</blockquote>
+<p>Call <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/overview#diffusers.ModelMixin.enable_layerwise_casting">enable_layerwise_casting()</a>
+to set the storage and computation datatypes.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> CogVideoXPipeline, CogVideoXTransformer3DModel</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.utils <span class="im">import</span> export_to_video</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>transformer <span class="op">=</span> CogVideoXTransformer3DModel.from_pretrained(</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;THUDM/CogVideoX-5b&quot;</span>,</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    subfolder<span class="op">=</span><span class="st">&quot;transformer&quot;</span>,</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>transformer.enable_layerwise_casting(storage_dtype<span class="op">=</span>torch.float8_e4m3fn, compute_dtype<span class="op">=</span>torch.bfloat16)</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> CogVideoXPipeline.from_pretrained(<span class="st">&quot;THUDM/CogVideoX-5b&quot;</span>,</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>    transformer<span class="op">=</span>transformer,</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>).to(<span class="st">&quot;cuda&quot;</span>)  <span class="co"># or &quot;mps&quot;, &quot;xpu&quot;, &quot;cpu&quot;</span></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> (</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;A panda, dressed in a small, red jacket and a tiny hat, sits on a wooden stool in a serene bamboo forest. &quot;</span></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;The panda&#39;s fluffy paws strum a miniature acoustic guitar, producing soft, melodic tunes. Nearby, a few other &quot;</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;pandas gather, watching curiously and some clapping in rhythm. Sunlight filters through the tall bamboo, &quot;</span></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;casting a gentle glow on the scene. The panda&#39;s face is expressive, showing concentration and joy as it plays. &quot;</span></span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;The background includes a small, flowing stream and vibrant green foliage, enhancing the peaceful and magical &quot;</span></span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;atmosphere of this unique musical performance.&quot;</span></span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>video <span class="op">=</span> pipeline(prompt<span class="op">=</span>prompt, guidance_scale<span class="op">=</span><span class="dv">6</span>, num_inference_steps<span class="op">=</span><span class="dv">50</span>).frames[<span class="dv">0</span>]</span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Max memory reserved: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>max_memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span><span class="sc">:.2f}</span><span class="ss"> GB&quot;</span>)</span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>export_to_video(video, <span class="st">&quot;output.mp4&quot;</span>, fps<span class="op">=</span><span class="dv">8</span>)</span></code></pre></div>
+</div>
+<p>The <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/utilities#diffusers.hooks.apply_layerwise_casting">apply_layerwise_casting()</a>
+method can also be used if you need more control and flexibility. It can
+be partially applied to model layers by calling it on specific internal
+modules. Use the <code>skip_modules_pattern</code> or
+<code>skip_modules_classes</code> parameters to specify modules to
+avoid, such as the normalization and modulation layers.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> CogVideoXTransformer3DModel</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers.hooks <span class="im">import</span> apply_layerwise_casting</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>transformer <span class="op">=</span> CogVideoXTransformer3DModel.from_pretrained(</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;THUDM/CogVideoX-5b&quot;</span>,</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>    subfolder<span class="op">=</span><span class="st">&quot;transformer&quot;</span>,</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>torch.bfloat16</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co"># skip the normalization layer</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>apply_layerwise_casting(</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>    transformer,</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    storage_dtype<span class="op">=</span>torch.float8_e4m3fn,</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>    compute_dtype<span class="op">=</span>torch.bfloat16,</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>    skip_modules_classes<span class="op">=</span>[<span class="st">&quot;norm&quot;</span>],</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>    non_blocking<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<h2 class="relative group">
+<a id="torchchannelslast" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#torchchannelslast">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>torch.channels_last</span>
+</h2>
+<p><a
+href="https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html"
+rel="nofollow">torch.channels_last</a> flips how tensors are stored from
+<code>(batch size, channels, height, width)</code> to
+<code>(batch size, height, width, channels)</code>. This aligns the
+tensors with how the hardware sequentially accesses the tensors stored
+in memory and avoids skipping around in memory to access the pixel
+values.</p>
+<p>Not all operators currently support the channels-last format and may
+result in worst performance, but it is still worth trying.</p>
+<div class="code-block relative">
+<div class="absolute top-2.5 right-4">
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M28,10V28H10V10H28m0-2H10a2,2,0,0,0-2,2V28a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10a2,2,0,0,0-2-2Z" transform="translate(0)"></path><path d="M4,18H2V4A2,2,0,0,1,4,2H18V4H4Z" transform="translate(0)"></path><rect fill="none" width="32" height="32"></rect>
+</svg>
+<div
+class="absolute pointer-events-none transition-opacity bg-black text-white py-1 px-2 leading-tight rounded font-normal shadow left-1/2 top-full transform -translate-x-1/2 translate-y-2 opacity-0">
+<div
+class="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-black border-4 border-t-0">
+
+</div>
+Copied
+</div>
+</span>
+</div>
+<div class="sourceCode" id="cb22"><pre
+class="sourceCode py"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(pipeline.unet.conv_out.state_dict()[<span class="st">&quot;weight&quot;</span>].stride())  <span class="co"># (2880, 9, 3, 1)</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>pipeline.unet.to(memory_format<span class="op">=</span>torch.channels_last)  <span class="co"># in-place operation</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    pipeline.unet.conv_out.state_dict()[<span class="st">&quot;weight&quot;</span>].stride()</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>)  <span class="co"># (2880, 1, 960, 320) having a stride of 1 for the 2nd dimension proves that it works</span></span></code></pre></div>
+</div>
+<h2 class="relative group">
+<a id="memory-efficient-attention" class="header-link block pr-1.5 text-lg no-hover:hidden with-hover:absolute with-hover:p-1.5 with-hover:opacity-0 with-hover:group-hover:opacity-100 with-hover:right-full" href="#memory-efficient-attention">
+<span>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 256 256">
+<path d="M167.594 88.393a8.001 8.001 0 0 1 0 11.314l-67.882 67.882a8 8 0 1 1-11.314-11.315l67.882-67.881a8.003 8.003 0 0 1 11.314 0zm-28.287 84.86l-28.284 28.284a40 40 0 0 1-56.567-56.567l28.284-28.284a8 8 0 0 0-11.315-11.315l-28.284 28.284a56 56 0 0 0 79.196 79.197l28.285-28.285a8 8 0 1 0-11.315-11.314zM212.852 43.14a56.002 56.002 0 0 0-79.196 0l-28.284 28.284a8 8 0 1 0 11.314 11.314l28.284-28.284a40 40 0 0 1 56.568 56.567l-28.285 28.285a8 8 0 0 0 11.315 11.314l28.284-28.284a56.065 56.065 0 0 0 0-79.196z" fill="currentColor"></path>
+</svg>
+</span></a> <span>Memory-efficient attention</span>
+</h2>
+<p>Diffusers supports multiple memory-efficient attention backends
+(FlashAttention, xFormers, SageAttention, and more) through <a
+href="https://huggingface.co/docs/diffusers/v0.43.0/en/api/models/overview#diffusers.ModelMixin.set_attention_backend">set_attention_backend()</a>.
+Refer to the <a
+href="https://huggingface.co/docs/diffusers/en/optimization/attention_backends">Attention
+backends</a> guide to learn how to switch between them.</p>
+<a class="!text-gray-400 !no-underline text-sm flex items-center not-prose mt-4" href="https://github.com/huggingface/diffusers/blob/main/docs/source/en/optimization/memory.md" target="_blank">
+<svg class="mr-1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor" focusable="false" role="img" width="1em" height="1em" preserveaspectratio="xMidYMid meet" viewbox="0 0 32 32">
+<path d="M31,16l-7,7l-1.41-1.41L28.17,16l-5.58-5.59L24,9l7,7z"></path><path d="M1,16l7-7l1.41,1.41L3.83,16l5.58,5.59L8,23l-7-7z"></path><path d="M12.419,25.484L17.639,6.552l1.932,0.518L14.351,26.002z"></path>
+</svg>
+<span><u>Update</u> on GitHub</span></a>
+</div>
+</body>
+</html>

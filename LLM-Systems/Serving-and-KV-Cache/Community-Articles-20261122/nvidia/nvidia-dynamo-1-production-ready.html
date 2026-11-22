@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>How NVIDIA Dynamo 1.0 Powers Multi-Node Inference at Production Scale</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">How NVIDIA Dynamo 1.0 Powers Multi-Node Inference at
+Production Scale</h1>
+</header>
+<section
+id="how-nvidia-dynamo-1.0-powers-multi-node-inference-at-production-scale"
+class="header">
+<h1>How NVIDIA Dynamo 1.0 Powers Multi-Node Inference at Production
+Scale</h1>
+<p>来源：<a
+href="https://developer.nvidia.com/blog/nvidia-dynamo-1-production-ready">https://developer.nvidia.com/blog/nvidia-dynamo-1-production-ready</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<div class="entry-content">
+<p>Reasoning models are growing rapidly in size and are increasingly
+being integrated into agentic AI workflows that interact with other
+models and external tools. Deploying these models and workflows in
+production environments requires distributing them across multiple GPU
+nodes, which demands careful orchestration and coordination across
+GPUs.</p>
+<p>NVIDIA Dynamo 1.0—available now—addresses these problems by
+accelerating generative AI and reasoning models in large-scale
+distributed environments. The AI framework delivers low-latency,
+high-throughput, distributed inference for production-grade multi-node
+AI deployments. </p>
+<p>Dynamo supports leading open source inference engines, including
+SGLang, NVIDIA TensorRT LLM, and vLLM. It also has delivered strong
+results in trusted third-party benchmarks such as <a
+href="https://developer.nvidia.com/blog/nvidia-blackwell-ultra-sets-new-inference-records-in-mlperf-debut/"
+data-wpel-link="internal" target="_self" rel="follow">MLPerf</a> and <a
+href="https://developer.nvidia.com/blog/nvidia-blackwell-leads-on-new-semianalysis-inferencemax-benchmarks/"
+data-wpel-link="internal" target="_self" rel="follow">SemiAnalysis
+InferenceX</a>, reinforcing its position as a production-grade inference
+platform. Dynamo can boost the number of requests served by up to 7x on
+NVIDIA Blackwell, as demonstrated in the recent <a
+href="https://inferencex.semianalysis.com/" data-wpel-link="external"
+target="_blank" rel="follow">SemiAnalysis InferenceX</a> benchmark.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-large wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59510379&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59510379">
+<img
+src="assets/59c349e4a704cb57925aade22218530aa82594bf7cb43066cb57086bf4c3f3dd.png"
+class="lazyload wp-image-114325"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 625px) 100vw, 625px" width="625" height="640"
+alt="A bar chart showing how Dynamo boosts inference performance with disaggregated serving" />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 1. NVIDIA Dynamo boosts performance by 7x with
+disaggregated serving when combined with wide expert parallel on NVIDIA
+GB200 NVL72.</em></figcaption>
+</figure>
+</div>
+<p><em>SemiAnalysis InferenceX, updated March 3, 2026. Results for
+DeepSeek R1-0528, FP4, 1k/1k, interactivity: ~50 tok/sec/user.</em></p>
+<p>This blog details how early adopters have integrated Dynamo into
+real-world inference workflows, the system level performance
+improvements achieved, and the latest features and optimizations added
+to the framework. </p>
+<h2 class="wp-block-heading"
+id="early_adopters_and_real-world_impact">Early adopters and real-world
+impact<a href="#early_adopters_and_real-world_impact"
+class="heading-anchor-link"
+aria-label="Scroll to Early adopters and real-world impact section"><em></em></a></h2>
+<p>At last year’s GTC event, NVIDIA <a
+href="introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models.html"
+data-wpel-link="internal" target="_self" rel="follow">introduced NVIDIA
+Dynamo</a>, a low-latency and high-throughput, distributed inference
+framework built for multinode AI deployments. Since then, NVIDIA has
+worked collaboratively with the open source ecosystem to harden Dynamo
+for production-grade performance and large-scale workloads. Over this
+period, Dynamo has achieved significant milestones:</p>
+<ul>
+<li><strong>Successfully deployed in production workflows:</strong>
+AstraZeneca, <a
+href="https://www.baseten.co/blog/how-baseten-achieved-2x-faster-inference-with-nvidia-dynamo/#how-baseten-uses-nvidia-dynamo"
+data-wpel-link="external" target="_blank" rel="follow">Baseten</a>,
+ByteDance, <a
+href="https://www.coreweave.com/blog/coreweave-becomes-one-of-the-first-cloud-providers-to-achieve-nvidia-exemplar-cloud-validation-for-inference-on-nvidia-gb200-nvl72#:~:text=CoreWeave%20achieves%20NVIDIA%E2%80%99s%20inference%20benchmark%20targets"
+data-wpel-link="external" target="_blank" rel="follow">CoreWeave</a>, <a
+href="https://www.crusoe.ai/resources/blog/reducing-ttft-by-cpumaxxing-tokenization"
+data-wpel-link="external" target="_blank" rel="follow">Crusoe</a>, <a
+href="https://www.digitalocean.com/blog/nvidia-dynamo-1-now-available"
+data-wpel-link="external" target="_blank" rel="follow">DigitalOcean</a>,
+<a href="https://gcore.com/blog/dynamo" data-wpel-link="external"
+target="_blank" rel="follow">Gcore</a>, <a
+href="https://www.gmicloud.ai/blog/gmi-cloud-joins-nvidias-dynamo-1-0-launch-at-gtc-2026"
+data-wpel-link="external" target="_blank" rel="follow">GMI Cloud</a>, <a
+href="https://nebius.com/blog/posts/datarobot-validated-ai-factory-stack#benchmarking-the-stack:~:text=Benchmarking%20the%20stack-,Benchmarking%20the%20stack,-To%C2%A0validated%20performance"
+data-wpel-link="external" target="_blank" rel="follow">Nebius</a>, <a
+href="https://github.com/meituan-longcat/SGLang-FluentLLM"
+data-wpel-link="external" target="_blank" rel="follow">Meituan</a>, <a
+href="https://www.nvidia.com/en-us/on-demand/session/other25-dynamoday04/?playlistId=playList-e42aee58-4db9-4ce4-8a6f-c41d8e272d72"
+data-wpel-link="internal" target="_self" rel="follow">Pinterest</a>, <a
+href="https://www.primeintellect.ai/blog/nvidia-collaboration"
+data-wpel-link="external" target="_blank" rel="follow">Prime
+Intellect,</a> Rednote, SoftBank Corp., <a
+href="https://www.nvidia.com/gtc/session-catalog/sessions/gtc26-s82033/"
+data-wpel-link="internal" target="_self" rel="follow">Tencent Cloud</a>,
+<a href="https://www.together.ai/blog/together-ai-at-nvidia-gtc-2026"
+data-wpel-link="external" target="_blank" rel="follow">Together AI</a>,
+<a href="https://blogs.vultr.com/NVIDIA-Dynamo-Nemotron-DDN"
+data-wpel-link="external" target="_blank" rel="follow">Vultr</a>, and
+many more have deployed Dynamo in production to scale multi-node
+inference, optimize throughput, and improve latency. Watch <a
+href="https://nvevents.nvidia.com/dynamoday" data-wpel-link="internal"
+target="_self" rel="follow">Dynamo Day recordings</a> to hear directly
+from organizations deploying Dynamo.</li>
+<li><strong>Integrated into managed Kubernetes environments:</strong> <a
+href="https://www.alibabacloud.com/help/en/ack/cloud-native-ai-suite/user-guide/deploy-dynamo-pd-separated-inference-services?spm=a2c63.p38356.0.i0"
+data-wpel-link="external" target="_blank" rel="follow">Alibaba
+Cloud</a>, <a
+href="https://aws.amazon.com/blogs/machine-learning/accelerate-generative-ai-inference-with-nvidia-dynamo-and-amazon-eks/"
+data-wpel-link="external" target="_blank" rel="follow">Amazon Web
+Services (AWS)</a>, <a
+href="https://cloud.google.com/blog/products/compute/scaling-moe-inference-with-nvidia-dynamo-on-google-cloud-a4x"
+data-wpel-link="external" target="_blank" rel="follow">Google Cloud</a>,
+<a href="https://blog.aks.azure.com/2026/03/16/dynamo-on-aks-part-3"
+data-wpel-link="external" target="_blank" rel="follow">Microsoft
+Azure</a>, and <a
+href="https://blogs.nvidia.com/blog/think-smart-dynamo-ai-inference-data-center/"
+data-wpel-link="internal" target="_self" rel="follow">Oracle Cloud
+Infrastructure (OCI)</a> have built integrations showing how Dynamo can
+be seamlessly deployed into their managed Kubernetes environments,
+scaling inference to meet the growing demand for AI. </li>
+<li><strong>Adopted by major open source frameworks:</strong> Modular
+Dynamo components such as NIXL have been widely adopted by inference
+engines including <a
+href="https://developer.nvidia.com/blog/nvidia-dynamo-accelerates-llm-d-community-initiatives-for-advancing-large-scale-distributed-inference/"
+data-wpel-link="internal" target="_self" rel="follow">llm-d</a>, NVIDIA
+<a href="https://developer.nvidia.com/tensorrt-llm"
+data-wpel-link="internal" target="_self" rel="follow">TensorRT LLM</a>,
+<a href="https://lmsys.org/blog/2025-05-05-large-scale-ep/"
+data-wpel-link="external" target="_blank" rel="follow">SGLang</a>, and
+<a href="https://docs.vllm.ai/en/latest/deployment/integrations/dynamo/"
+data-wpel-link="external" target="_blank" rel="follow">vLLM</a> to
+accelerate KV cache transfers between GPUs. <a
+href="https://blog.lmcache.ai/en/2026/03/16/lmcache-nvidia-dynamo-1-0-a-match-made-in-inference-heaven/"
+data-wpel-link="external" target="_blank" rel="follow">LMCache</a> has
+integrated its KV caching directly into storage solutions in Dynamo,
+SGLang has integrated its HiCache solution into Dynamo’s Router, and <a
+href="https://docs.langchain.com/oss/python/integrations/chat/nvidia_ai_endpoints#use-with-nvidia-dynamo"
+data-wpel-link="external" target="_blank" rel="follow">LangChain</a> has
+built an integration that injects agentic hints for Dynamo’s Router,
+validating its composable architecture.</li>
+<li><strong>Inspired contributions from across the AI
+ecosystem:</strong> Developers across the AI community have contributed
+to Dynamo and broadened its capabilities. Mooncake and Alibaba extended
+the <a
+href="https://developer.nvidia.com/blog/removing-the-guesswork-from-disaggregated-serving/"
+data-wpel-link="internal" target="_self" rel="follow">Dynamo
+AIConfigurator</a> with SGLang support; Microsoft tested and hardened
+Dynamo on Azure Kubernetes Service (AKS), contributing fixes, <a
+href="https://github.com/ai-dynamo/dynamo/tree/main/recipes/gpt-oss-120b"
+data-wpel-link="external" target="_blank" rel="follow">deployment
+guides</a>, <a
+href="https://www.nvidia.com/en-us/on-demand/session/other25-dynamoday07/?playlistId=playList-e42aee58-4db9-4ce4-8a6f-c41d8e272d72"
+data-wpel-link="internal" target="_self" rel="follow">public demos</a>,
+and <a href="https://blog.aks.azure.com/2026/01/22/dynamo-on-aks-part-2"
+data-wpel-link="external" target="_blank"
+rel="follow">Planner/AIConfigurator enhancements</a>; <a
+href="https://www.nvidia.com/en-us/on-demand/session/other25-dynamoday12/?playlistId=playList-e42aee58-4db9-4ce4-8a6f-c41d8e272d72"
+data-wpel-link="internal" target="_self" rel="follow">Prime
+Intellect</a> co‑designed and integrated LoRA adapter support; and
+Baseten <a
+href="https://www.baseten.co/blog/how-baseten-achieved-2x-faster-inference-with-nvidia-dynamo/#qwen3-coder-benchmarks-with-kv-routing"
+data-wpel-link="external" target="_blank" rel="follow">validated early
+Dynamo features</a> in production‑like environments, then upstreamed bug
+fixes and hardening patches.</li>
+<li><strong>Enabled integration with storage solutions</strong>:
+Cloudian, <a
+href="https://www.ddn.com/press-releases/ddn-accelerates-inference-and-lowers-cost-per-token-while-expanding-multi-tenant-training-for-ai-factories/"
+data-wpel-link="external" target="_blank" rel="follow">DDN</a>, <a
+href="https://www.dell.com/en-us/dt/corporate/newsroom/announcements/detailpage.press-releases~usa~2025~11~dell-technologies-and-nvidia-advance-enterprise-ai-innovation.htm#/filter-on/Country:en-us"
+data-wpel-link="external" target="_blank" rel="follow">Dell</a>, <a
+href="https://blog.purestorage.com/news-events/pure-kva-integrates-nvidia-dynamo-for-scalable-low-latency-llm-inference/"
+data-wpel-link="external" target="_blank" rel="follow">Everpure</a>
+(previously Pure Storage), <a
+href="https://www.hpe.com/us/en/newsroom/press-release/2026/03/hpe-unveils-next-generation-ai-factory-and-supercomputing-advancements-with-nvidia.html#:~:text=HPE%20AI%20Factory%20with%20Mission%20Control"
+data-wpel-link="external" target="_blank" rel="follow">HPE</a>, <a
+href="https://community.ibm.com/community/user/blogs/vincent-hsu/2026/01/05/accelerating-nvidia-dynamo-with-ibm-storage-scale#:~:text=IBM%20is%20working%20with%20NVIDIA%20to%20combine,technologies%20to%20unlock%20scalable%2C%20high%2Dperformance%20LLM%20inference."
+data-wpel-link="external" target="_blank" rel="follow">IBM</a>, <a
+href="https://www.netapp.com/newsroom/press-releases/news-rel-20250318-145499/"
+data-wpel-link="external" target="_blank" rel="follow">NetApp</a>, <a
+href="https://www.vastdata.com/blog/how-nvidia-dynamo-vast-unlock-context-reuse-at-scale"
+data-wpel-link="external" target="_blank" rel="follow">VAST</a>, and <a
+href="https://www.weka.io/blog/ai-ml/weka-accelerates-ai-inference-with-nvidia-dynamo-and-nvidia-nixl/"
+data-wpel-link="external" target="_blank" rel="follow">WEKA</a> have
+integrated Dynamo into their AI solutions. That allows inference
+workloads to scale beyond GPU memory constraints to support very large
+context lengths with storage.</li>
+</ul>
+<p>Dynamo 1.0 builds on these milestones while marking the framework’s
+maturity and production readiness. Keep reading for more highlights
+about the update. </p>
+<h2 class="wp-block-heading"
+id="accelerating_agentic_inference_by_4x_with_dynamo_and_nvidia_nemo_agent_toolkit">Accelerating
+agentic inference by 4x with Dynamo and NVIDIA NeMo Agent Toolkit<a
+href="#accelerating_agentic_inference_by_4x_with_dynamo_and_nvidia_nemo_agent_toolkit"
+class="heading-anchor-link"
+aria-label="Scroll to Accelerating agentic inference by 4x with Dynamo and NVIDIA NeMo Agent Toolkit section"><em></em></a></h2>
+<p>Today’s inference runtimes treat every request and KV cache block the
+same—a system prompt reused across many turns has the same eviction
+priority as a one-off chain-of-thought. Multi-turn agents, however,
+reuse prefixes and follow predictable patterns. An evicted multi-turn KV
+block will need to be recomputed, resulting in wasted compute and higher
+inference costs. Dynamo addresses this gap with new agentic inference
+optimizations:</p>
+<ul>
+<li><strong>Dynamo frontend API:</strong> Accepts agent hints
+(per-request metadata such as latency sensitivity, expected output
+length, and cache control) and passes them to the router and KV cache
+manager.</li>
+<li><strong>Dynamo KV-aware router:</strong> Uses priority and latency
+agentic hints to control queue ordering so user-facing turns run before
+background work. It can take in expected output sequence length (OSL) to
+improve load-balancing accuracy. </li>
+<li><strong>Dynamo KV cache manager:</strong> Supports experimental
+cache pinning. Pinned nodes resist eviction for the specified duration,
+and are moved  to host memory rather than being deleted.</li>
+</ul>
+<p>The community has built on these optimizations to create custom
+routing and integrate agent hints into popular frameworks such as
+LangChain’s <a
+href="https://docs.langchain.com/oss/python/integrations/chat/nvidia_ai_endpoints#use-with-nvidia-dynamo"
+data-wpel-link="external" target="_blank"
+rel="follow">ChatNVIDIADynamo</a> and the NVIDIA <a
+href="https://github.com/NVIDIA/NeMo-Agent-Toolkit"
+data-wpel-link="external" target="_blank" rel="follow">NeMo Agent
+Toolkit</a>.</p>
+<p>Running Dynamo and the NeMo Agent Toolkit demonstrated <a
+href="https://github.com/NVIDIA/NeMo-Agent-Toolkit/tree/develop/external/dynamo"
+data-wpel-link="external" target="_blank" rel="follow">up to 4x lower
+TTFT and 1.5x higher throughput</a> when running the Llama 3.1 model on
+NVIDIA Hopper.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-large wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59511d35&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59511d35">
+<img
+src="assets/47ad16b9ace720157804bf0d6bb996cf7e8b60a37e52e5126661ce6f03a82c12.png"
+class="lazyload wp-image-114116"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 625px) 100vw, 625px" width="625" height="572"
+alt="A diagram on how agent hints and predictive metadata drive routing and caching." />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 2. How agent hints and predictive metadata
+drive routing and caching.</em></em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading"
+id="advancing_multimodal_inference_optimization">Advancing multimodal
+inference optimization<a
+href="#advancing_multimodal_inference_optimization"
+class="heading-anchor-link"
+aria-label="Scroll to Advancing multimodal inference optimization section"><em></em></a></h2>
+<p>Dynamo 1.0 introduces three new features designed to accelerate
+multimodal inference in image-heavy workloads—where image encoding can
+be a bottleneck:</p>
+<ul>
+<li><strong>Disaggregated encode/prefill/decode (E/P/D):</strong>
+Instead of running E/P/D on the same GPU, Dynamo separates them into
+distinct stages with independent scaling. Running the encode phase on
+dedicated workers allows for independent scaling, which improves
+batching, memory efficiency, and overall throughput.</li>
+<li><strong>Multimodal embedding cache:</strong> A CPU-backed least
+recently used (LRU) cache stores computed image embeddings off-GPU so
+repeated images skip encoding entirely. This applies to both
+disaggregated and aggregated setups.</li>
+<li><strong>Multimodal KV routing:</strong> Multimodal KV routing
+extends Dynamo’s KV-aware router to account for image content. A
+dedicated multimodal router downloads images then selects the backend
+worker with the highest cache overlap, including overlap on blocks
+containing images.</li>
+</ul>
+<p>Running the Qwen3-VL-30B-A3B-Instruct-FP8 multimodal model on NVIDIA
+GB200, Dynamo’s embedding cache accelerated time to first token (TTFT)
+by up to 30% and throughput by up to 25% on image requests.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59513252&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59513252">
+<img
+src="assets/d5817bdd8146abc70fdbb70342af7468a40caa8d81f2d20ba0896bb9deb522bd.webp"
+class="lazyload wp-image-113967"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999"
+height="1102"
+alt="A diagram showing how a CPU cache reuses previously computed image embeddings so repeated images skip GPU encoding, cutting compute and latency. " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 3. A CPU cache reuses previously computed image
+embeddings so repeated images skip GPU encoding, cutting compute and
+latency.</em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading"
+id="adding_native_support_for_video_generation">Adding native support
+for video generation<a
+href="#adding_native_support_for_video_generation"
+class="heading-anchor-link"
+aria-label="Scroll to Adding native support for video generation section"><em></em></a></h2>
+<p>New video-generation models are setting a new bar for cinematic
+quality and motion realism. But serving them efficiently is non-trivial:
+Their inference workloads are compute- and memory-intensive, especially
+at high resolutions.</p>
+<p>Dynamo 1.0 adds native support for video-generation models, with
+integrations for leading open source inference frameworks such as <a
+href="https://github.com/hao-ai-lab/FastVideo" data-wpel-link="external"
+target="_blank" rel="follow">FastVideo</a>, <a
+href="../../../../Generative-Models/Diffusion/Community-Articles-20261122/lmsys/2026-02-16-sglang-diffusion-advanced-optimizations.html"
+data-wpel-link="external" target="_blank" rel="follow">SGLang
+Diffusion</a>, TensorRT LLM Diffusion, and vLLM-Omni. This brings
+Dynamo’s modular stack—including its low-overhead front end, streaming
+capabilities, and high-efficiency scheduling engine—to modern video
+workloads.</p>
+<p>This integration demonstrates that state‑of‑the‑art video generation
+can be delivered efficiently on Dynamo. For a step‑by‑step walkthrough
+of how to deploy video generation models with Dynamo, check out this <a
+href="https://docs.nvidia.com/dynamo/user-guides/diffusion/sg-lang-diffusion#video-generation"
+data-wpel-link="internal" target="_self" rel="follow">how‑to
+guide</a>.</p>
+<figure
+class="wp-block-embed aligncenter is-type-video is-provider-youtube wp-block-embed-youtube wp-embed-aspect-4-3 wp-has-aspect-ratio">
+<div class="wp-block-embed__wrapper">
+<span class="embed-youtube"></span>
+<p><a
+href="https://www.youtube.com/embed/oKprVrOjDTc?version=3&amp;rel=1&amp;showsearch=0&amp;showinfo=1&amp;iv_load_policy=1&amp;fs=1&amp;hl=en-US&amp;autohide=2&amp;wmode=transparent">外部嵌入内容未离线保存；联网查看原内容</a></p>
+</span>
+</div>
+<figcaption><em><em><em>Video 1. Generating a 5-second video in ~40
+seconds on a single NVIDIA Hopper GPU using Wan2.1 and SGLang Diffusion
+running on NVIDIA Dynamo.</em></em></em></figcaption>
+</figure>
+<h2 class="wp-block-heading"
+id="accelerating_inference_startup_by_7x_with_dynamo_modelexpress">Accelerating
+inference startup by 7x with Dynamo ModelExpress<a
+href="#accelerating_inference_startup_by_7x_with_dynamo_modelexpress"
+class="heading-anchor-link"
+aria-label="Scroll to Accelerating inference startup by 7x with Dynamo ModelExpress section"><em></em></a></h2>
+<p>Modern inference clusters are constantly spinning new replicas up and
+down in response to traffic. Each new process has to repeat the same
+heavy startup pipeline: </p>
+<ul>
+<li>Downloading model checkpoints </li>
+<li>Loading weights from remote or shared storage</li>
+<li>Applying model optimizations</li>
+<li>Compiling kernels</li>
+<li>Building NVIDIA CUDA graphs</li>
+</ul>
+<p>To solve that challenge, Dynamo ensures that the expensive parts of
+worker startup are done once and reused many times through two new
+ModelExpress capabilities: </p>
+<p><strong>Checkpoint restore:</strong> Instead of treating every
+replica as a fresh boot, Dynamo runs the full initialization sequence a
+single time, captures the “ready‑to‑serve” state to persistent storage,
+and then brings new replicas online by restoring from that checkpoint
+rather than rebuilding everything from scratch.</p>
+<p><strong>Model weight streaming:</strong> Rather than having each new
+worker independently download model weights, write them to local or
+shared storage, and then load them into GPU memory, ModelExpress loads
+the model once on an initial worker and streams the weights to
+additional workers over high-bandwidth interconnects using NVIDIA
+Inference Xfer Library (NIXL) and NVIDIA NVLink, eliminating reliance on
+storage bandwidth.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59514c57&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59514c57">
+<img
+src="assets/3530e164ece50fc2176194b8780b54025bb23358496e113ab084b5bc30039aa3.webp"
+class="lazyload wp-image-113972"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1948px) 100vw, 1948px" width="1948"
+height="1261"
+alt="Diagram showing before and after for NVIDIA Dynamo model weight streaming " />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 4. A worker downloads model weights once and
+streams them directly into other GPUs over high-bandwidth links,
+avoiding repeated disk downloads.</em></figcaption>
+</figure>
+</div>
+<p>For large models, especially in fleets that scale aggressively, model
+weight streaming can accelerate model loading time by up to 7x for large
+MoE models like DeepSeek v3 on NVIDIA H200.</p>
+<h2 class="wp-block-heading"
+id="scaling_kubernetes_on_nvidia_gb300_nvl72">Scaling Kubernetes on
+NVIDIA GB300 NVL72<a href="#scaling_kubernetes_on_nvidia_gb300_nvl72"
+class="heading-anchor-link"
+aria-label="Scroll to Scaling Kubernetes on NVIDIA GB300 NVL72 section"><em></em></a></h2>
+<p><a href="https://developer.nvidia.com/grove"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA Grove</a>,
+an open source API that’s part of Dynamo, simplifies deploying
+hierarchical gang-scheduled, topology‑aware <a
+href="https://developer.nvidia.com/blog/streamline-complex-ai-inference-on-kubernetes-with-nvidia-grove/"
+data-wpel-link="internal" target="_self" rel="follow">AI workloads on
+Kubernetes</a>. In Dynamo 1.0, Grove adds setup automation for <a
+href="https://www.nvidia.com/en-us/data-center/nvlink/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA NVLink
+fabric</a> on rack‑scale systems such as NVIDIA GB300 NVL72. That allows
+users to define placement policies across every layer of
+infrastructure—from cloud regions and availability zones down to data
+centers, network blocks, racks, hosts, and even non-uniform memory
+access (NUMA) nodes.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59515bea&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59515bea">
+<img
+src="assets/2579e20fa75f40345ce23ac2a40d8df2604093c92087355f603665ea1c8d2fd6.webp"
+class="lazyload wp-image-114118"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999"
+height="1006"
+alt="Diagram showing how Grove orchestrates disaggregated inference components together with advanced AI schedulers on NVIDIA GB300 NVL72 and scale out GPU clusters." />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em><em>Figure 5. Grove orchestrates disaggregated inference
+components together with advanced AI schedulers on NVIDIA GB300 NVL72
+and scale-out GPU clusters</em></em>.</figcaption>
+</figure>
+</div>
+<p>Traditionally, using the NVIDIA GB300 NVL72 <a
+href="https://www.nvidia.com/en-us/data-center/nvlink/"
+data-wpel-link="internal" target="_self" rel="follow">NVLink fabric</a>
+required users to manually define and manage compute domains. This
+release introduces a unified topology API that enables developers to
+seamlessly colocate prefill and decode on the same NVIDIA NVL72 rack to
+optimize KV cache transfers, confine an inference stack to a single data
+center for latency needs, and place frontend services on nearby CPU‑only
+nodes for efficient request handling. Grove integrates with advanced AI
+schedulers, like KAI scheduler, to ensure these constraints are
+enforced.</p>
+<h2 class="wp-block-heading"
+id="integration_with_the_kubernetes_inference_gateway ">Integration with
+the Kubernetes Inference Gateway <a
+href="#integration_with_the_kubernetes_inference_gateway%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to Integration with the Kubernetes Inference Gateway  section"><em></em></a></h2>
+<p>A <a href="https://www.youtube.com/watch?v=ewoKy9Y-2Z0"
+data-wpel-link="external" target="_blank" rel="follow">previous Dynamo
+release</a> introduced a plugin that allows users to combine the
+Kubernetes-native Inference Gateway extension routing and Dynamo’s
+KV-aware router.​</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59516b14&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59516b14">
+<img
+src="assets/d9f7635a45bcd33cbf8a6c7bd240210cae6bfa19d7d78c0c9e95ec1e64d173fe.webp"
+class="lazyload wp-image-114119"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999" height="927"
+alt="The Inference Gateway extends NVIDIA Dynamo KV-aware Router to intelligently route requests across a shared inference pool of Dynamo Servers" />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 6. The NVIDIA Dynamo KV-aware router plugin,
+integrated into the Inference Gateway’s endpoint picker, intelligently
+routes requests across the inference pool of Dynamo
+Servers.</em></figcaption>
+</figure>
+</div>
+<p>In a typical Dynamo setup, routing is handled by <a
+href="https://www.youtube.com/watch?v=PRCZZKQirN8"
+data-wpel-link="external" target="_blank" rel="follow">Dynamo’s KV-aware
+router</a>. The router evaluates worker queue depth and relevant KV
+cache information on each worker, then makes a probabilistic decision
+using a weighted combination of these factors.</p>
+<p>Dynamo’s KV-aware router can run inside the Inference Gateway to
+benefit from integration with routing plugins, filters, and other
+gateway capabilities in Kubernetes-based environments.</p>
+<h2 class="wp-block-heading"
+id="deploying_fast_latency-aware_inference_with_zero_configurations">Deploying
+fast, latency-aware inference with zero configurations<a
+href="#deploying_fast_latency-aware_inference_with_zero_configurations"
+class="heading-anchor-link"
+aria-label="Scroll to Deploying fast, latency-aware inference with zero configurations section"><em></em></a></h2>
+<p>Deploying large models requires deep expertise that balances latency,
+throughput, and cost targets through complex scaling and configuration
+steps. Dynamo’s new Dynamo Graph Deployment Request (DGDR) removes that
+friction by providing a simple, one‑step path from service‑level
+objectives (SLOs) to optimized inference deployments.</p>
+<p>DGDR combines the intelligence of the p<a
+href="https://docs.nvidia.com/dynamo/latest/planner/planner_intro.html"
+data-wpel-link="internal" target="_self" rel="follow">lanner</a> and <a
+href="https://www.youtube.com/watch?v=KuZXeol0fKk"
+data-wpel-link="external" target="_blank"
+rel="follow">AIConfigurator</a> into a unified, Kubernetes‑native
+deployment flow. Instead of navigating multiple tools, scripts, and
+guesswork, developers can now specify a model, target hardware, and
+traffic goals in a YAML—soon, through an intuitive web UI—and Dynamo
+handles the rest.</p>
+<p>Behind the scenes, the AIConfigurator runs rapid, simulation‑based
+recommendations for quick iteration, while the planner engages deeper
+on‑cluster profiling for precise, production‑grade optimization. Both
+routes deliver an auto-deployable Dynamo Graph Deployment (DGD) that
+meets the user’s desired cost, performance, and scalability balance,
+without having to hand-configure a deployment configuration.</p>
+<figure
+class="wp-block-embed is-type-video is-provider-youtube wp-block-embed-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio">
+<div class="wp-block-embed__wrapper">
+<span class="embed-youtube"></span>
+<p><a
+href="https://www.youtube.com/embed/UQs7-cEaUcc?version=3&amp;rel=1&amp;showsearch=0&amp;showinfo=1&amp;iv_load_policy=1&amp;fs=1&amp;hl=en-US&amp;autohide=2&amp;wmode=transparent">外部嵌入内容未离线保存；联网查看原内容</a></p>
+</span>
+</div>
+<figcaption><em>Video 2. Watch zero-config deploy, generate and launch
+an optimized inference cluster directly from SLO inputs—automating
+scaling, profiling, and configuration.</em></figcaption>
+</figure>
+<h2 class="wp-block-heading"
+id="increasing_resiliency_with_fault_detection_and_request_migration">Increasing
+resiliency with fault detection and request migration<a
+href="#increasing_resiliency_with_fault_detection_and_request_migration"
+class="heading-anchor-link"
+aria-label="Scroll to Increasing resiliency with fault detection and request migration section"><em></em></a></h2>
+<p>A key design principle in Dynamo is to be resilient by default so
+applications keep running even when individual workers fail or hang. The
+updated Dynamo fault tolerance combines two pillars: </p>
+<p><strong>Early fault detection:</strong> Dynamo adds a
+framework-independent “canary health check” that probes workers on a
+configurable schedule. If these checks do not receive a valid response,
+the worker is marked unhealthy and is removed from routing.
+Additionally, the Dynamo frontend also performs active detection using
+network-level signals. If establishing a new stream to a worker fails,
+or an existing stream ends unexpectedly mid-request, that worker is
+immediately removed from the set of active workers (for about five
+seconds) so no new requests are sent to it. </p>
+<p><strong>Request cancellation and migration:</strong> Request
+cancellation support is enabled out-of-the-box, allowing in-flight work
+to be terminated when it no longer makes sense to continue. When a
+worker becomes unavailable, Dynamo can migrate affected requests to
+another worker and resume processing, preserving the request itself
+rather than forcing the client to resubmit from scratch. This ensures
+failures do not automatically translate into user-visible errors. </p>
+<p>With Dynamo’s new layered health detection combined with cancellation
+and <a
+href="https://github.com/ai-dynamo/dynamo/blob/main/docs/observability/metrics.md#frontend-metrics"
+data-wpel-link="external" target="_blank" rel="follow">migration</a>,
+Dynamo aims to keep LLM applications responsive even when individual
+workers fail.</p>
+<figure class="wp-block-image size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e59518022&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e59518022">
+<img
+src="assets/ed2351ff46cedb5600535ec5b6a161d6c9f72be1b3620778eb5db9d018e19d6e.webp"
+class="lazyload wp-image-114123"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1999px) 100vw, 1999px" width="1999"
+height="1083"
+alt="Diagram of NVIDIA Dynamo routing requests through workers with canary and network health checks that detect failures, cancel in‑flight work, and migrate requests to healthy workers." />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 7. Early fault detection and request migration in
+NVIDIA Dynamo, showing canary and network health checks marking workers
+unhealthy, canceling in‑flight work, and transparently rerouting
+requests to healthy workers.</em></figcaption>
+</figure>
+<h2 class="wp-block-heading"
+id="advancing_kv_caching_to_storage">Advancing KV caching to storage<a
+href="#advancing_kv_caching_to_storage" class="heading-anchor-link"
+aria-label="Scroll to Advancing KV caching to storage section"><em></em></a></h2>
+<p>In Dynamo 1.0, KV Block Manager (KVBM) introduces several features
+that enhance flexibility, visibility, and deployment options:</p>
+<ul>
+<li><strong>Object storage support:</strong> KVBM now works with the
+Amazon Simple Storage Service (S3) and Azure-style blob APIs used by
+major storage vendors and cloud providers. This allows model operators
+to integrate KVBM with existing file systems, S3, or other cloud object
+stores without building separate KV offload pipelines for each
+backend.</li>
+<li><strong>Global KV event emission:</strong> KVBM emits events
+whenever KV blocks move between storage tiers (GPU memory, CPU memory,
+local SSD, and remote storage) or are evicted. The KV router’s indexer
+consumes these events to maintain a consistent, cluster-wide view of KV
+block locations, enabling smarter routing and improved cache reuse
+across multiple model replicas and inference engines.</li>
+<li><strong>Pip-installable module:</strong> KVBM can now be installed
+directly into inference engines like vLLM or TensorRT LLM without
+requiring the complete Dynamo stack. Teams using different inference
+frameworks can share a common KV offload tool rather than
+re-implementing eviction policies and storage integrations.</li>
+</ul>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b02e595190b2&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b02e595190b2">
+<img
+src="assets/c88da2bc56cd418b0f704e95b1d51322c60ae619bcb550d6e01178a5d2791734.webp"
+class="lazyload wp-image-113976"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1672px) 100vw, 1672px" width="1672"
+height="1011"
+alt="Diagram showcasing NVIDIA Dynamo intelligently manages KV Cache blocks across the different memory tiers to avoid KV Cache recomputation" />
+<span class="archived-control-label">
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewbox="0 0 12 12">
+<path fill="#fff" d="M2 0a2 2 0 0 0-2 2v2h1.5V2a.5.5 0 0 1 .5-.5h2V0H2Zm2 10.5H2a.5.5 0 0 1-.5-.5V8H0v2a2 2 0 0 0 2 2h2v-1.5ZM8 12v-1.5h2a.5.5 0 0 0 .5-.5V8H12v2a2 2 0 0 1-2 2H8Zm2-12a2 2 0 0 1 2 2v2h-1.5V2a.5.5 0 0 0-.5-.5H8V0h2Z"></path>
+</svg>
+</span>
+<figcaption><em>Figure 8. NVIDIA Dynamo intelligently manages KV cache
+blocks across the different memory tiers to avoid KV cache recomputation
+and accelerate long context inference</em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading" id="looking_ahead">Looking ahead<a
+href="#looking_ahead" class="heading-anchor-link"
+aria-label="Scroll to Looking ahead section"><em></em></a></h2>
+<p>Looking forward, the Dynamo product roadmap will focus on expanding
+multimodal capabilities to support richer and more context-aware
+interactions, advancing diffusion-based models to unlock real-time
+higher quality video-generation capabilities, and scaling agentic
+workloads and reinforcement learning. Dynamo is being built in the <a
+href="https://docs.dynamo.nvidia.com/dynamo/dev/getting-started/contribution-guide"
+data-wpel-link="internal" target="_self" rel="follow">open with the
+community</a>. To get involved, explore the code and issues in the
+NVIDIA <a href="https://github.com/ai-dynamo/dynamo"
+data-wpel-link="external" target="_blank" rel="follow">GitHub
+repository</a>, <a
+href="https://www.youtube.com/playlist?list=PL5B692fm6--tgryKu94h2Zb7jTFM3Go4X"
+data-wpel-link="external" target="_blank" rel="follow">drop into the
+biweekly Dynamo office hours</a>, and dive into the existing <a
+href="https://developer.nvidia.com/blog/tag/nvidia-dynamo/"
+data-wpel-link="internal" target="_self" rel="follow">technical
+blogs</a>.</p>
+<h2 class="wp-block-heading has-small-font-size"
+id="​​acknowledgments">​​Acknowledgments<a href="#​​acknowledgments"
+class="heading-anchor-link"
+aria-label="Scroll to ​​Acknowledgments section"><em></em></a></h2>
+<p>Akshatha Kamath, Anish Maddipoti, Anna Tchernych, Ben Hamm, Biswa
+Ranjan Panda, Dhruv Nandakumar, Ekin Karabulut, Ganesh Kudleppanavar,
+Hannah Simmons, Hannah Zhang, Harry Kim, Hongkuan Zhou, Hyunjae Woo,
+Ishan Dhanani, Itay Neeman, Jacky Hui, Jakub Kosek, John Kim, Kavin
+Krishnan, Kyle Kranen, Maksim Khadkevich, Michael Demoret, Moein
+Khazraee, Neal Vaidya, Neelay Shah, Qi Wang, Ryan McCormick, Sanjay
+Chatterjee, Schwinn Saereesitthipitak, Suman Tatiraju, Vikram Sharma
+Mailthody, Vishwanath Venkatesan, and many others contributed to this
+post.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Accelerating Video Generation on ROCm with Unified Sequence Parallelism: A Practical Guide</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Accelerating Video Generation on ROCm with Unified
+Sequence Parallelism: A Practical Guide</h1>
+</header>
+<section
+id="accelerating-video-generation-on-rocm-with-unified-sequence-parallelism-a-practical-guide"
+class="header">
+<h1>Accelerating Video Generation on ROCm with Unified Sequence
+Parallelism: A Practical Guide</h1>
+<p>来源：<a
+href="https://rocm.blogs.amd.com/artificial-intelligence/video-generation-models/README.html">https://rocm.blogs.amd.com/artificial-intelligence/video-generation-models/README.html</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="bd-article">
+<section
+id="accelerating-video-generation-on-rocm-with-unified-sequence-parallelism-a-practical-guide"
+class="tex2jax_ignore mathjax_ignore">
+<h1
+id="accelerating-video-generation-on-rocm-with-unified-sequence-parallelism-a-practical-guide-1">Accelerating
+Video Generation on ROCm with Unified Sequence Parallelism: A Practical
+Guide<a
+href="#accelerating-video-generation-on-rocm-with-unified-sequence-parallelism-a-practical-guide"
+class="headerlink" title="Link to this heading">#</a></h1>
+<div class="image-container">
+<img
+src="assets/136f92ad595d6f4dc4a53e8559628422b1bc148bba8396b01fab2715e256a218.webp"
+title="Accelerating Video Generation on ROCm with Unified Sequence Parallelism: A Practical Guide"
+class="responsive-image loaded"
+alt="Accelerating Video Generation on ROCm with Unified Sequence Parallelism: A Practical Guide" />
+</div>
+<div class="author_row">
+<div class="author_left">
+<div class="author_string">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar" viewbox="0 0 16 16">
+<path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"></path>
+</svg>
+<span> July 11, 2025 by <a
+href="https://rocm.blogs.amd.com/authors/clint-greene.html">Clint
+Greene</a>.</span>
+</div>
+<div class="author_string">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-book" viewbox="0 0 16 16">
+<path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783"></path>
+</svg>
+<span>4 min read. | 912 total words.</span>
+</div>
+</div>
+<div class="author_right">
+<div class="author_string_right">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-folder2-open" viewbox="0 0 16 16">
+<path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v.64c.57.265.94.876.856 1.546l-.64 5.124A2.5 2.5 0 0 1 12.733 15H3.266a2.5 2.5 0 0 1-2.481-2.19l-.64-5.124A1.5 1.5 0 0 1 1 6.14zM2 6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5a.5.5 0 0 0-.5.5zm-.367 1a.5.5 0 0 0-.496.562l.64 5.124A1.5 1.5 0 0 0 3.266 14h9.468a1.5 1.5 0 0 0 1.489-1.314l.64-5.124A.5.5 0 0 0 14.367 7z"></path>
+</svg>
+<span><a
+href="https://rocm.blogs.amd.com/blog/category/applications-models.html">Applications
+&amp; models</a></span>
+</div>
+<div class="author_string_right">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-tags" viewbox="0 0 16 16">
+<path d="M3 2v4.586l7 7L14.586 9l-7-7zM2 2a1 1 0 0 1 1-1h4.586a1 1 0 0 1 .707.293l7 7a1 1 0 0 1 0 1.414l-4.586 4.586a1 1 0 0 1-1.414 0l-7-7A1 1 0 0 1 2 6.586z"></path>
+<path d="M5.5 5a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m0 1a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M1 7.086a1 1 0 0 0 .293.707L8.75 15.25l-.043.043a1 1 0 0 1-1.414 0l-7-7A1 1 0 0 1 0 7.586V3a1 1 0 0 1 1-1z"></path>
+</svg>
+<span><a
+href="https://rocm.blogs.amd.com/blog/tag/genai.html">GenAI</a></span>
+</div>
+<div class="author_string_right">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shop-window" viewbox="0 0 16 16">
+<path d="M2.97 1.35A1 1 0 0 1 3.73 1h8.54a1 1 0 0 1 .76.35l2.609 3.044A1.5 1.5 0 0 1 16 5.37v.255a2.375 2.375 0 0 1-4.25 1.458A2.37 2.37 0 0 1 9.875 8 2.37 2.37 0 0 1 8 7.083 2.37 2.37 0 0 1 6.125 8a2.37 2.37 0 0 1-1.875-.917A2.375 2.375 0 0 1 0 5.625V5.37a1.5 1.5 0 0 1 .361-.976zm1.78 4.275a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 1 0 2.75 0V5.37a.5.5 0 0 0-.12-.325L12.27 2H3.73L1.12 5.045A.5.5 0 0 0 1 5.37v.255a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0M1.5 8.5A.5.5 0 0 1 2 9v6h12V9a.5.5 0 0 1 1 0v6h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1V9a.5.5 0 0 1 .5-.5m2 .5a.5.5 0 0 1 .5.5V13h8V9.5a.5.5 0 0 1 1 0V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a.5.5 0 0 1 .5-.5"></path>
+</svg>
+<span><a href="https://rocm.blogs.amd.com/ai.html">AI</a></span>
+</div>
+</div>
+</div>
+<div class="icon-bar fixed">
+<a href="https://www.linkedin.com/feed/?linkOrigin=LI_BADGE&amp;shareActive=true&amp;shareUrl=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html" class="linkedin">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-linkedin" viewbox="0 0 16 16">
+<path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"></path>
+</svg>
+</a>
+<a href="https://twitter.com/intent/tweet?url=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html&amp;text=A+practical+guide+for+accelerating+video+generation+with+HunyuanVideo+and+Wan+2.1+using+Unified+Sequence+Parallelism+on+AMD+GPUs." class="twitter">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-twitter-x" viewbox="0 0 16 16">
+<path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865z"></path>
+</svg>
+</a>
+<a href="https://www.reddit.com/submit?url=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html&amp;title=Accelerating+Video+Generation+on+ROCm+with+Unified+Sequence+Parallelism%3A+A+Practical+Guide+%7C+ROCm+Blogs" class="reddit">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-reddit" viewbox="0 0 16 16">
+<path d="M6.167 8a.83.83 0 0 0-.83.83c0 .459.372.84.83.831a.831.831 0 0 0 0-1.661m1.843 3.647c.315 0 1.403-.038 1.976-.611a.23.23 0 0 0 0-.306.213.213 0 0 0-.306 0c-.353.363-1.126.487-1.67.487-.545 0-1.308-.124-1.671-.487a.213.213 0 0 0-.306 0 .213.213 0 0 0 0 .306c.564.563 1.652.61 1.977.61zm.992-2.807c0 .458.373.83.831.83s.83-.381.83-.83a.831.831 0 0 0-1.66 0z"></path>
+<path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.828-1.165c-.315 0-.602.124-.812.325-.801-.573-1.9-.945-3.121-.993l.534-2.501 1.738.372a.83.83 0 1 0 .83-.869.83.83 0 0 0-.744.468l-1.938-.41a.2.2 0 0 0-.153.028.2.2 0 0 0-.086.134l-.592 2.788c-1.24.038-2.358.41-3.17.992-.21-.2-.496-.324-.81-.324a1.163 1.163 0 0 0-.478 2.224q-.03.17-.029.353c0 1.795 2.091 3.256 4.669 3.256s4.668-1.451 4.668-3.256c0-.114-.01-.238-.029-.353.401-.181.688-.592.688-1.069 0-.65-.525-1.165-1.165-1.165"></path>
+</svg>
+</a>
+<a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html%22e%3DA+practical+guide+for+accelerating+video+generation+with+HunyuanVideo+and+Wan+2.1+using+Unified+Sequence+Parallelism+on+AMD+GPUs." class="facebook">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-facebook" viewbox="0 0 16 16">
+<path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.131 3.022-3.131.876 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.303.621-1.303 1.258v1.51h2.218l-.354 2.326H9.25V16c3.824-.604 6.75-3.934 6.75-7.951"></path>
+</svg>
+</a>
+<a href="mailto:?subject=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html&amp;body=A+practical+guide+for+accelerating+video+generation+with+HunyuanVideo+and+Wan+2.1+using+Unified+Sequence+Parallelism+on+AMD+GPUs." class="google">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-envelope-arrow-up" viewbox="0 0 16 16">
+<path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4.5a.5.5 0 0 1-1 0V5.383l-7 4.2-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h5.5a.5.5 0 0 1 0 1H2a2 2 0 0 1-2-1.99zm1 7.105 4.708-2.897L1 5.383zM1 4v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1"></path>
+<path d="M12.5 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7m.354-5.354 1.25 1.25a.5.5 0 0 1-.708.708L13 12.207V14a.5.5 0 0 1-1 0v-1.717l-.28.305a.5.5 0 0 1-.737-.676l1.149-1.25a.5.5 0 0 1 .722-.016"></path>
+</svg>
+</a>
+</div>
+<div class="icon-bar horizontal">
+<a href="https://www.linkedin.com/feed/?linkOrigin=LI_BADGE&amp;shareActive=true&amp;shareUrl=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html" class="linkedin">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-linkedin" viewbox="0 0 16 16">
+<path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"></path>
+</svg>
+</a>
+<a href="https://twitter.com/intent/tweet?url=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html&amp;text=A+practical+guide+for+accelerating+video+generation+with+HunyuanVideo+and+Wan+2.1+using+Unified+Sequence+Parallelism+on+AMD+GPUs." class="twitter">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-twitter-x" viewbox="0 0 16 16">
+<path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865z"></path>
+</svg>
+</a>
+<a href="https://www.reddit.com/submit?url=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html&amp;title=Accelerating+Video+Generation+on+ROCm+with+Unified+Sequence+Parallelism%3A+A+Practical+Guide+%7C+ROCm+Blogs" class="reddit">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-reddit" viewbox="0 0 16 16">
+<path d="M6.167 8a.83.83 0 0 0-.83.83c0 .459.372.84.83.831a.831.831 0 0 0 0-1.661m1.843 3.647c.315 0 1.403-.038 1.976-.611a.23.23 0 0 0 0-.306.213.213 0 0 0-.306 0c-.353.363-1.126.487-1.67.487-.545 0-1.308-.124-1.671-.487a.213.213 0 0 0-.306 0 .213.213 0 0 0 0 .306c.564.563 1.652.61 1.977.61zm.992-2.807c0 .458.373.83.831.83s.83-.381.83-.83a.831.831 0 0 0-1.66 0z"></path>
+<path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.828-1.165c-.315 0-.602.124-.812.325-.801-.573-1.9-.945-3.121-.993l.534-2.501 1.738.372a.83.83 0 1 0 .83-.869.83.83 0 0 0-.744.468l-1.938-.41a.2.2 0 0 0-.153.028.2.2 0 0 0-.086.134l-.592 2.788c-1.24.038-2.358.41-3.17.992-.21-.2-.496-.324-.81-.324a1.163 1.163 0 0 0-.478 2.224q-.03.17-.029.353c0 1.795 2.091 3.256 4.669 3.256s4.668-1.451 4.668-3.256c0-.114-.01-.238-.029-.353.401-.181.688-.592.688-1.069 0-.65-.525-1.165-1.165-1.165"></path>
+</svg>
+</a>
+<a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html%22e%3DA+practical+guide+for+accelerating+video+generation+with+HunyuanVideo+and+Wan+2.1+using+Unified+Sequence+Parallelism+on+AMD+GPUs." class="facebook">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-facebook" viewbox="0 0 16 16">
+<path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.131 3.022-3.131.876 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.303.621-1.303 1.258v1.51h2.218l-.354 2.326H9.25V16c3.824-.604 6.75-3.934 6.75-7.951"></path>
+</svg>
+</a>
+<a href="mailto:?subject=http%3A%2F%2Frocm.blogs.amd.com%2Fartificial-intelligence%2Fvideo-generation-models%2FREADME.html&amp;body=A+practical+guide+for+accelerating+video+generation+with+HunyuanVideo+and+Wan+2.1+using+Unified+Sequence+Parallelism+on+AMD+GPUs." class="google">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-envelope-arrow-up" viewbox="0 0 16 16">
+<path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4.5a.5.5 0 0 1-1 0V5.383l-7 4.2-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h5.5a.5.5 0 0 1 0 1H2a2 2 0 0 1-2-1.99zm1 7.105 4.708-2.897L1 5.383zM1 4v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1"></path>
+<path d="M12.5 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7m.354-5.354 1.25 1.25a.5.5 0 0 1-.708.708L13 12.207V14a.5.5 0 0 1-1 0v-1.717l-.28.305a.5.5 0 0 1-.737-.676l1.149-1.25a.5.5 0 0 1 .722-.016"></path>
+</svg>
+</a>
+</div>
+<p>Video generation models like HunyuanVideo and Wan 2.1 are rapidly
+improving, producing high-fidelity text-to-video and image-to-video
+outputs. These models generate content with such realism that
+distinguishing synthetic videos from real ones is increasingly
+difficult. At the core of this progress lies diffusion-based generative
+modeling, which has evolved from traditional U-Net–style convolutional
+encoder-decoders to more powerful Diffusion Transformers (DiTs). This
+architectural shift enables better modeling of complex spatial-temporal
+dependencies across frames, addressing key limitations in earlier
+designs.</p>
+<p>Unlike U-Nets, which rely on localized convolutions and thus struggle
+with capturing long-range temporal dependencies, DiTs incorporate
+Transformer blocks that provide global receptive fields and facilitate
+richer token mixing. These capabilities are critical for ensuring
+temporal consistency and coherence across video frames. However, the
+adoption of DiTs introduces significant computational challenges,
+particularly their high VRAM requirements and the quadratic complexity
+of self-attention mechanisms over extremely long sequences. As a result,
+parallel computation across multiple devices has become essential for
+both real-time inference and efficient model training.</p>
+<p>In the sections that follow, this blog will dive into the nuts and
+bolts of parallelizing DiTs and provide a step-by-step workflow to clone
+model repositories, run multi-GPU inference scripts, and visualize the
+generated videos on AMD GPUs.</p>
+<h2 id="prerequisites">Prerequisites<a href="#prerequisites"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>To follow along with this guide, ensure you have the following
+setup:</p>
+<ul>
+<li><p><strong>Linux</strong>: see the <a
+href="https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html#supported-operating-systems"
+class="reference external">supported Linux distributions</a>.</p></li>
+<li><p><strong>ROCm 6.3+</strong>: see the <a
+href="https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html"
+class="reference external">installation instructions</a>.</p></li>
+<li><p><strong>MI300X GPUs or newer</strong>: video generation models
+require large amounts of VRAM.</p></li>
+</ul>
+<p>Now you can start preparing the environment.</p>
+<h2 id="getting-started">Getting Started<a href="#getting-started"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>To streamline the setup, use the ROCm vLLM Docker image (<span
+class="pre"><code
+class="docutils literal notranslate">rocm/vllm-dev:base</code></span>),
+which offers a prebuilt environment optimized for inference on AMD
+Instinct MI325X and MI300X GPUs. Run the command below to pull and
+launch the container. Replace <span class="pre"><code
+class="docutils literal notranslate">&lt;path/to/models&gt;</code></span>
+with the path to your model storage directory or a new location for the
+models you want to store.</p>
+<div class="highlight-bash notranslate">
+<div class="highlight">
+<pre><code>docker run -it --network=host --group-add=video \
+           --privileged --ipc=host --cap-add=SYS_PTRACE \
+           --security-opt seccomp=unconfined --device /dev/kfd \
+           --device /dev/dri -v &lt;path/to/models&gt;:/data rocm/vllm-dev:base</code></pre>
+</div>
+</div>
+<p>The following section explains how parallelism enhances DiT
+efficiency.</p>
+<h2 id="unified-sequence-parallelism">Unified Sequence Parallelism<a
+href="#unified-sequence-parallelism" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>While large language models (LLMs) generally follow a uniform
+architecture that lends itself well to standard parallelization
+techniques like tensor or pipeline parallelism, DiTs present a unique
+set of challenges due to their heterogeneous multimodal structure.
+Specifically, DiT blocks often integrate text and image/video
+modalities, and the attention computation begins after QKV
+(query-key-value) projections are separately applied to each modality.
+These projections are then concatenated along the sequence dimension,
+creating a hybrid sequence with distinct memory and computation
+patterns.</p>
+<p>This design makes it difficult to naively apply tensor parallelism
+strategies that work well in LLMs. For instance, distributing the
+attention mechanism across devices becomes complicated due to the need
+to synchronize and align cross-modal latent tensors, which have
+different origins and potentially different dimensions. Furthermore,
+variations in connectivity patterns between DiT blocks in different
+video generation models adds another layer of complexity in maintaining
+efficient and consistent communication between devices.</p>
+<p>To address the computational demands of scaling DiTs, HunyuanVideo
+and Wan 2.1 employ <a href="https://arxiv.org/pdf/2405.07719"
+class="reference external">Unified Sequence Parallelism (USP)</a>, a
+general-purpose parallelism framework that wraps two complementary
+communication strategies, <a href="https://arxiv.org/pdf/2309.14509"
+class="reference external">DeepSpeed-Ulysses</a> (all-to-all) and <a
+href="https://arxiv.org/pdf/2310.01889"
+class="reference external">Ring-Attention</a> (peer-to-peer), into a
+unified 2D process mesh. USP exposes two tunable degrees of freedom: the
+Ulysses degree and Ring degree, allowing users to control how many GPUs
+participate in each type of collective operation. <a
+href="../../2411.01738v1.pdf"
+class="reference external">xDiT</a>, a parallel inference engine built
+specifically for DiTs, integrates USP to enable scalable and efficient
+deployment of video diffusion models.</p>
+<p>Under USP, both Ulysses and Ring-Attention begin by splitting the
+combined text and image/video token sequence across GPUs, so that each
+GPU is responsible for a contiguous chunk of the input. In the Ulysses
+approach, the system performs an all-to-all communication step to
+rearrange the token-sharded data into a head-sharded layout, which is
+better suited for computing self-attention. By contrast, Ring-Attention
+keeps the token splits as-is and instead streams the key and value
+tensors between GPUs in a peer-to-peer fashion. To further improve
+efficiency, xDiT enhances USP by applying fine-grained kernel-level
+sharding to both the text conditioning inputs and the image/video
+latents. This avoids redundant data replication during QKV projection
+and attention, making it especially effective for multimodal DiT
+blocks.</p>
+<p>According to the <a
+href="https://rocm.blogs.amd.com/software-tools-optimization/mi300x-rccl-xgmi/README.html"
+class="reference external">MI300X RCCL Benchmarks</a>, a hybrid
+configuration of Ulysses-8 / Ring-1 should deliver optimal performance.
+With a Ulysses degree of 8, all GPUs are utilized, saturating collective
+bandwidth for all-to-all operations. Meanwhile, a Ring degree of 1
+avoids unnecessary peer-to-peer hops, which are constrained to roughly
+45–48 GB/s per connection, thereby reducing communication overhead. In
+practice, this “Ulysses-8 / Ring-1” setup achieves an ideal balance
+between bandwidth and latency, maximizing throughput across AMD’s
+Infinity Fabric while minimizing per-token inference latency, enabling
+fast, high-fidelity video generation at scale.</p>
+<p>To set up USP, clone the long-context-attention repository and
+install dependencies:</p>
+<div class="highlight-bash notranslate">
+<div class="highlight">
+<pre><code>cd /data
+git clone https://github.com/feifeibear/long-context-attention
+pip install ./long-context-attention xfuser</code></pre>
+</div>
+</div>
+<p>You’re now ready to start generating videos!</p>
+<h2 id="video-generation-in-practice">Video Generation in Practice<a
+href="#video-generation-in-practice" class="headerlink"
+title="Link to this heading">#</a></h2>
+<h3 id="hunyuan-video">Hunyuan Video<a href="#hunyuan-video"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p><a href="https://arxiv.org/pdf/2412.03603"
+class="reference external">HunyuanVideo</a> is a 13-billion parameter
+text-to-video model developed by Tencent. It generates videos with high
+physical realism and scene consistency, effectively bringing conceptual
+and creative ideas to life. HunyuanVideo works by first encoding text
+prompts using a multimodal large language model to extract rich semantic
+representations, which serve as conditioning inputs. These condition
+vectors, combined with Gaussian noise, are fed into the generative
+diffusion transformer (DiT) that iteratively refines the latent
+representation. The final latent output is then passed through a 3D
+variational autoencoder (VAE) decoder, which reconstructs it into
+coherent image or video sequences, capturing both spatial detail and
+temporal consistency.</p>
+<p>Clone the HunyuanVideo repository and download models:</p>
+<blockquote>
+<div>
+<p><strong>Note:</strong> Your download might take over 30 minutes,
+depending on network speed and storage I/O.</p>
+</div>
+</blockquote>
+<div class="highlight-bash notranslate">
+<div class="highlight">
+<pre><code>git clone https://github.com/Tencent-Hunyuan/HunyuanVideo
+cd HunyuanVideo
+pip install loguru gradio
+huggingface-cli download tencent/HunyuanVideo --local-dir ckpts
+huggingface-cli download xtuner/llava-llama-3-8b-v1_1-transformers --local-dir ckpts/llava-llama-3-8b-v1_1-transformers
+huggingface-cli download openai/clip-vit-large-patch14 --local-dir ckpts/text_encoder_2
+python hyvideo/utils/preprocess_text_encoder_tokenizer_utils.py --input_dir ckpts/llava-llama-3-8b-v1_1-transformers --output_dir ckpts/text_encoder</code></pre>
+</div>
+</div>
+<p>Generate a video with the command below, using <span
+class="pre"><code
+class="docutils literal notranslate">ulysses-degree</code></span> 8 and
+<span class="pre"><code
+class="docutils literal notranslate">ring-degree</code></span> 1 for
+optimal speed. After the video is generated, you’ll find the output file
+in the <span class="pre"><code
+class="docutils literal notranslate">./results</code></span> directory
+inside the Docker container.</p>
+<div class="highlight-python notranslate">
+<div class="highlight">
+<pre><code>torchrun --nproc_per_node=8 sample_video.py \
+    --video-size 720 1280 \
+    --video-length 129 \
+    --infer-steps 50 \
+    --prompt &quot;A dancer performing in a vibrant city square.&quot; \
+    --flow-reverse \
+    --seed 42 \
+    --ulysses-degree 8 \
+    --ring-degree 1 \
+    --save-path ./results</code></pre>
+</div>
+</div>
+<p>You can now play the generated video. It demonstrates dynamic and
+coherent visual output.</p>
+<div class="sphinx-contrib-video-container align-left">
+<p><a
+href="https://rocm.blogs.amd.com/_images/hunyuan.mp4">视频／音频原始链接（联网查看）</a></p>
+</div>
+<p>The next section focuses on Wan 2.1’s unique capabilities.</p>
+<section id="wan-2-1">
+<h3 id="wan-2.1">Wan 2.1<a href="#wan-2-1" class="headerlink"
+title="Link to this heading">#</a></h3>
+<p><a href="https://arxiv.org/pdf/2503.20314"
+class="reference external">Wan 2.1</a>, developed by Alibaba, is a
+14-billion parameter text-to-video DiT model that leverages the same <a
+href="https://arxiv.org/pdf/2403.03206" class="reference external">Flow
+Matching framework</a> used in HunyuanVideo. Like HunyuanVideo, Wan 2.1
+excels at generating coherent videos featuring complex actions, making
+it well-suited for creative applications. While it operates similarly to
+HunyuanVideo, Wan 2.1 uniquely employs a <a
+href="https://arxiv.org/pdf/1910.10683" class="reference external">T5
+Encoder</a> to process prompts. This encoder supports multilingual
+inputs and enriches the DiT with detailed semantic information through
+cross-attention within each Transformer block. Time embeddings are
+handled by a shared MLP, composed of Linear and SiLU layers, which
+predicts six modulation parameters; each block also learns distinct
+biases to enhance flexibility. The model’s standout innovation is
+Wan-VAE, a novel 3D causal Variational Autoencoder that significantly
+improves spatio-temporal compression. Unlike conventional VAEs, Wan-VAE
+preserves temporal causality and enables encoding and decoding of
+unlimited-length 1080p videos without losing historical context.</p>
+<p>Clone the Wan 2.1 repository and install its dependencies:</p>
+<div class="highlight-bash notranslate">
+<div class="highlight">
+<pre><code>cd /data
+git clone https://github.com/Wan-Video/Wan2.1.git
+cd Wan2.1
+pip install -r requirements.txt</code></pre>
+</div>
+</div>
+<p>Download the Wan2.1 model weights:</p>
+<div class="highlight-bash notranslate">
+<div class="highlight">
+<pre><code>huggingface-cli download Wan-AI/Wan2.1-T2V-14B --local-dir Wan2.1-T2V-14B</code></pre>
+</div>
+</div>
+<p>Generate a video using the same prompt:</p>
+<div class="highlight-python notranslate">
+<div class="highlight">
+<pre><code>torchrun --nproc_per_node=8 generate.py \
+    --task t2v-14B \
+    --size 1280*720 \
+    --ckpt_dir ./Wan2.1-T2V-14B \
+    --dit_fsdp \
+    --t5_fsdp \
+    --ulysses_size 8 \
+    --prompt &quot;A dancer performing in a vibrant city square.&quot;</code></pre>
+</div>
+</div>
+<div class="sphinx-contrib-video-container align-left">
+<p><a
+href="https://rocm.blogs.amd.com/_images/wan.mp4">视频／音频原始链接（联网查看）</a></p>
+</div>
+<p>The video showcases high-quality, temporally consistent output.</p>
+</section>
+<h2 id="summary">Summary<a href="#summary" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>The transition from the U-Net architectures to DiTs has improved
+video generation, supporting high-fidelity text-to-video synthesis with
+enhanced temporal coherence. However, this shift introduces significant
+computational challenges due to DiTs’ VRAM demands and self-attention
+complexity from extremely long sequences. By leveraging USP within the
+xDiT inference engine, models like HunyuanVideo and Wan 2.1 achieve
+scalable, efficient performance on AMD MI300+ GPUs. The “Ulysses-8 /
+Ring-1” configuration optimizes bandwidth and minimizes latency, fully
+utilizing AMD’s Infinity Fabric. This guide outlines the steps for
+configuring the ROCm environment and running video generation with these
+models.</p>
+<h2 id="disclaimers">Disclaimers<a href="#disclaimers"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>Third-party content is licensed to you directly by the third party
+that owns the content and is not licensed to you by AMD. ALL LINKED
+THIRD-PARTY CONTENT IS PROVIDED “AS IS” WITHOUT A WARRANTY OF ANY KIND.
+USE OF SUCH THIRD-PARTY CONTENT IS DONE AT YOUR SOLE DISCRETION AND
+UNDER NO CIRCUMSTANCES WILL AMD BE LIABLE TO YOU FOR ANY THIRD-PARTY
+CONTENT. YOU ASSUME ALL RISK AND ARE SOLELY RESPONSIBLE FOR ANY DAMAGES
+THAT MAY ARISE FROM YOUR USE OF THIRD-PARTY CONTENT.</p>
+<div>
+
+</div>
+</section>
+<section class="ablog__blog_comments">
+
+</section>
+</article>
+</body>
+</html>

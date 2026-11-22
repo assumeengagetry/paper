@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Paged Attention, IFB, and Request Scheduling</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}.archived-control-label{display:inline-block;margin-right:.5em}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Paged Attention, IFB, and Request Scheduling</h1>
+</header>
+<section id="paged-attention-ifb-and-request-scheduling" class="header">
+<h1>Paged Attention, IFB, and Request Scheduling</h1>
+<p>来源：<a
+href="https://nvidia.github.io/TensorRT-LLM/features/paged-attention-ifb-scheduler.html">https://nvidia.github.io/TensorRT-LLM/features/paged-attention-ifb-scheduler.html</a></p>
+<p>2026-11-22转存。技术博客／方法文档静态正文；代码仅供阅读，未执行。正文图片另存本地；视频、交互与其他外链按原链接访问。</p>
+</section>
+<hr />
+<article class="bd-article">
+<section id="paged-attention-ifb-and-request-scheduling"
+class="tex2jax_ignore mathjax_ignore">
+<h1 id="paged-attention-ifb-and-request-scheduling-1">Paged Attention,
+IFB, and Request Scheduling<a
+href="#paged-attention-ifb-and-request-scheduling" class="headerlink"
+title="Link to this heading">#</a></h1>
+<h2 id="in-flight-batching">In-flight Batching<a
+href="#in-flight-batching" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>TensorRT LLM supports in-flight batching of requests (also known as
+continuous batching or iteration-level batching) for higher serving
+throughput. With this feature, sequences in the context phase can be
+processed together with sequences in the generation phase. The purpose
+of that technique is to better interleave requests to reduce latency as
+well as make better use of the GPUs. For efficiency reasons (1), the
+support for inflight batching <em><strong>requires the input tensors to
+be packed (no padding)</strong></em>.</p>
+<p><em><strong>In the current implementation, the sequences that are
+going through the context phase must come before the sequences in the
+generation phase in the input tensor. For example, for sequences <span
+class="pre"><code class="docutils literal notranslate">S0</code></span>,
+<span class="pre"><code
+class="docutils literal notranslate">S1</code></span> and <span
+class="pre"><code class="docutils literal notranslate">S2</code></span>,
+if <span class="pre"><code
+class="docutils literal notranslate">S0</code></span> and <span
+class="pre"><code class="docutils literal notranslate">S2</code></span>
+are in context phase (and <span class="pre"><code
+class="docutils literal notranslate">S1</code></span> in generation),
+tokens from <span class="pre"><code
+class="docutils literal notranslate">S0</code></span> and <span
+class="pre"><code class="docutils literal notranslate">S2</code></span>
+must appear before the tokens of <span class="pre"><code
+class="docutils literal notranslate">S1</code></span> in the input
+tensor</strong></em>. The constraint may or may not be relaxed in a
+future version.</p>
+<p>_(1) Padding sequences in the generation phase that contain a single
+token to the length of the maximum input sequence is inefficient use of
+resources.</p>
+<section id="max-batch-size-max-seq-len-and-max-num-tokens">
+<span id="max_batch_size-max_seq_len-and-max_num_tokens"></span>
+<h3 id="max_batch_size-max_seq_len-and-max_num_tokens"><span
+class="pre"><code
+class="docutils literal notranslate">max_batch_size</code></span>, <span
+class="pre"><code
+class="docutils literal notranslate">max_seq_len</code></span> and <span
+class="pre"><code
+class="docutils literal notranslate">max_num_tokens</code></span><a
+href="#max-batch-size-max-seq-len-and-max-num-tokens" class="headerlink"
+title="Link to this heading">#</a></h3>
+<p><img
+src="assets/5eecf7ed01c8a050c1b4710b8cf795a4786a5d20d9088eba236dd077a6e0f114.svg"
+style="width:30.0%"
+alt="Explain `max_batch_size`, `max_seq_len` and `max_num_tokens`" /></p>
+<section id="max-batch-size">
+<span id="max_batch_size"></span>
+<h4 id="max_batch_size"><span class="pre"><code
+class="docutils literal notranslate">max_batch_size</code></span><a
+href="#max-batch-size" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p><span class="pre"><code
+class="docutils literal notranslate">max_batch_size</code></span>
+defines the maximum number of requests that the engine can handle.​</p>
+<p>It controls the maximum number of requests that can be scheduled at
+runtime.</p>
+<p>Set a sufficiently high <span class="pre"><code
+class="docutils literal notranslate">max_batch_size</code></span> when
+building the engine so that it does not become the bottleneck of the
+throughput, and use runtime <span class="pre"><code
+class="docutils literal notranslate">max_batch_size</code></span> to
+tune throughput or latency without rebuilding the engine.</p>
+</section>
+<section id="max-seq-len">
+<span id="max_seq_len"></span>
+<h4 id="max_seq_len"><span class="pre"><code
+class="docutils literal notranslate">max_seq_len</code></span><a
+href="#max-seq-len" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p><span class="pre"><code
+class="docutils literal notranslate">max_seq_len</code></span> defines
+the maximum sequence length of a single request.</p>
+<p>Starting from TensorRT LLM v0.11, when <span class="pre"><code
+class="docutils literal notranslate">--remove_input_padding</code></span>
+and <span class="pre"><code
+class="docutils literal notranslate">--context_fmha</code></span> are
+enabled, <span class="pre"><code
+class="docutils literal notranslate">max_seq_len</code></span> can
+replace <span class="pre"><code
+class="docutils literal notranslate">max_input_len</code></span> and
+<span class="pre"><code
+class="docutils literal notranslate">max_output_len</code></span>, and
+is set to <span class="pre"><code
+class="docutils literal notranslate">max_position_embeddings</code></span>
+by default.</p>
+<p>Use default <span class="pre"><code
+class="docutils literal notranslate">max_seq_len</code></span> (which is
+<span class="pre"><code
+class="docutils literal notranslate">max_position_embeddings</code></span>),
+no need to tune it unless you are very sure what max sequence lengths
+would be on your workloads. If GPU memory is so limited that it cannot
+support even one request reaching <span class="pre"><code
+class="docutils literal notranslate">max_seq_len</code></span>, you need
+to reduce it.</p>
+</section>
+<section id="max-num-tokens">
+<span id="max_num_tokens"></span>
+<h4 id="max_num_tokens"><span class="pre"><code
+class="docutils literal notranslate">max_num_tokens</code></span><a
+href="#max-num-tokens" class="headerlink"
+title="Link to this heading">#</a></h4>
+<p><span class="pre"><code
+class="docutils literal notranslate">max_num_tokens</code></span>
+defines the maximum number of batched input tokens after padding is
+removed in each batch.​</p>
+<p><span class="pre"><code
+class="docutils literal notranslate">max_num_tokens</code></span> is set
+to 8192 by default starting from v0.11. It is recommended to tune
+–max_num_tokens for optimal performance.</p>
+<p>The maximum number of tokens will not take effect when input padding
+is not removed. When input padding is removed, the tokens from different
+sequences are packed together and the maximum number of the tokens can
+be set to a different (lower) value, which by default is 8192.</p>
+<p>There are two aspects that must be considered. Firstly, some input
+sequences will be shorter than the maximum input length. Secondly, when
+in-flight sequence batching is enabled, requests in context phase will
+be executed with requests in generation phase. Those latter requests
+produce a lot fewer tokens than <span class="pre"><code
+class="docutils literal notranslate">max_input_len</code></span> (at
+most, <span class="pre"><code
+class="docutils literal notranslate">beam_width</code></span>
+tokens).</p>
+<p>max_num_tokens affects workspace buffer sizes to be allocated as well
+as one of the matrix multiplication dimensions. Hence, using a more
+realistic value for <span class="pre"><code
+class="docutils literal notranslate">max_num_tokens</code></span> allows
+TensorRT LLM to allocate more memory to store the KV cache and execute
+more requests together. It leads to increased efficiency.</p>
+<p>GPUs yield higher utilization with larger matrix multiplications.
+Hence, increasing <span class="pre"><code
+class="docutils literal notranslate">max_num_tokens</code></span>
+appropriately will be beneficial to performance. At some point, GPU
+utilization will plateau, going beyond that saturation point may hurt
+both first token latency as well as total end-to-end latency. In
+summary, one should select reasonably high max_num_tokens for high token
+throughput/good GPU math utilization but not very high in order to meet
+SLO TTFT (time to first token) and TPOT (time per output token).</p>
+</section>
+</section>
+<section id="chunked-context-a-k-a-chunked-prefill">
+<span id="chunked-context-aka-chunked-prefill"></span>
+<h2 id="chunked-context-a.k.a-chunked-prefill">Chunked Context (a.k.a
+Chunked Prefill)<a href="#chunked-context-a-k-a-chunked-prefill"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>The original behavior was to process all context tokens at once.
+However, this feature splits the context into several chunks. In this
+way, the context chunks can be batched with more tokens during the
+generation phase, which should increase overall throughput. Chunking
+contexts also removes constraints on input length. To enable this
+feature, the FMHA paged kv-cache also needs to be enabled. Except for
+the last chunk, the size of each context chunk needs to be an integer
+multiple of the kv-cache block size.</p>
+</section>
+<h2 id="kv-cache">KV Cache<a href="#kv-cache" class="headerlink"
+title="Link to this heading">#</a></h2>
+<p>In the generation phase, a common optimization is to provide the MHA
+kernel with a cache containing the values of the past K and V elements
+that have already been computed. That cache is known as the KV cache.
+TensorRT LLM uses that technique to accelerate its generation phase. In
+TensorRT LLM, there is one KV cache per Transformer layer, which means
+that there are as many KV caches as layers in a model. The current
+version of TensorRT LLM supports two different types of KV caches:
+<strong>contiguous</strong> and <strong>paged</strong> KV caches.</p>
+<h3 id="contiguous-kv-cache">Contiguous KV Cache<a
+href="#contiguous-kv-cache" class="headerlink"
+title="Link to this heading">#</a></h3>
+<p>The contiguous KV cache is a monolithic tensor. Its shape is:</p>
+<div class="highlight-default notranslate">
+<div class="highlight">
+<pre><code>[max_batch_size * max_beam_width, 2, num_heads, max_seqlen, hidden_dim_per_head].</code></pre>
+</div>
+</div>
+<p>This implementation uses much more memory than needed when sequences
+are shorter than the maximum sequence length. Even if they approach the
+limit after generating many output tokens, it may take many steps to
+reach that point.</p>
+<h3 id="paged-kv-cache">Paged KV Cache<a href="#paged-kv-cache"
+class="headerlink" title="Link to this heading">#</a></h3>
+<p>The paged KV cache decomposes the KV cache into blocks that are
+distributed to the different requests by a cache manager during
+processing. That cache manager keeps track of the sequences, allocates
+new blocks from a pool, and recycles those blocks when required. The
+PyTorch executor integrates the cache managers through <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/ab2dfeb/tensorrt_llm/_torch/pyexecutor/resource_manager.py"
+class="reference external"><span class="pre"><code
+class="docutils literal notranslate">KVCacheManager</code></span></a>
+and <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/ab2dfeb/tensorrt_llm/_torch/pyexecutor/kv_cache/kv_cache_manager_v2.py"
+class="reference external"><span class="pre"><code
+class="docutils literal notranslate">KVCacheManagerV2</code></span></a>.
+The V1 <span class="pre"><code
+class="docutils literal notranslate">KVCacheManager</code></span> wraps
+the C++ block manager under the <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/ab2dfeb/cpp/include/tensorrt_llm/batch_manager"
+class="reference external">Batch Manager</a>. See <a
+href="https://nvidia.github.io/TensorRT-LLM/features/kvcache.html#selecting-the-kv-cache-manager"
+class="reference internal"><span class="std std-ref">Selecting the KV
+Cache Manager</span></a> for configuration and compatibility
+details.</p>
+<h2 id="the-schedulers">The schedulers<a href="#the-schedulers"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>This section visualizes how TensorRT LLM schedules requests based on
+max-batch size and max-num tokens. The example starts out with a newly
+initialized engine as well as a few unscheduled requests that have come
+in. For the sake of this example, toy values are set to <span
+class="pre"><code
+class="docutils literal notranslate">max</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">batch</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">size</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">=</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">4</code></span> and <span
+class="pre"><code
+class="docutils literal notranslate">max</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">num</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">tokens</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">=</code></span><code
+class="docutils literal notranslate"> </code><span class="pre"><code
+class="docutils literal notranslate">12</code></span>. Each square block
+represents a token, and its color represents which request it belongs
+to.</p>
+<p><img
+src="assets/683945854af43e7a95ee8b767abe8501141b33923d7a131b625f005dd0e05997.svg"
+alt="TRT-LLM Scheduler Visualization 1" /></p>
+<p>Now the scheduler takes the first two requests, Request 1 and Request
+2, and schedules them to execute the context phase. However, it cannot
+schedule any more requests because the prompts of the first two requests
+had 5 tokens each, leaving a budget of 2 tokens due to the max num
+tokens limit. Since all remaining requests have more than 2 prompt
+tokens none of them can be scheduled (context chunking can help in this
+situation, see the paged context attention section below). The tokens
+are marked with a “C” on them to represent that they are prompt tokens
+that were processed in the context phase.</p>
+<blockquote>
+<div>
+<p>Note: The tokens for different requests are shown on different rows
+simply for visualization purposes and are not representative of actual
+memory layouts</p>
+</div>
+</blockquote>
+<p><img
+src="assets/76597e4cbf2b1b3d1415a1bf577fc3980b31220c9c1880df06cdf1c3afa469b1.svg"
+alt="TRT-LLM Scheduler Visualization 2" /></p>
+<p>Now the engine runs an iteration of execution, completing the context
+phases for both of the scheduled requests. After it is done, the
+kv-cache of the prompts for both requests have been created and the
+first token has been generated. Tokens that were generated are marked
+with “G(n)” - for example a token marked “G1” represents that it is the
+first token generated for its request.</p>
+<p>TRT-LLM prioritizes scheduling requests in generation phase first so
+the two generated tokens are queued to be processed in the next
+iteration. Now, since the two previously scheduled requests have entered
+generation phase and only take up two tokens out of the max num token
+budget of 12, the scheduler is able to schedule two additional requests,
+Request 3 and Request 4. It cannot schedule the last request, Request 5,
+even though there is space for it in the max num tokens budget because
+of the max batch size limit of 4.</p>
+<p><img
+src="assets/2db8024d14a5a14661c461e0a6611808a553ba26f4dbcc6b2c787cb5d81b52e0.svg"
+alt="TRT-LLM Scheduler Visualization 3" /></p>
+<p>After the next iteration of execution, the second tokens for Requests
+1 and 2 have been generated, and the first tokens for Request 3 and 4
+have been generated. Let’s say that G2, which was generated for Request
+1, is the stop token signifying that Request 1 is completed. In this
+case the scheduler would evict Request 1 before performing another
+execution iteration and prepare to return it to the user. This eviction
+puts the state of the engine below the max batch size limit and allows
+Request 5 to be scheduled.</p>
+<p>Also note that G1, which was generated for Request 2, has been added
+to the kv-cache for Request 2, illustrating how the kv-cache for a
+request grows as more tokens are generated.</p>
+<p><img
+src="assets/4c83c8c68c3e1ff8db365beabb5838c9a29129d0c6bc94262ebccd9678bf0f5b.svg"
+alt="TRT-LLM Scheduler Visualization 4" /></p>
+<p>Overall, the max batch size and max num tokens limits play a key role
+in determining when requests are executed. Tuning these parameters can
+significantly impact throughput, as well as how the engine balances
+previously scheduled requests in the generation phase with new requests
+in the context phase.</p>
+<blockquote>
+<div>
+<p>Note: This presents a simplified visualization of the scheduler to
+highlight how max batch size and max num tokens affect it. The scheduler
+also considers things like amount of free memory available to be used
+for kv-cache and has other configurable options that can affect its
+behavior. See the Runtime Flags of the Additional Options page for more
+on this.</p>
+</div>
+</blockquote>
+<h2
+id="revisiting-paged-context-attention-and-context-chunking">Revisiting
+Paged Context Attention and Context Chunking<a
+href="#revisiting-paged-context-attention-and-context-chunking"
+class="headerlink" title="Link to this heading">#</a></h2>
+<p>Previously we recommended enabling paged context attention even
+though in our case study it didn’t affect performance significantly. Now
+that we understand the TensorRT LLM scheduler, we can explain why this
+is beneficial. In short, we recommend enabling it because it enables
+context chunking, which allows the context phase of a request to be
+broken up into pieces and processed over several execution iterations,
+allowing the engine to provide a more stable balance of context and
+generation phase execution. Enabling chunking results in lower TTFTs on
+average across requests but it may increase TTFT for small number of
+“lucky” requests that would have been processed in a single iteration in
+absence of chunking.</p>
+<p>The <a href="#the-schedulers"
+class="reference internal">visualization</a> of the TensorRT LLM
+scheduler showed that initially Request 3 couldn’t be scheduled because
+it would put the scheduler over the max-num tokens limit. However, with
+context chunking, this is no longer the case, and the first chunk of
+Request 3 can be scheduled.</p>
+<p><img
+src="assets/425dbac6343e075b105b9c9db5081cd14fb1c3b7a4f497f19086b5e7ed92a9f6.svg"
+alt="TRT-LLM Scheduler Visualization Chunked Context 1" /></p>
+<p>This is extremely beneficial for several reasons. First, it
+eliminates the possibility of requests with large prompts (relative to
+max num tokens) not being scheduled due to other requests already
+in-flight. In production workloads, this can mitigate queuing effects
+and worst case TTFT numbers. Second, it allows for setting smaller
+values of max num tokens, since you no longer need max num tokens to be
+at least as large as the longest prompt you want to support. For
+long-context cases this is extremely important, because setting
+extremely large values of max-num tokens takes away from memory
+available to be used as kv-cache. Given that, in the worst-case
+scenario, chunked context has minimal impact on performance but can
+significantly benefit it in many situations, NVIDIA recommends that you
+always enable it.</p>
+</section>
+</article>
+</body>
+</html>
