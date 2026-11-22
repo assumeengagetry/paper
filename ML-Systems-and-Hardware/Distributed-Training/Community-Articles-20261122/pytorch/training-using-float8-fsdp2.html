@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Supercharging Training using float8 and FSDP2</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Supercharging Training using float8 and FSDP2</h1>
+</header>
+<section id="supercharging-training-using-float8-and-fsdp2"
+class="header">
+<h1>Supercharging Training using float8 and FSDP2</h1>
+<p>来源：<a
+href="https://pytorch.org/blog/training-using-float8-fsdp2/">https://pytorch.org/blog/training-using-float8-fsdp2/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content" data-hide-featured-media="1">
+<div class="content-inner">
+<p><strong>IBM</strong>: Tuan Hoang Trong, Alexei Karve, Yan Koyfman,
+Linsong Chu, Divya Kumari, Shweta Salaria, Robert Walkup, Praneet
+Adusumilli, Nirmit Desai, Raghu Ganti, Seetharami Seelam<br />
+<strong>Meta</strong>: Less Wright, Wei Feng, Vasiliy Kuznetsov, Driss
+Guesseous</p>
+<p>In this blog, we will demonstrate how we achieve up to <strong>50%
+throughput speedup</strong> while achieving loss and evaluation
+benchmark parity in training over <a
+href="maximizing-training-throughput.html">FSDP1
+bf16 training</a>. We achieve this speedup by leveraging FSDP2, DTensor,
+and torch.compile with torchao’s float8 via linear layer updates
+(compute), and float8 all_gathers for weight communication. We showcase
+these improvements across a spectrum of Meta LLaMa model architecture
+sizes, ranging from small 1.8B model size all the way to 405B model
+size, making training faster than ever.</p>
+<p>We demonstrate these improvements using the Meta Llama3 architecture,
+and then perform model quality studies at two scales: 100B tokens at 8B
+model size, and 50B tokens at 70B model size, which provide an exact
+comparison of float8 and bf16 training loss curves. We demonstrate that
+the loss curves result in identical loss convergence across these model
+training runs compared to the <code>bf16</code> counterpart. Further, we
+train a 3B model to 1T tokens using the FineWeb-edu dataset and run
+standard evaluation benchmarks to ensure that the model quality is
+intact and comparable to a <code>bf16</code> run.</p>
+<p>At IBM Research, we plan to adopt these capabilities for our data
+ablations to improve the number of experiments we can perform in a given
+GPU budget. Longer term, we will follow up with a larger scale model run
+to demonstrate the end-to-end feasibility
+of <code>float8</code> training.</p>
+<h2 class="wp-block-heading" id="what-is-float8">What is Float8?</h2>
+<p>The <code>float8</code> format for training models was introduced by
+NVIDIA, ARM, and Intel in a <a href="https://arxiv.org/abs/2209.05433"
+target="_blank" rel="noreferrer noopener">2022 paper</a> which
+demonstrated the feasibility of training using lower precision float8,
+without sacrificing model quality. With the introduction of newer GPUs
+like the NVIDIA Hopper series, FP8 training became feasible with the
+potential of more than 2x improvement in training throughput due to
+native float8 tensor core support. There are a few challenges to realize
+this promise:<br />
+(i) Enable the core model operations
+like <code>matmul</code> and <code>attention</code> in <code>float8</code>,<br />
+(ii) Enable <code>float8</code> training in a distributed framework,
+and<br />
+(iii) Enable weight communication between GPUs
+in <code>float8</code>.<br />
+While the <code>float8</code> <code>matmul</code> was enabled by NVIDIA
+libraries, the latter two were provided in recent updates
+to <code>FSDP2</code> and <code>torchao</code>.</p>
+<p>In this blog, we are using <a
+href="https://github.com/pytorch/torchtitan" target="_blank"
+rel="noreferrer noopener">torchtitan</a> as the entry point for
+training, IBM’s deterministic data loader,
+the <code>float8</code> linear layer implementation from <a
+href="https://www.google.com/url?q=https%3A%2F%2Fgithub.com%2Fpytorch%2Fao%2Ftree%2Fmain%2Ftorchao%2Ffloat8&amp;sa=D&amp;source=docs&amp;ust=1730743084184771&amp;usg=AOvVaw21FdkNG452P-nDIO-hIwcW"
+target="_blank" rel="noreferrer noopener">torchao</a>, and
+the <code>float8 all gather</code> from the latest PyTorch nightlies in
+conjunction with FSDP2. For this training, we are using the float8 per
+tensor (tensorwise) scaling granularity rather than rowwise. We
+leverage <code>torch.compile</code> to ensure that we get maximum
+performance gains. We are
+computing <code>attention</code> in <code>bf16</code> using SDPA and are
+currently working on moving this to float8 as well.</p>
+<h2 class="wp-block-heading" id="experiments">Experiments</h2>
+<p>We perform various experiments to demonstrate the benefits of float8
+training. The first is to ensure that model quality is not sacrificed.
+To verify this, we train an 8B model and 70B model for a few thousand
+steps and compare the loss curves between both the float8 and bf16
+training run. Our experiments are performed on three different H100
+clusters with 128, 256, and 512 H100 GPU configurations in very
+different environments to demonstrate reproducibility. The first cluster
+is customized on <a
+href="https://engineering.fb.com/2024/03/12/data-center-engineering/building-metas-genai-infrastructure/"
+target="_blank" rel="noreferrer noopener">Grand Teton</a> in Meta with
+400Gbps custom interconnect, the second is an IBM research cluster with
+3.2Tbps Infiniband interconnect, and the third is an IBM Cloud cluster
+with 3.2Tbps RoCE interconnect for GPU-to-GPU communication.</p>
+<p>First, we plot the loss curve comparisons for both these models in
+the below figures to demonstrate loss parity for a few thousand
+steps.</p>
+<figure class="wp-block-image is-resized">
+<img src="assets/e79c14bea5b915084f930cdde0b89d00c9c84da2af95abe297f60efae5c1fda7.png"
+class="wp-image-2796" width="1024" height="456"
+alt="Figure 1: (a) 8B model loss parity for 2k steps, (b) 70B loss parity for 1k steps" />
+</figure>
+<figure class="wp-block-image is-resized">
+<img src="assets/9fa3930a01c803d19be765114935a81479a1e487e80de68904eb7d3ea7e70035.png"
+class="wp-image-2797" width="799" height="497"
+alt="Figure 1: (a) 8B model loss parity for 2k steps, (b) 70B loss parity for 1k steps" />
+</figure>
+<p><em>Figure 1: (a) 8B model loss parity for 2k steps, (b) 70B loss
+parity for 1k steps</em></p>
+<p>We observe that across these different models and in different
+environments, we obtain loss parity for the small scale of tokens. Next,
+we characterize the throughput gains for four different model sizes
+ranging from 1.8B to 405B. We explored the best batch size and
+activation checkpointing schemes for both the float8 and bf16 training
+runs to determine the tokens/sec/GPU (wps) metric and report the
+performance gain. For the 405B model, we
+leveraged <code>DTensor</code> for tensor parallel training with FSDP2.
+We use a sequence length of 8K for all our measurements.</p>
+<figure class="wp-block-table">
+<table class="has-fixed-layout">
+<tbody>
+<tr>
+<td><strong>Model size</strong></td>
+<td><strong>wps (bf16)</strong></td>
+<td><strong>wps (float8)</strong></td>
+<td><strong>Percent gain</strong></td>
+</tr>
+<tr>
+<td>1.8B</td>
+<td>29K</td>
+<td>35K</td>
+<td>18%</td>
+</tr>
+<tr>
+<td>8B</td>
+<td>8K</td>
+<td>10K</td>
+<td>28%</td>
+</tr>
+<tr>
+<td>70B</td>
+<td>956</td>
+<td>1430</td>
+<td>50%</td>
+</tr>
+<tr>
+<td>405B (TP4)</td>
+<td>149</td>
+<td>227</td>
+<td>52%</td>
+</tr>
+</tbody>
+</table>
+</figure>
+<p><em>Table 1: Performance gains over bf16 (both bf16 and float8 use
+torch.compile)</em></p>
+<p>We observe from Table 1 that the gains for larger models (70B and
+405B) reach up to 50%, the smaller models see gains between roughly 20
+and 30%. In further experiments, we observed that the addition
+of <code>float8</code> <code>all_gather</code> enables a boost of ~5%
+beyond the compute itself in <code>float8</code>, which is inline with
+the observations in this <a
+href="https://aws.amazon.com/blogs/machine-learning/efficient-pre-training-of-llama-3-like-model-architectures-using-torchtitan-on-amazon-sagemaker/"
+target="_blank" rel="noreferrer noopener">blog</a>.</p>
+<p>Second, to demonstrate the effectiveness of an FP8 model, we trained
+a 3B model following the Llama3 architecture for 1T tokens using the
+FineWeb-edu dataset from Hugging Face. We performed evaluations using
+the <code>lm-eval-harness</code> framework and present a small portion
+of these results in the below table. We observe that
+the <code>bf16</code> performance is marginally better than
+the <code>float8</code> scores (about one percent). While some scores
+are significantly better with <code>bf16</code> (e.g., MMLU is 3 pts
+higher), we expect these gaps to vanish when the right hyper parameters
+are chosen and across larger scale training runs (e.g.,
+the <code>bf16</code> run had half the batch size and it is well known
+that smaller batch size runs can improve evaluation scores).</p>
+<figure class="wp-block-table">
+<table class="has-fixed-layout">
+<tbody>
+<tr>
+<td><strong>Benchmark</strong></td>
+<td><strong>Score (float8)</strong></td>
+<td><strong>Score (bf16)</strong></td>
+</tr>
+<tr>
+<td>MMLU (5-shot)</td>
+<td>0.26</td>
+<td>0.29</td>
+</tr>
+<tr>
+<td>ARC-e</td>
+<td>0.73</td>
+<td>0.73</td>
+</tr>
+<tr>
+<td>ARC-c</td>
+<td>0.43</td>
+<td>0.46</td>
+</tr>
+<tr>
+<td>Hellaswag</td>
+<td>0.65</td>
+<td>0.67</td>
+</tr>
+<tr>
+<td>sciq</td>
+<td>0.89</td>
+<td>0.88</td>
+</tr>
+<tr>
+<td>OpenBook QA</td>
+<td>0.43</td>
+<td>0.43</td>
+</tr>
+<tr>
+<td>PIQA</td>
+<td>0.76</td>
+<td>0.76</td>
+</tr>
+<tr>
+<td>Winogrande</td>
+<td>0.60</td>
+<td>0.65</td>
+</tr>
+<tr>
+<td><strong>Average</strong></td>
+<td><strong>0.59</strong></td>
+<td><strong>0.60</strong></td>
+</tr>
+</tbody>
+</table>
+</figure>
+<p><em>Table 2: Benchmark scores for float8 trained model running in
+FP16 for eval (at 1T tokens of FineWeb pre-training).</em></p>
+<p>Finally, we scale our experiments to 512 H100 GPUs on the IBM Cloud
+cluster. We were able to recreate the results and speedups that we
+observed even at 512 GPU scale. We summarize these results only for the
+large models in the below table (70B and 405B).</p>
+<figure class="wp-block-table">
+<table class="has-fixed-layout">
+<tbody>
+<tr>
+<td><strong>Model size</strong></td>
+<td><strong>wps (bf16)</strong></td>
+<td><strong>wps (float8)</strong></td>
+<td><strong>Percent gain</strong></td>
+</tr>
+<tr>
+<td>70B</td>
+<td>960</td>
+<td>1448</td>
+<td>51%</td>
+</tr>
+<tr>
+<td>405B (TP4)</td>
+<td>152</td>
+<td>217</td>
+<td>43%</td>
+</tr>
+</tbody>
+</table>
+</figure>
+<p><em>Table 3: Performance gains over bf16 (both bf16 and float8 use
+torch.compile) for 512 GPU scale</em></p>
+<h2 class="wp-block-heading" id="future-work">Future work</h2>
+<p>We are also working on evaluating other forms of parallelism such as
+Context Parallelism. We plan to evaluate all of these features to
+demonstrate the composability and ability to make choices for training
+large scale models.</p>
+<h2 class="wp-block-heading" id="acknowledgements">Acknowledgements</h2>
+<p>We thank Davis Wertheimer from IBM Research for enabling the data
+loader for torchtitan runs enabling us to replay data in the same order
+across multiple runs. We also thank IBM Cloud for enabling us with early
+test access to the H100 cluster.</p>
+</div>
+</div>
+</body>
+</html>

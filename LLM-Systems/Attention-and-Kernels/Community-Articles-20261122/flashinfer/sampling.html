@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Sorting-Free GPU Kernels for LLM Sampling</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Sorting-Free GPU Kernels for LLM Sampling</h1>
+</header>
+<section id="sorting-free-gpu-kernels-for-llm-sampling" class="header">
+<h1>Sorting-Free GPU Kernels for LLM Sampling</h1>
+<p>来源：<a
+href="https://flashinfer.ai/2025/03/10/sampling.html">https://flashinfer.ai/2025/03/10/sampling.html</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content e-content" itemprop="articleBody">
+<h2 id="background">Background</h2>
+<p>As vocabulary sizes grow larger in Large Language Models (LLMs),
+categorical sampling (token selection) has emerged as a significant
+performance bottleneck in LLM inference serving. The <a
+href="https://docs.flashinfer.ai/api/sampling.html">sampling
+operators</a> in FlashInfer were first introduced in <a
+href="https://github.com/flashinfer-ai/flashinfer/releases/tag/v0.0.5">v0.0.5</a>,
+and since then, the FlashInfer team has continuously improved their
+robustness and performance. In this blog post, we’ll explore the
+algorithms and implementation details behind FlashInfer’s sampling
+operators.</p>
+<h2 id="llm-sampling">LLM Sampling</h2>
+<p>Categorical Sampling is the process that picks a specific next token
+from model output probabilities (over the vocabulary). In practice,
+filtering is applied before sampling to pass tokens with negligible
+probability, control generation behaviors, and enforce minimum
+probabilities, such as Top-P, Top-K, or Min-P thresholds:</p>
+<p><img
+src="assets/a827f346ea46585a20500d211edd5e81fb492f8198d261b0eaf141af079f7f4e.png"
+width="800"
+alt="The compute time break down highlighting the sampling process. In the vLLM 1xH100 configuration, our kernels reduce the overall sampling time by more than 50% across all three models." /><br />
+<span>Figure 1: The compute time break down highlighting the sampling
+process. In the vLLM 1xH100 configuration, our kernels reduce the
+overall sampling time by more than 50% across all three
+models.</span></p>
+<ol>
+<li><p><strong>Top-K</strong></p>
+<p>Top-K sampling keeps only the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+tokens with the highest probabilities at each generation step. For
+example, if
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>K</mi><mo>=</mo><mn>50</mn></mrow><annotation encoding="application/x-tex">K=50</annotation></semantics></math>,
+the model will ignore all tokens outside the top 50 likely
+candidates.</p></li>
+<li><p><a href="https://arxiv.org/pdf/1904.09751"><strong>Top-P (Nucleus
+Sampling)</strong></a></p>
+<p>Top-P rather keeps the smallest set of tokens whose cumulative
+probability just exceeds a threshold
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math>.
+For example, if
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo>=</mo><mn>0.9</mn></mrow><annotation encoding="application/x-tex">P=0.9</annotation></semantics></math>,
+you accumulate token probabilities in descending order until their sum
+is at least 0.9.</p></li>
+<li><p><a
+href="https://arxiv.org/pdf/2407.01082"><strong>Min-P</strong></a></p>
+<p>Min-p filters out all tokens below a minimum threashold
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mtext mathvariant="normal">base</mtext></msub><mo>×</mo><msub><mi>p</mi><mtext mathvariant="normal">max</mtext></msub></mrow><annotation encoding="application/x-tex">p_\text{base} \times p_\text{max}</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mtext mathvariant="normal">base</mtext></msub><annotation encoding="application/x-tex">p_\text{base}</annotation></semantics></math>
+is parameter and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mtext mathvariant="normal">max</mtext></msub><annotation encoding="application/x-tex">p_\text{max}</annotation></semantics></math>
+is the largest probability in the inputs. This helps eliminate extremely
+unlikely tokens while still respecting relative differences among the
+top candidates.</p></li>
+</ol>
+<p>In practice, the combination of Top-K and Top-P filtering is popular
+and used as the standard setting for LLM sampling. This allows for
+finer-grained control over the generation process. For example if we use
+the Top-K first filtering, we first limit the token set to the Top-K
+highest probabilities, and then apply a Top-P cutoff to filter the tail
+portion within those
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+tokens. <sup><span id="fnref:1"><a href="#fn:1" class="footnote"
+rel="footnote">1</a></span></sup></p>
+<p>A PyTorch implementation of these samplers might look like this:</p>
+<div class="language-python highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code># vllm/vllm/model_executor/layers/sampler.py
+def _apply_top_k_top_p(
+    logits: torch.Tensor,
+    p: torch.Tensor,
+    k: torch.Tensor,
+) -&gt; torch.Tensor:
+    logits_sort, logits_idx = logits.sort(dim=-1, descending=False)
+
+    # Apply top-k.
+    top_k_mask = logits_sort.size(1) - k.to(torch.long)
+    # Get all the top_k values.
+    top_k_mask = logits_sort.gather(1, top_k_mask.unsqueeze(dim=1))
+    top_k_mask = logits_sort &lt; top_k_mask
+    logits_sort.masked_fill_(top_k_mask, -float(&quot;inf&quot;))
+
+    # Apply top-p.
+    probs_sort = logits_sort.softmax(dim=-1)
+    probs_sum = probs_sort.cumsum(dim=-1)
+    top_p_mask = probs_sum &lt;= 1 - p.unsqueeze(dim=1)
+    # at least one
+    top_p_mask[:, -1] = False
+    logits_sort.masked_fill_(top_p_mask, -float(&quot;inf&quot;))
+
+    # Re-sort the probabilities.
+    src = torch.arange(logits_idx.shape[-1],
+                       device=logits_idx.device).expand_as(logits_idx)
+    logits_idx_inv = torch.empty_like(logits_idx).scatter_(dim=-1,
+                                                           index=logits_idx,
+                                                           src=src)
+    logits = torch.gather(logits_sort, dim=-1, index=logits_idx_inv)
+    return logits</code></pre>
+</div>
+</div>
+<p>This code uses a combination of sorting, cumulative sums, and
+masking. While it is straightforward to follow, it induces performance
+bottleneck especially for large vocab size, because of the huge overhead
+of sorting.</p>
+<p>In FlashInfer, we show that sampling under filtering can be done in
+sorting-free manner, and we introduce the <strong>Dual Pivot Rejection
+Sampling</strong> algorithm and design fused sampling kernel templates
+to fully leverage GPUs’ parallel computing capabilities, ultimately
+achieving logarithmic (in worst case) time complexity. In this blog,
+we’ll walk you through how we developed this algorithm integrating ideas
+from Inverse Sampling, Rejection Sampling, and final version of the
+algorithm with theorerical guarantee of convergence.</p>
+<h2 id="algorithm">Algorithm</h2>
+<h3 id="inverse-transform-sampling">Inverse Transform Sampling</h3>
+<p><img
+src="assets/68bc599ba39a7227622fa31c27458bfde058d316ae34b1676d11f8b0a3fddb78.gif"
+width="800"
+alt="Inverse Transform Sampling. This animation illustrates the per-block process, and in practice the workload gets executed by blocks." /><br />
+<span>Figure 2: Inverse Transform Sampling. This animation illustrates
+the per-block process, and in practice the workload gets executed by
+blocks.</span></p>
+<p>We begin with implementing a basic sampling kernel that selects
+tokens purely based on their probabilities, particularly in the GPU
+parallel computing context.</p>
+<p>The method is <strong>inverse transform sampling</strong>, which
+draws samples from a probability distribution given its cumulative
+distribution function (CDF). As for the token samling process, the CDF
+would be the prefix sum of token probabilities. The algorithm proceeds
+like this:</p>
+<ol>
+<li><strong>Draw a random</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>u</mi><annotation encoding="application/x-tex">u</annotation></semantics></math>
+from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>∼</mo><mtext mathvariant="normal">Unif</mtext><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">U\sim \text{Unif}(0,1)</annotation></semantics></math>.</li>
+<li><strong>Compute the prefix sums</strong> (CDF) for each sampled
+token
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+with probability
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mi>j</mi></msub><annotation encoding="application/x-tex">p_j</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mi>j</mi></msub><mo>=</mo><msubsup><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>j</mi></msubsup><msub><mi>p</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">F_j=\sum^{j}_{i=1}p_i</annotation></semantics></math>.</li>
+<li><strong>Locate the token</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
+such that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>≤</mo><mi>u</mi><mo>&lt;</mo><msub><mi>F</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">F_{k-1} \leq u &lt; F_k</annotation></semantics></math>
+as the result.</li>
+</ol>
+<p>NVIDIA’s <a
+href="https://docs.nvidia.com/cuda/cub/index.html">CUB</a> library (now
+part of <a href="https://github.com/NVIDIA/cccl">CCCL</a>) provides
+efficient primitives for parallel computing, and we leverage the reduce
+and scan primitives to compute the prefix sums. We use one threadblock
+for each probability distribution, for batch sampling, we launch
+multiple threadblocks in parallel. Block-level reduce/scan primitives
+can be applied to a block of elements (<code
+class="language-plaintext highlighter-rouge">BLOCK_SIZE = NUM_THREADS * NUM_ELEMENTS_PER_THREADS</code>,
+e.g. 1024 * 4 for float input), for vocabulary size greater than <code
+class="language-plaintext highlighter-rouge">BLOCK_SIZE</code>, we split
+the vocabulary into multiple blocks and sequentially apply the same
+procedure on each block:</p>
+<ol>
+<li>Initialize a running total
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="monospace">𝚊</mtext><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\texttt{a}=0</annotation></semantics></math>.
+Compute the probability sum
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚊_𝚕𝚘𝚌𝚊𝚕</mtext><annotation encoding="application/x-tex">\texttt{a_local}</annotation></semantics></math>
+for each block. If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="monospace">𝚊</mtext><mo>+</mo><mtext mathvariant="monospace">𝚊_𝚕𝚘𝚌𝚊𝚕</mtext><mo>&gt;</mo><mi>u</mi></mrow><annotation encoding="application/x-tex">\texttt{a} + \texttt{a_local}&gt; u</annotation></semantics></math>,
+the sampled token lies in this block.</li>
+<li>If not, we add
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚊_𝚕𝚘𝚌𝚊𝚕</mtext><annotation encoding="application/x-tex">\texttt{a_local}</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚊</mtext><annotation encoding="application/x-tex">\texttt{a}</annotation></semantics></math>
+and move on to the next block.</li>
+<li>Once we know the correct block, we perform a prefix sum over its
+tokens to pinpoint the exact token index.</li>
+</ol>
+<p>We use <a
+href="https://nvidia.github.io/cccl/cub/api/classcub_1_1BlockReduce.html#_CPPv4I0_i_20BlockReduceAlgorithm_i_iEN3cub11BlockReduceE">BlockReduce</a>
+and <a
+href="https://nvidia.github.io/cccl/cub/api/classcub_1_1BlockScan.html#_CPPv4I0_i_18BlockScanAlgorithm_i_iEN3cub9BlockScanE">BlockScan</a>
+for the per-block partial sum and prefix sums, and <a
+href="https://nvidia.github.io/cccl/cub/api/classcub_1_1BlockAdjacentDifference.html?highlight=adjacentdifference#_CPPv4I0_i_i_iEN3cub23BlockAdjacentDifferenceE">AdjacentDifference</a>
+to locate the token index. In practice, we use early-stopping to
+terminate the inverse transform sampling process when the cumulative
+probability exceeds the random number
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>u</mi><annotation encoding="application/x-tex">u</annotation></semantics></math>,
+so we don’t need to go through the whole vocabulary for each round.</p>
+<h3 id="rejection-sampling">Rejection Sampling</h3>
+<p><img
+src="assets/12d7b164ceb6ccf780ed75bac913c96cb2e1bc5a63fc3c56137fc1c13843c99e.gif"
+width="800"
+alt="Top-P Rejection Sampling. This animation illustrates the per-block process, and in practice the workload gets executed by blocks." /><br />
+<span>Figure 3: Top-P Rejection Sampling. This animation illustrates the
+per-block process, and in practice the workload gets executed by blocks.
+</span></p>
+<p>For more advanced strategies such as <strong>Top-P sampling</strong>,
+we use <strong>rejection sampling</strong> to restrict which tokens can
+be selected. Rejection sampling draws from a target distribution by
+comparing random samples against a threshold and discarding those that
+do not meet it.</p>
+<p>Taking the sampling kernel under Top-P filtering as an example, here
+is a simplified look of what happens:</p>
+<ol>
+<li><strong>Initialize the pivot</strong> to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>,
+so initially all tokens are considered.</li>
+<li><strong>Perform an inverse transform sampling pass</strong> but
+ignoring tokens with probabilities below the current pivot. After
+sampling a token, <strong>update the pivot</strong> to that token’s
+probability.</li>
+<li><strong>Compute the remaining probability</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚚</mtext><annotation encoding="application/x-tex">\texttt{q}</annotation></semantics></math>
+among tokens that still exceed this pivot:
+<ol>
+<li>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚚</mtext><annotation encoding="application/x-tex">\texttt{q}</annotation></semantics></math>
+remains greater than or equal to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚝𝚘𝚙_𝚙</mtext><annotation encoding="application/x-tex">\texttt{top_p}</annotation></semantics></math>,
+another round is needed to raise the pivot further and reject more
+tokens.</li>
+<li>Otherwise, if it is below
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚝𝚘𝚙_𝚙</mtext><annotation encoding="application/x-tex">\texttt{top_p}</annotation></semantics></math>,
+we finalize the sampled token and mark success.</li>
+</ol></li>
+<li><strong>Repeat</strong> until successful.</li>
+</ol>
+<p>The whole algorithm can be implemented in a single fused kernel, and
+it works similar for Top-K and other filtering strategies, other than
+we’ll be checking the number of tokens exceeding the pivot against
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚝𝚘𝚙_𝚔</mtext><annotation encoding="application/x-tex">\texttt{top_k}</annotation></semantics></math>
+or
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="monospace">𝚖𝚒𝚗_𝚙</mtext><annotation encoding="application/x-tex">\texttt{min_p}</annotation></semantics></math>.</p>
+<p>In practice, we find that the number of rounds for returning a
+sampled token is usually small. It provides a substantial speedup
+compared to the naive PyTorch implementation because we avoid the
+sorting and multiple passes over the vocabulary, as well as multiple
+kernel launch overheads.</p>
+<h3 id="dual-pivot-rejection-sampling">Dual Pivot Rejection
+Sampling</h3>
+<p>While this rejection sampling approach is simple and efficient in
+most cases, it has some limitations. There is no theoretical guarantee
+on the number of rounds needed to obtain a sampled token. This can lead
+to varying sampling times across different probability distributions,
+which in turn causes inconsistent inter-token latency during LLM
+inference serving. Such variability may impact the predictability and
+reliability of the serving system.</p>
+<p>To address this issue, in FlashInfer <a
+href="https://github.com/flashinfer-ai/flashinfer/releases/tag/v0.2.3">v0.2.3</a>,
+we introduce the a new algorithm called <strong>Dual Pivot Rejection
+Sampling</strong>, which uses two pivots for faster convergence in
+rejection sampling. The algorithm is as follows:</p>
+<ol>
+<li>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math>
+be a function that checks if a probability value is valid:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">f(x)=1</annotation></semantics></math>
+if valid,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
+if not.</li>
+<li>Initialize
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">low</mtext><mo>←</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\textrm{low} \leftarrow 0</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">high</mtext><mo>←</mo><msub><mrow><mi mathvariant="normal">max</mi><mo>&#8289;</mo></mrow><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>p</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\textrm{high} \leftarrow \max_i(p_i)</annotation></semantics></math>
+as the initial range, it’s guaranteed that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">low</mtext><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">f(\textrm{low})=0</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">high</mtext><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">f(\textrm{high})=1</annotation></semantics></math>.</li>
+<li>Sample over probability values in the range
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">low</mtext><mo>,</mo><mi>∞</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(\textrm{low}, \infty)</annotation></semantics></math>
+using inverse transform sampling.</li>
+<li>Suppose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+is the sampled token, let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub><mo>←</mo><msub><mi>p</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\textrm{pivot}_1\leftarrow p_j</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">pivot</mtext><mn>2</mn></msub><mo>←</mo><mfrac><mrow><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub><mo>+</mo><mtext mathvariant="normal">high</mtext></mrow><mn>2</mn></mfrac></mrow><annotation encoding="application/x-tex">\textrm{pivot}_2\leftarrow \frac{\textrm{pivot}_1+\textrm{high}}{2}</annotation></semantics></math>.
+<ol>
+<li>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">f(\textrm{pivot}_1)=1</annotation></semantics></math>,
+we accept the sampled token and return
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>.</li>
+<li>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">f(\textrm{pivot}_1)=0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">pivot</mtext><mn>2</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">f(\textrm{pivot}_2)=1</annotation></semantics></math>,
+we set
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub><annotation encoding="application/x-tex">\textrm{pivot}_1</annotation></semantics></math>
+as new
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="normal">low</mtext><annotation encoding="application/x-tex">\textrm{low}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mtext mathvariant="normal">pivot</mtext><mn>2</mn></msub><annotation encoding="application/x-tex">\textrm{pivot}_2</annotation></semantics></math>
+as new
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="normal">high</mtext><annotation encoding="application/x-tex">\textrm{high}</annotation></semantics></math>.</li>
+<li>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">f(\textrm{pivot}_1)=0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">pivot</mtext><mn>2</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">f(\textrm{pivot}_2)=0</annotation></semantics></math>,
+we set
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mtext mathvariant="normal">pivot</mtext><mn>2</mn></msub><annotation encoding="application/x-tex">\textrm{pivot}_2</annotation></semantics></math>
+as new
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtext mathvariant="normal">low</mtext><annotation encoding="application/x-tex">\textrm{low}</annotation></semantics></math>.</li>
+</ol></li>
+<li>Repeat step 3 and 4 until success.</li>
+</ol>
+<p><img
+src="assets/23e4dd6959462c2c112aa9c46b1c9ab297228b6f86cd1ed2b0c86f6af14312f2.png"
+width="800" alt="Dual Pivot Rejection Sampling" /><br />
+<span>Figure 4: Transition from round(i) to round(i+1) in Dual Pivot
+Rejection Sampling, we either accept the sampled token (case 1) or
+shrinking the range by at least half (case 2 and 3).</span></p>
+<p>Figure 4 shows the transition from round(i) to round(i+1) in Dual
+Pivot Rejection Sampling, in each round, if the sampled token is
+accepted, we return the token, otherwise, the new range’s extent is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mtext mathvariant="normal">high</mtext><mo>−</mo><msub><mtext mathvariant="normal">pivot</mtext><mn>1</mn></msub></mrow><mn>2</mn></mfrac><mo>&lt;</mo><mfrac><mrow><mtext mathvariant="normal">high</mtext><mo>−</mo><mtext mathvariant="normal">low</mtext></mrow><mn>2</mn></mfrac></mrow><annotation encoding="application/x-tex">\frac{\text{high}-\text{pivot}_1}{2} &lt; \frac{\text{high}-\text{low}}{2}</annotation></semantics></math>,
+which is at least half of the previous range. Thus it’s guaranteed that
+the number of rounds is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mrow><mi mathvariant="normal">log</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><mi>ϵ</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(\log(1/\epsilon))</annotation></semantics></math>
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>
+is the minimal possible value in floating point representation.</p>
+<h2
+id="theoretical-proof-of-the-correctness-of-rejection-sampler">Theoretical
+Proof of the Correctness of Rejection Sampler</h2>
+<p>In this section, we provide a theoretical proof of the correctness of
+the rejection sampler, we choose the top-k sampling as an example, and
+other samplers can be proved in a similar way.</p>
+<h3 id="nomenclature">Nomenclature</h3>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mi>i</mi></msub><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">p_i &gt; 0</annotation></semantics></math></td>
+<td>Un‑normalised score (unnormalised probability mass) of item
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math></td>
+</tr>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi><mo>=</mo><mrow><mi mathvariant="normal">Top</mi><mo>&#8289;</mo></mrow><mi>k</mi><mo>=</mo><mrow><msub><mi>i</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>i</mi><mi>k</mi></msub></mrow></mrow><annotation encoding="application/x-tex">T = \operatorname{Top}k = {i_1,\dots,i_k}</annotation></semantics></math></td>
+<td>Indices of the <strong>k</strong> largest scores</td>
+</tr>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><msub><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><mi>T</mi></mrow></msub><msub><mi>p</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">Z = \sum_{j \in T} p_j</annotation></semantics></math></td>
+<td>Total mass of the top‑k items</td>
+</tr>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>τ</mi><annotation encoding="application/x-tex">\tau</annotation></semantics></math></td>
+<td>Current <strong>pivot</strong> (threshold) value</td>
+</tr>
+</tbody>
+</table>
+<h3 id="theorem">Theorem</h3>
+<p>The algorithm outputs each top‑k index
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>j</mi><mo>∈</mo><mi>T</mi></mrow><annotation encoding="application/x-tex">j \in T</annotation></semantics></math>
+with probability</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Pr</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">output</mtext><mo>=</mo><mi>j</mi><mo stretchy="false" form="postfix">]</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mfrac><msub><mi>p</mi><mi>j</mi></msub><mi>Z</mi></mfrac><mo>,</mo></mrow><annotation encoding="application/x-tex">\Pr[\text{output}=j] \;=\; \frac{p_j}{Z},</annotation></semantics></math>
+<p>i.e. <strong>exactly the distribution obtained by first discarding
+all non‑top‑k items and then sampling categorically inside the top‑k
+set</strong>.</p>
+<h3 id="proof">Proof</h3>
+<p>Fix any pivot
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>τ</mi><mo>&lt;</mo><msub><mrow><mi mathvariant="normal">min</mi><mo>&#8289;</mo></mrow><mrow><mi>j</mi><mo>∈</mo><mi>T</mi></mrow></msub><msub><mi>p</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\tau &lt; \min_{j \in T} p_j</annotation></semantics></math>
+(true at every step because
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>τ</mi><annotation encoding="application/x-tex">\tau</annotation></semantics></math>
+is always taken from a rejected non‑top‑k item). Define</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mrow><mi mathvariant="normal">Pr</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">[</mo><mrow><mtext mathvariant="normal">algorithm eventually returns </mtext><mspace width="0.333em"></mspace></mrow><mi>j</mi><mo>∣</mo><mrow><mtext mathvariant="normal">current pivot </mtext><mspace width="0.333em"></mspace></mrow><mi>τ</mi><mo stretchy="false" form="postfix">]</mo><mo>,</mo><mspace width="1.0em"></mspace><mi>j</mi><mo>∈</mo><mi>T</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">Q_j(\tau) \;=\; \Pr[\text{algorithm eventually returns } j \mid \text{current pivot } \tau], 
+\quad j \in T .</annotation></semantics></math>
+<p>With</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><munder><mo>∑</mo><mrow><mi>m</mi><mo>:</mo><msub><mi>p</mi><mi>m</mi></msub><mo>&gt;</mo><mi>τ</mi></mrow></munder><msub><mi>p</mi><mi>m</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mi>Z</mi><mspace width="0.278em"></mspace><mo>+</mo><mspace width="0.278em"></mspace><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><munder><mo>∑</mo><mrow><mi>r</mi><mo>∉</mo><mi>T</mi><mo>,</mo><mspace width="0.167em"></mspace><msub><mi>p</mi><mi>r</mi></msub><mo>&gt;</mo><mi>τ</mi></mrow></munder><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><msub><mi>p</mi><mi>r</mi></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">S(\tau) \;=\; \sum_{m : p_m &gt; \tau} p_m 
+\;=\; Z \;+\; W(\tau),\qquad
+W(\tau) \;=\!\!\!\! \sum_{r \notin T,\, p_r &gt; \tau}\!\!\!\! p_r ,</annotation></semantics></math>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">S(\tau)</annotation></semantics></math>
+is the sum of all the probabilities of the tokens that are greater than
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>τ</mi><annotation encoding="application/x-tex">\tau</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">W(\tau)</annotation></semantics></math>
+is the remaining mass of “bad” items still above the threshold.</p>
+<p>The next draw obeys</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Pr</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>∣</mo><mi>τ</mi><mo stretchy="false" form="postfix">]</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mfrac><msub><mi>p</mi><mi>i</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">\Pr[i \mid \tau] \;=\; \frac{p_i}{S(\tau)}.</annotation></semantics></math>
+<p>Hence</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><munder><munder><mfrac><msub><mi>p</mi><mi>j</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo accent="true">⏟</mo></munder><mtext mathvariant="normal">accept immediately</mtext></munder><mspace width="0.278em"></mspace><mo>+</mo><mspace width="0.278em"></mspace><munder><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mi>r</mi><mo>∉</mo><mi>T</mi></mrow></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mrow><msub><mi>p</mi><mi>r</mi></msub><mo>&gt;</mo><mi>τ</mi></mrow></mtd></mtr></mtable></munder><munder><munder><mfrac><msub><mi>p</mi><mi>r</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo accent="true">⏟</mo></munder><mrow><mrow><mtext mathvariant="normal">draw </mtext><mspace width="0.333em"></mspace></mrow><mi>r</mi></mrow></munder><mspace width="0.278em"></mspace><munder><munder><mrow><msub><mi>Q</mi><mi>j</mi></msub><mspace width="-0.167em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><msub><mi>p</mi><mi>r</mi></msub><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo></mrow><mo accent="true">⏟</mo></munder><mrow><mrow><mtext mathvariant="normal">pivot becomes </mtext><mspace width="0.333em"></mspace></mrow><msub><mi>p</mi><mi>r</mi></msub></mrow></munder></mrow><annotation encoding="application/x-tex">Q_j(\tau) 
+\;=\;
+\underbrace{\frac{p_j}{S(\tau)}}_{\text{accept immediately}}
+\;+\;
+\sum_{\substack{r \notin T \\ p_r &gt; \tau}}
+      \underbrace{\frac{p_r}{S(\tau)}}_{\text{draw } r}\;
+      \underbrace{Q_j\!\bigl(p_r\bigr)}_{\text{pivot becomes } p_r}
+\tag{★}</annotation></semantics></math>
+<p>We show that the following formula is a valid solution to (★):</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><menclose notation="box"><mrow><mspace width="0.167em"></mspace><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mstyle displaystyle="true"><mfrac><msub><mi>p</mi><mi>j</mi></msub><mi>Z</mi></mfrac></mstyle><mspace width="0.167em"></mspace></mrow></menclose><mspace width="2.0em"></mspace><mrow><mtext mathvariant="normal">for every </mtext><mspace width="0.333em"></mspace></mrow><mi>τ</mi><mo>&lt;</mo><munder><mi mathvariant="normal">min</mi><mrow><mi>j</mi><mo>∈</mo><mi>T</mi></mrow></munder><msub><mi>p</mi><mi>j</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">\boxed{\,Q_j(\tau) \;=\; \dfrac{p_j}{Z}\,}
+\qquad\text{for every }\tau &lt; \min_{j \in T} p_j .</annotation></semantics></math>
+<p>We can verify the solution by substituting it into (★):</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"><mtext mathvariant="normal">RHS</mtext></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mo>=</mo><mfrac><msub><mi>p</mi><mi>j</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mspace width="0.278em"></mspace><mo>+</mo><mspace width="0.278em"></mspace><mfrac><msub><mi>p</mi><mi>j</mi></msub><mi>Z</mi></mfrac><mfrac><mrow><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mo>=</mo><mfrac><msub><mi>p</mi><mi>j</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mspace width="-0.167em"></mspace><mo minsize="180%" maxsize="180%" stretchy="true" form="prefix">(</mo><mn>1</mn><mo>+</mo><mfrac><mrow><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><mi>Z</mi></mfrac><mo minsize="180%" maxsize="180%" stretchy="true" form="postfix">)</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mo>=</mo><mfrac><msub><mi>p</mi><mi>j</mi></msub><mi>Z</mi></mfrac><mfrac><mrow><mi>Z</mi><mo>+</mo><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mo>=</mo><mfrac><msub><mi>p</mi><mi>j</mi></msub><mi>Z</mi></mfrac><mo>,</mo></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{aligned}
+\text{RHS} 
+&amp;= \frac{p_j}{S(\tau)}
+   \;+\; \frac{p_j}{Z} \frac{W(\tau)}{S(\tau)} \\
+&amp;= \frac{p_j}{S(\tau)}\!\Bigl(1+\frac{W(\tau)}{Z}\Bigr) \\
+&amp;= \frac{p_j}{Z} \frac{Z+W(\tau)}{S(\tau)} \\
+&amp;= \frac{p_j}{Z},
+\end{aligned}</annotation></semantics></math>
+<p>because
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>Z</mi><mo>+</mo><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">S(\tau) = Z + W(\tau)</annotation></semantics></math>.
+Thus the claimed form satisfies the recurrence, so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>≡</mo><msub><mi>p</mi><mi>j</mi></msub><mi>/</mi><mi>Z</mi></mrow><annotation encoding="application/x-tex">Q_j(\tau) \equiv p_j/Z</annotation></semantics></math>.</p>
+<p>Now let’s show that the solution is unique. Suppose there is another
+solution
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mi>’</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Q_j’(\tau)</annotation></semantics></math>
+satisfies (★), let’s define
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><mi>’</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Delta_j(\tau) = Q_j(\tau) - Q_j’(\tau)</annotation></semantics></math>,
+we have:</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><munder><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mi>r</mi><mo>∉</mo><mi>T</mi></mrow></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mrow><msub><mi>p</mi><mi>r</mi></msub><mo>&gt;</mo><mi>τ</mi></mrow></mtd></mtr></mtable></munder><mfrac><msub><mi>p</mi><mi>r</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>p</mi><mi>r</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Delta_j(\tau) = \sum_{\substack{r \notin T \\ p_r &gt; \tau}}
+        \frac{p_r}{S(\tau)} \Delta_j(p_r)</annotation></semantics></math>
+<p>The sum of the coefficient
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mi>r</mi><mo>∉</mo><mi>T</mi><mspace width="0.222em"></mspace><msub><mi>p</mi><mi>r</mi></msub><mo>&gt;</mo><mi>τ</mi></mrow></mtd></mtr></mtable></msub><mfrac><msub><mi>p</mi><mi>r</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo>=</mo><mfrac><mrow><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac></mrow><annotation encoding="application/x-tex">\sum_{\substack{r \notin T \ p_r &gt; \tau}} \frac{p_r}{S(\tau)} = \frac{W(\tau)}{S(\tau)}</annotation></semantics></math>,
+which satisfies:</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>≤</mo><mfrac><mrow><mi>W</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">0 \leq \frac{W(\tau)}{S(\tau)} &lt; 1</annotation></semantics></math>
+<p>Suppose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>τ</mi><mo>*</mo></msup><annotation encoding="application/x-tex">\tau^*</annotation></semantics></math>
+is the pivot where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">|\Delta_j(\tau)|</annotation></semantics></math>
+reach its maximum, if it’s positive, we have:</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo><mo>≤</mo><munder><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mi>r</mi><mo>∉</mo><mi>T</mi></mrow></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mrow><msub><mi>p</mi><mi>r</mi></msub><mo>&gt;</mo><msup><mi>τ</mi><mo>*</mo></msup></mrow></mtd></mtr></mtable></munder><mfrac><msub><mi>p</mi><mi>r</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>p</mi><mi>r</mi></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo><mo>≤</mo><munder><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mi>r</mi><mo>∉</mo><mi>T</mi></mrow></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mrow><msub><mi>p</mi><mi>r</mi></msub><mo>&gt;</mo><msup><mi>τ</mi><mo>*</mo></msup></mrow></mtd></mtr></mtable></munder><mfrac><msub><mi>p</mi><mi>r</mi></msub><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>τ</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo><mo>=</mo><mfrac><mrow><mi>W</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo></mrow><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo><mo>&lt;</mo><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">|\Delta_j(\tau^*)| \leq \sum_{\substack{r \notin T \\ p_r &gt; \tau^*}}
+        \frac{p_r}{S(\tau)} |\Delta_j(p_r)| \leq \sum_{\substack{r \notin T \\ p_r &gt; \tau^*}}
+        \frac{p_r}{S(\tau)} |\Delta_j(\tau^*)| = \frac{W(\tau^*)}{S(\tau^*)} |\Delta_j(\tau^*)| &lt; |\Delta_j(\tau^*)|</annotation></semantics></math>
+<p>which leads to a contradiction, which means
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msup><mi>τ</mi><mo>*</mo></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\Delta_j(\tau^*) = 0</annotation></semantics></math>,
+and our solution is unique.</p>
+<p>The algorithm starts with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>τ</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\tau = 0</annotation></semantics></math>;
+therefore</p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Pr</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">output</mtext><mo>=</mo><mi>j</mi><mo stretchy="false" form="postfix">]</mo><mo>=</mo><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><msub><mi>p</mi><mi>j</mi></msub><mi>Z</mi></mfrac><mo>,</mo></mrow><annotation encoding="application/x-tex">\Pr[\text{output}=j] = Q_j(0) = \frac{p_j}{Z},</annotation></semantics></math>
+<p>exactly the desired top‑k categorical distribution.</p>
+<h2 id="evaluation">Evaluation</h2>
+<p>Our evaluation demonstrates that FlashInfer’s sampling kernel
+delivers substantial improvements in both kernel-level latency and
+end-to-end throughput compared to traditional sorting-based
+implementations.</p>
+<p><img
+src="assets/88988172b42450cf1ada88eb02bd3220e137e9e15cc4c58656e8ad52dae634b6.svg"
+width="800"
+alt="Throughput Comparison of Different Engine Kernel" /><br />
+<span>Figure 5: Throughput Comparison of Different Engine
+Kernel.</span></p>
+<p><img
+src="assets/1de366a9b1dea30610db89af28dce3a22835563a79facb9d61dceea32ec87ab2.svg"
+width="800" alt="Sampling Latency Growth with Batch Size." /><br />
+<span>Figure 6: Sampling Latency Growth with Batch Size.</span></p>
+<h2 id="community-adoption-and-other-applications">Community Adoption
+and Other Applications</h2>
+<p>The FlashInfer sampling kernel has gained widespread adoption across
+major LLM frameworks, including <a
+href="https://github.com/mlc-ai/mlc-llm">MLC-LLM</a>, <a
+href="https://github.com/sgl-project/sglang">sglang</a>, and <a
+href="https://github.com/vllm-project/vllm/pull/7137">vLLM</a>. The
+community’s active engagement through feedback and bug reports has been
+instrumental in refining and improving our implementation.</p>
+<p>Beyond token sampling, the rejection sampling algorithm have proven
+valuable in other areas of LLM inference optimization. Similar algorithm
+can also be applied to speculative decoding verification, like <a
+href="https://arxiv.org/pdf/2302.01318">chain speculative sampling</a>
+and <a href="https://arxiv.org/pdf/2305.09781">tree speculative
+sampling</a>. Recent innovations like <a
+href="https://github.com/tsinghua-ideal/Twilight">Twilight</a> have
+further advanced the field by successfully combining top-p sampling with
+sparse attention in a unified approach.</p>
+<h2 id="implementation-details">Implementation Details</h2>
+<p>While the algorithm is elegant in theory, implementing it efficiently
+in a GPU kernel requires careful attention to detail, particularly in
+the token selection logic in inverse transform sampling. One key
+challenge lies in the parallel prefix-sum operation used to locate
+sampled tokens. Due to the non-associative and non-commutative nature of
+floating-point arithmetic, parallel prefix-sum <strong>cannot guarantee
+monotonic outputs</strong> even with non-negative inputs. This can lead
+to invalid token generation if not handled properly. Special care must
+be taken to ensure numerical stability and correctness in the sampling
+implementation (and we made a lot of mistakes before got it right)</p>
+<p>For a detailed look at our implementation and how we tackle these
+challenges, you can explore our <a
+href="https://github.com/flashinfer-ai/flashinfer/blob/main/include/flashinfer/sampling.cuh">source
+code</a>. Additionally, FlashInfer offers a comprehensive set of APIs
+for probability cutoff and renormalization, such as <a
+href="https://docs.flashinfer.ai/generated/flashinfer.sampling.top_p_renorm_probs.html#flashinfer.sampling.top_p_renorm_probs">top_p_renorm_probs</a>
+and <a
+href="https://docs.flashinfer.ai/generated/flashinfer.sampling.top_k_renorm_probs.html#flashinfer.sampling.top_k_renorm_probs">top_k_renorm_probs</a>,
+enabling flexible composition of multiple sampling filters. These tools
+allow developers to build sophisticated sampling strategies tailored to
+their specific needs.</p>
+<h2 id="acknowledgement">Acknowledgement</h2>
+<p>This blog is written by <a href="https://xsl.ing/">Shanli Xing</a>,
+we thank the flashinfer team for their contributions to the
+flashinfer.sampling module:</p>
+<ul>
+<li>Zihao Ye: design and implementation of sampling kernels in
+CUDA.</li>
+<li>Bohan Hou: design and implementation of sampling kernels in
+TVM.</li>
+<li>Shanli Xing: design and implementation of min-p sampling kernels in
+CUDA.</li>
+<li>Tianqi Chen: propose the idea of rejection sampling for top-p.</li>
+</ul>
+<h2 id="footnotes">Footnotes</h2>
+<div class="footnotes">
+<ol>
+<li><div id="fn:1">
+<p>FlashInfer provides both “Top-K First” and “Joint” filtering options,
+with the latter applying Top-K and Top-P simultaneously at each round.
+More on the <a
+href="https://docs.flashinfer.ai/generated/flashinfer.sampling.top_k_top_p_sampling_from_probs.html">doc</a>. <a
+href="#fnref:1" class="reversefootnote" role="doc-backlink">↩︎</a></p>
+</div></li>
+</ol>
+</div>
+</div>
+</body>
+</html>

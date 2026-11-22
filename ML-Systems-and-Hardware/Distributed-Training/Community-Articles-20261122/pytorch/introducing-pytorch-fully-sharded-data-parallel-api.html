@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Introducing PyTorch Fully Sharded Data Parallel (FSDP) API</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Introducing PyTorch Fully Sharded Data Parallel (FSDP)
+API</h1>
+</header>
+<section id="introducing-pytorch-fully-sharded-data-parallel-fsdp-api"
+class="header">
+<h1>Introducing PyTorch Fully Sharded Data Parallel (FSDP) API</h1>
+<p>来源：<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/">https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content" data-hide-featured-media="1">
+<div class="content-inner">
+<p>Recent studies have shown that large model training will be
+beneficial for improving model quality. During the last 3 years, model
+size grew 10,000 times from <a href="https://arxiv.org/abs/1810.04805"
+target="_blank" rel="noreferrer noopener">BERT</a> with 110M parameters
+to <a href="https://arxiv.org/abs/2104.04473" target="_blank"
+rel="noreferrer noopener">Megatron-2</a> with one trillion. However,
+training large AI models is not easy—aside from the need for large
+amounts of computing resources, software engineering complexity is also
+challenging. PyTorch has been working on building tools and
+infrastructure to make it easier.</p>
+<p>PyTorch Distributed data parallelism is a staple of scalable deep
+learning because of its robustness and simplicity. It however requires
+the model to fit on one GPU. Recent approaches like DeepSpeed ZeRO and
+FairScale’s Fully Sharded Data Parallel allow us to break this barrier
+by sharding a model’s parameters, gradients and optimizer states across
+data parallel workers while still maintaining the simplicity of data
+parallelism.</p>
+<p>With PyTorch 1.11 we’re adding native support for Fully Sharded Data
+Parallel (FSDP), currently available as a prototype feature. Its
+implementation heavily borrows from FairScale’s version while bringing
+more streamlined APIs and additional performance improvements.</p>
+<p>Scaling tests of PyTorch FSDP on AWS show it can scale up to train
+dense models with 1T parameters. Realized performance in our experiments
+reached 84 TFLOPS per A100 GPU for GPT 1T model and 159 TFLOPS per A100
+GPU for GPT 175B model on AWS cluster. Native FSDP implementation also
+dramatically improved model initialization time compared to FairScale’s
+original when CPU offloading was enabled.</p>
+<p>In future PyTorch versions, we’re going to enable users to seamlessly
+switch between DDP, ZeRO-1, ZeRO-2 and FSDP flavors of data parallelism,
+so that users can train different scales of models with simple
+configurations in the unified API.</p>
+<h3 class="wp-block-heading" id="how-fsdp-works">How FSDP Works<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#how-fsdp-works"></a></h3>
+<p>FSDP is a type of data-parallel training, but unlike traditional
+data-parallel, which maintains a per-GPU copy of a model’s parameters,
+gradients and optimizer states, it shards all of these states across
+data-parallel workers and can optionally offload the sharded model
+parameters to CPUs.</p>
+<p>The figure below shows how FSDP works for 2 data-parallel
+processes:</p>
+<figure class="wp-block-image">
+<img
+src="assets/69cce98c37e591ee5179555d8d620413953fb74ce87414acedee50693d29588f.png"
+class="wp-image-1570" width="4372" height="1975" />
+</figure>
+<p>Figure 1. FSDP workflow</p>
+<p>Usually, model layers are wrapped with FSDP in a nested way, so that
+only layers in a single FSDP instance need to gather the full parameters
+to a single device during forward or backward computations. The gathered
+full parameters will be freed immediately after computation, and the
+freed memory can be used for the next layer’s computation. In this way,
+peak GPU memory could be saved and thus training can be scaled to use a
+larger model size or larger batch size. To further maximize memory
+efficiency, FSDP can offload the parameters, gradients and optimizer
+states to CPUs when the instance is not active in the computation.</p>
+<h3 class="wp-block-heading" id="using-fsdp-in-pytorch">Using FSDP in
+PyTorch<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#using-fsdp-in-pytorch"></a></h3>
+<p>There are two ways to wrap a model with PyTorch FSDP. Auto wrapping
+is a drop-in replacement for DDP; manual wrapping needs minimal changes
+of model definition code with the ability to explore complex sharding
+strategies.</p>
+<h4 class="wp-block-heading" id="auto-wrapping">Auto Wrapping<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#auto-wrapping"></a></h4>
+<p>Model layers should be wrapped in FSDP in a nested way to save peak
+memory and enable communication and computation overlapping. The
+simplest way to do it is auto wrapping, which can serve as a drop-in
+replacement for DDP without changing the rest of the code.</p>
+<p>fsdp_auto_wrap_policy argument allows specifying a callable function
+to recursively wrap layers with FSDP. default_auto_wrap_policy function
+provided by the PyTorch FSDP recursively wraps layers with the number of
+parameters larger than 100M. You can supply your own wrapping policy as
+needed. The example of writing a customized wrapping policy is shown in
+the <a href="https://pytorch.org/docs/stable/fsdp.html">FSDP API
+doc</a>.</p>
+<p>In addition, cpu_offload could be configured optionally to offload
+wrapped parameters to CPUs when these parameters are not used in
+computation. This can further improve memory efficiency at the cost of
+data transfer overhead between host and device.</p>
+<p>The example below shows how FSDP is wrapped using auto wrapping.</p>
+<pre class="wp-block-code"><code>from torch.distributed.fsdp import (
+   FullyShardedDataParallel,
+   CPUOffload,
+)
+from torch.distributed.fsdp.wrap import (
+   default_auto_wrap_policy,
+)
+import torch.nn as nn
+ 
+class model(nn.Module):
+   def __init__(self):
+       super().__init__()
+       self.layer1 = nn.Linear(8, 4)
+       self.layer2 = nn.Linear(4, 16)
+       self.layer3 = nn.Linear(16, 4)
+ 
+model = DistributedDataParallel(model())
+fsdp_model = FullyShardedDataParallel(
+   model(),
+   fsdp_auto_wrap_policy=default_auto_wrap_policy,
+   cpu_offload=CPUOffload(offload_params=True),
+)</code></pre>
+<h4 class="wp-block-heading" id="manual-wrapping">Manual Wrapping<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#manual-wrapping"></a></h4>
+<p>Manual wrapping can be useful to explore complex sharding strategies
+by applying <code>wrap</code> selectively to some parts of the model.
+Overall settings can be passed to the enable_wrap() context manager.</p>
+<pre class="wp-block-code"><code>from torch.distributed.fsdp import (
+   FullyShardedDataParallel,
+   CPUOffload,
+)
+from torch.distributed.fsdp.wrap import (
+   enable_wrap,
+   wrap,
+)
+import torch.nn as nn
+from typing import Dict
+ 
+ 
+class model(nn.Module):
+   def __init__(self):
+       super().__init__()
+       self.layer1 = wrap(nn.Linear(8, 4))
+       self.layer2 = nn.Linear(4, 16)
+       self.layer3 = wrap(nn.Linear(16, 4))
+ 
+wrapper_kwargs = Dict(cpu_offload=CPUOffload(offload_params=True))
+with enable_wrap(wrapper_cls=FullyShardedDataParallel, **wrapper_kwargs):
+   fsdp_model = wrap(model())</code></pre>
+<p>After wrapping the model with FSDP using one of the two above
+approaches, the model can be trained in a similar way as local training,
+like this:</p>
+<pre class="wp-block-code"><code>optim = torch.optim.Adam(fsdp_model.parameters(), lr=0.0001)
+for sample, label in next_batch():
+  out = fsdp_model(input)
+  loss = criterion(out, label)
+  loss.backward()
+  optim.step()</code></pre>
+<h3 class="wp-block-heading" id="benchmark-results">Benchmark Results<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#benchmark-results"></a></h3>
+<p>We ran extensive scaling tests for 175B and 1T GPT models on AWS
+clusters using PyTorch FSDP. Each cluster node is an instance with 8 <a
+href="https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-us-nvidia-1758950-r4-web.pdf"
+target="_blank" rel="noreferrer noopener">NVIDIA
+A100-SXM4-40GB</a> GPUs, and inter-nodes are connected via AWS Elastic
+Fabric Adapter (EFA) with 400 Gbps network bandwidth.</p>
+<p>GPT models are implemented using <a
+href="https://github.com/karpathy/minGPT" target="_blank"
+rel="noreferrer noopener">minGPT</a>. A randomly generated input dataset
+is used for benchmarking purposes. All experiments ran with 50K
+vocabulary size, fp16 precision and <a
+href="https://pytorch.org/docs/stable/generated/torch.optim.SGD.html">SGD</a> optimizer.</p>
+<figure class="wp-block-table">
+<table class="has-fixed-layout">
+<thead>
+<tr>
+<th>Model</th>
+<th>Number of layers</th>
+<th>Hidden size</th>
+<th>Attention heads</th>
+<th>Model size, billions of parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT 175B</td>
+<td>96</td>
+<td>12288</td>
+<td>96</td>
+<td>175</td>
+</tr>
+<tr>
+<td>GPT 1T</td>
+<td>128</td>
+<td>25600</td>
+<td>160</td>
+<td>1008</td>
+</tr>
+</tbody>
+</table>
+</figure>
+<p>In addition to using FSDP with parameters CPU offloading in the
+experiments, the <a
+href="https://pytorch.org/docs/stable/checkpoint.html">activation
+checkpointing feature</a> in PyTorch is also applied in the tests.</p>
+<p>The maximum per-GPU throughput of 159 teraFLOP/s (51% of NVIDIA A100
+peak theoretical performance 312 teraFLOP/s/GPU) is achieved with batch
+size 20 and sequence length 512 on 128 GPUs for the GPT 175B model;
+further increase of the number of GPUs leads to per-GPU throughput
+degradation because of growing communication between the nodes.</p>
+<p>For the GPT 1T model, the maximum per-GPU throughput of 84 teraFLOP/s
+(27% of the peak teraFLOP/s) is achieved with batch size 4 and sequence
+length 2048 on 128 GPUs. However, further increase of the number of GPUs
+doesn’t affect the per-GPU throughput too much because we observed that
+the largest bottleneck in the 1T model training is not from
+communication but from the slow CUDA cache allocator when peak GPU
+memory is reaching the limit. The use of A100 80G GPUs with larger
+memory capacity will mostly resolve this issue and also help scale the
+batch size to achieve much larger throughput.</p>
+<figure class="wp-block-image aligncenter">
+<img
+src="assets/ee832bac1f9c579a24523e6c774246b9a7b0eaf661b3069a4fc2f2a2d2a2ba79.png"
+class="wp-image-1569" width="600" height="371" />
+</figure>
+<figure class="wp-block-image aligncenter">
+<img src="assets/1881a1764129ad9ab5df73f32d255e96493d805dfdc24a6002fa5bcac5c00d10.png"
+class="wp-image-1568" width="600" height="371" />
+</figure>
+<h3 class="wp-block-heading" id="future-work">Future Work<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#future-work"></a></h3>
+<p>In the next beta release, we are planning to add efficient
+distributed model/states checkpointing APIs, meta device support for
+large model materialization, and mixed-precision support inside FSDP
+computation and communication. We’re also going to make it easier to
+switch between <a
+href="https://pytorch.org/tutorials/intermediate/ddp_tutorial.html">DDP</a>, <a
+href="https://arxiv.org/abs/1910.02054" target="_blank"
+rel="noreferrer noopener">ZeRO1, ZeRO2</a> and FSDP flavors of data
+parallelism in the new API. To further improve FSDP performance, memory
+fragmentation reduction and communication efficiency improvements are
+also planned.</p>
+<h3 class="wp-block-heading"
+id="a-bit-of-history-of-2-versions-of-fsdp">A Bit of History of 2
+Versions of FSDP<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#a-bit-of-history-of-2-versions-of-fsdp"></a></h3>
+<p><a href="https://engineering.fb.com/2021/07/15/open-source/fsdp/"
+target="_blank" rel="noreferrer noopener">FairScale FSDP</a> was
+released in early 2021 as part of the FairScale library. And then we
+started the effort to upstream FairScale FSDP to PyTorch in PT 1.11,
+making it production-ready. We have selectively upstreamed and
+refactored key features from FairScale FSDP, redesigned user interfaces
+and made performance improvements.</p>
+<p>In the near future, FairScale FSDP will stay in the FairScale
+repository for research projects, while generic and widely adopted
+features will be upstreamed to PyTorch incrementally and hardened
+accordingly.</p>
+<p>Meanwhile, PyTorch FSDP will focus more on production readiness and
+long-term support. This includes better integration with ecosystems and
+improvements on performance, usability, reliability, debuggability and
+composability.</p>
+<h3 class="wp-block-heading" id="acknowledgments">Acknowledgments<a
+href="https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/#acknowledgments"></a></h3>
+<p>We would like to thank the authors of FairScale FSDP: Myle Ott, Sam
+Shleifer, Min Xu, Priya Goyal, Quentin Duval, Vittorio Caggiano,
+Tingting Markstrum, Anjali Sridhar. Thanks to the Microsoft DeepSpeed
+ZeRO team for developing and popularizing sharded data parallel
+techniques. Thanks to Pavel Belevich, Jessica Choi, Sisil Mehta for
+running experiments using PyTorch FSDP on different clusters. Thanks to
+Geeta Chauhan, Mahesh Yadav, Pritam Damania, Dmytro Dzhulgakov for
+supporting this effort and insightful discussions.</p>
+</div>
+</div>
+</body>
+</html>

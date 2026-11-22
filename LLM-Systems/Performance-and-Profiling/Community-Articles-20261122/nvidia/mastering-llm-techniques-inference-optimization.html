@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Mastering LLM Techniques: Inference Optimization</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Mastering LLM Techniques: Inference Optimization</h1>
+</header>
+<section id="mastering-llm-techniques-inference-optimization"
+class="header">
+<h1>Mastering LLM Techniques: Inference Optimization</h1>
+<p>来源：<a
+href="https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/">https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="entry-content">
+<p>Stacking transformer layers to create large models results in better
+accuracies, few-shot learning capabilities, and even near-human emergent
+abilities on a wide range of language tasks. These foundation models are
+expensive to train, and they can be memory- and compute-intensive during
+inference (a recurring cost). The most popular <a
+href="https://www.nvidia.com/en-us/glossary/data-science/large-language-models/"
+data-wpel-link="internal" target="_self" rel="follow">large language
+models (LLMs)</a> today can reach tens to hundreds of billions of
+parameters in size and, depending on the use case, may require ingesting
+long inputs (or contexts), which can also add expense. For example, <a
+href="https://developer.nvidia.com/blog/tag/retrieval-augmented-generation-rag/"
+data-wpel-link="internal" target="_self"
+rel="follow">retrieval-augmented generation</a> (RAG) pipelines require
+putting large amounts of information into the input of the model,
+greatly increasing the amount of processing work the LLM has to do.</p>
+<p>This post discusses the most pressing challenges in LLM inference,
+along with some practical solutions. Readers should have a basic
+understanding of <a href="https://arxiv.org/pdf/1706.03762.pdf"
+data-wpel-link="exclude">transformer architecture</a> and the attention
+mechanism in general.</p>
+<p>Developers can also explore these inference optimization techniques
+using open NVIDIA and community models—such as the <a
+href="https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+target="_blank" rel="noreferrer noopener follow"
+data-wpel-link="external">Nemotron 3 family</a> of open models—running
+on the open-source <a
+href="https://github.com/CactusQ/TensorRT-LLM-Tutorial" target="_blank"
+rel="noreferrer noopener follow"
+data-wpel-link="external">TensorRT-LLM</a> library, available on GitHub.
+This makes it possible to experiment with real-world inference tradeoffs
+using production-grade code rather than abstract examples.</p>
+<h2 class="wp-block-heading"
+id="understanding_llm_inference">Understanding LLM inference<a
+href="#understanding_llm_inference" class="heading-anchor-link"
+aria-label="Scroll to Understanding LLM inference section"><em></em></a></h2>
+<p>Most of the popular decoder-only LLMs (GPT-3, for example) are
+pretrained on the causal modeling objective, essentially as next-word
+predictors. These LLMs take a series of tokens as inputs, and generate
+subsequent tokens autoregressively until they meet a stopping criteria
+(a limit on the number of tokens to generate or a list of stop words,
+for example) or until it generates a special <code>&lt;end&gt;</code>
+token marking the end of generation. This process involves two phases:
+the prefill phase and the decode phase.</p>
+<p>Note that <em><a
+href="https://blogs.nvidia.com/blog/ai-tokens-explained/" target="_self"
+rel="noreferrer noopener follow"
+data-wpel-link="internal">tokens</a></em> are the atomic parts of
+language that a model processes. One token is approximately four English
+characters. All inputs in natural language are converted to tokens
+before inputting into the model. </p>
+<h3 class="wp-block-heading"
+id="prefill_phase_or_processing_the_input">Prefill phase or processing
+the input<a href="#prefill_phase_or_processing_the_input"
+class="heading-anchor-link"
+aria-label="Scroll to Prefill phase or processing the input section"><em></em></a></h3>
+<p>In the prefill phase, the LLM processes the input tokens to compute
+the intermediate states (keys and values), which are used to generate
+the “first” new token. Each new token depends on all the previous
+tokens, but because the full extent of the input is known, at a high
+level this is a matrix-matrix operation that’s highly parallelized. It
+effectively saturates GPU utilization.</p>
+<h3 class="wp-block-heading"
+id="decode_phase_or_generating_the_output ">Decode phase or generating
+the output <a href="#decode_phase_or_generating_the_output%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to Decode phase or generating the output  section"><em></em></a></h3>
+<p>In the decode phase, the LLM generates output tokens autoregressively
+one at a time, until a stopping criteria is met. Each sequential output
+token needs to know all the previous iterations’ output states (keys and
+values). This is like a matrix-vector operation that underutilizes the
+GPU compute ability compared to the prefill phase. The speed at which
+the data (weights, keys, values, activations) is transferred to the GPU
+from memory dominates the latency, not how fast the computation actually
+happens. In other words, this is a memory-bound operation.</p>
+<p>Many of the inference challenges and corresponding solutions featured
+in this post concern the optimization of this decode phase: efficient
+attention modules, managing the keys and values effectively, and
+others.</p>
+<p>Different LLMs may use different tokenizers, and thus, comparing
+output tokens between them may not be straightforward. When comparing
+inference throughput, even if two LLMs have similar tokens per second
+output, they may not be equivalent if they use different tokenizers.
+This is because corresponding tokens may represent a different number of
+characters. </p>
+<h3 class="wp-block-heading" id="batching">Batching<a href="#batching"
+class="heading-anchor-link"
+aria-label="Scroll to Batching section"><em></em></a></h3>
+<p>The simplest way to improve GPU utilization, and effectively
+throughput, is through batching. Since multiple requests use the same
+model, the memory cost of the weights is spread out. Larger batches
+getting transferred to the GPU to be processed all at once will leverage
+more of the compute available. </p>
+<p>Batch sizes, however, can only be increased up to a certain limit, at
+which point they may lead to a memory overflow. To better understand why
+this happens requires looking at key-value (KV) caching and LLM memory
+requirements.</p>
+<p>Traditional batching (also called static batching) is suboptimal.
+This is because for each request in a batch, the LLM may generate a
+different number of completion tokens, and subsequently they have
+different execution times. As a result, all requests in the batch must
+wait until the longest request is finished, which can be exacerbated by
+a large variance in the generation lengths. There are methods to
+mitigate this, such as in-flight batching.</p>
+<p>For example, open-source runtimes like <a
+href="https://github.com/CactusQ/TensorRT-LLM-Tutorial" target="_blank"
+rel="noreferrer noopener follow" data-wpel-link="external">NVIDIA
+TensorRT-LLM</a> have in-flight batching and related scheduling
+optimizations for popular open models (for example, <a
+href="https://huggingface.co/collections/nvidia/llama-nemotron"
+target="_blank" rel="noreferrer noopener follow"
+data-wpel-link="external">Llama</a> and <a
+href="https://developer.nvidia.com/nemotron" target="_self"
+rel="noreferrer noopener follow"
+data-wpel-link="internal">Nemotron</a>). This does not require writing
+custom schedulers or CUDA kernels.</p>
+<h3 class="wp-block-heading" id="key-value_caching">Key-value caching<a
+href="#key-value_caching" class="heading-anchor-link"
+aria-label="Scroll to Key-value caching section"><em></em></a></h3>
+<p>One common optimization for the decode phase is KV caching. The
+decode phase generates a single token at each time step, but each token
+depends on the key and value tensors of all previous tokens (including
+the input tokens’ KV tensors computed at prefill, and any new KV tensors
+computed until the current time step). </p>
+<p>To avoid recomputing all these tensors for all tokens at each time
+step, it’s possible to cache them in GPU memory. Every iteration, when
+new elements are computed, they are simply added to the running cache to
+be used in the next iteration. In some implementations, there is one KV
+cache for each layer of the model.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca070f3f&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca070f3f">
+<img
+src="assets/38340df60c9ea85bb0fd1cd947a52859160cfae7c787450625abe3bfec6d23ad.png"
+class="lazyload wp-image-73750"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 619px) 100vw, 619px" width="619" height="424"
+alt="An illustration of KV caching depicted in Prefill and Decode phases. Prefill is a highly parallelized operation where the KV tensors of all input tokens can be computed simultaneously. During decode, new KV tensors and subsequently the output token at each step is computed autoregressively. " />
+<figcaption><em>Figure 1. An illustration of the key-value caching
+mechanism</em></figcaption>
+</figure>
+</div>
+<h3 class="wp-block-heading" id="llm_memory_requirement ">LLM memory
+requirement <a href="#llm_memory_requirement%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to LLM memory requirement  section"><em></em></a></h3>
+<p>In effect, the two main contributors to the GPU LLM memory
+requirement are model weights and the KV cache.</p>
+<ul>
+<li><strong>Model weights:</strong> Memory is occupied by the model
+parameters. As an example, a model with 7 billion parameters (such as <a
+href="https://huggingface.co/meta-llama/Llama-2-7b" target="_blank"
+rel="noreferrer noopener follow" data-wpel-link="external">Llama 2
+7B</a>), loaded in 16-bit precision (FP16 or BF16) would take roughly 7B
+* sizeof(FP16) ~= 14 GB in memory.</li>
+<li><strong>KV caching</strong>: Memory is occupied by the caching of
+self-attention tensors to avoid redundant computation.</li>
+</ul>
+<p>With batching, the KV cache of each of the requests in the batch must
+still be allocated separately, and can have a large memory footprint.
+The formula below delineates the size of the KV cache, applicable to
+most common LLM architectures today.</p>
+<p><strong>Size of KV cache per token in bytes = 2 * (num_layers) *
+(num_heads * dim_head) *  precision_in_bytes</strong></p>
+<p>The first factor of 2 accounts for the K and V matrices. Commonly,
+the value of (num_heads * dim_head) is the same as the hidden_size (or
+dimension of the model, d_model) of the transformer. These model
+attributes are commonly found in model cards or associated config
+files.</p>
+<p>This memory size is required for each token in the input sequence,
+across the batch of inputs. Assuming half-precision, the total size of
+KV cache is given by the formula below.</p>
+<p><strong>Total size of KV cache in bytes = (batch_size) *
+(sequence_length) * 2 * (num_layers) * (hidden_size) * 
+sizeof(FP16)</strong></p>
+<p>For example, with a Llama 2 7B model in 16-bit precision and a batch
+size of 1, the size of the KV cache will be 1 * 4096 * 2 * 32 * 4096 * 2
+bytes, which is ~2 GB.<br />
+</p>
+<p>Managing this KV cache efficiently is a challenging endeavor. Growing
+linearly with batch size and sequence length, the memory requirement can
+quickly scale. Consequently, it limits the throughput that can be
+served, and poses challenges for long-context inputs. This is the
+motivation behind several optimizations featured in this post.</p>
+<h2 class="wp-block-heading"
+id="scaling_up_llms_with_model_parallelization">Scaling up LLMs with
+model parallelization<a
+href="#scaling_up_llms_with_model_parallelization"
+class="heading-anchor-link"
+aria-label="Scroll to Scaling up LLMs with model parallelization section"><em></em></a></h2>
+<p>One way to reduce the per-device memory footprint of the model
+weights is to distribute the model over several GPUs. Spreading the
+memory and compute footprint enables running larger models, or larger
+batches of inputs. Model parallelization is a necessity to train or
+infer on a model requiring more memory than available on a single
+device, and to make training times and inference measures (latency or
+throughput) suitable for certain use cases. There are several ways of
+parallelizing the model based on how the model weights are split. </p>
+<p>Note that data parallelism is also a technique often mentioned in the
+same context as the others listed below. In this, weights of the model
+are copied over multiple devices, and the (global) batch size of inputs
+is sharded across each of the devices into microbatches. It reduces the
+overall execution time by processing larger batches. However, it is a
+training time optimization that is less relevant during inference.</p>
+<p>Note that any model-parallel techniques—including <a
+href="https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/features/parallelisms.html#pipeline-parallelism"
+target="_self" rel="noreferrer noopener follow"
+data-wpel-link="internal">pipeline</a> and <a
+href="https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/features/parallelisms.html#tensor-parallelism:~:text=Tensor%20Parallelism-,%23,-Tensor%20Parallelism%20(TP"
+target="_self" rel="noreferrer noopener follow"
+data-wpel-link="internal">tensor parallelism</a>—are available in open
+frameworks such as <a href="https://github.com/NVIDIA/Megatron-LM"
+target="_blank" rel="noreferrer noopener follow"
+data-wpel-link="external">NVIDIA Megatron-LM</a> and the <a
+href="https://docs.nvidia.com/nemo-framework/index.html" target="_self"
+rel="noreferrer noopener follow" data-wpel-link="internal">NVIDIA NeMo
+framework,</a> which underpin training and inference workflows for a
+wide range of open models.</p>
+<h3 class="wp-block-heading" id="pipeline_parallelism">Pipeline
+parallelism<a href="#pipeline_parallelism" class="heading-anchor-link"
+aria-label="Scroll to Pipeline parallelism section"><em></em></a></h3>
+<p>Pipeline parallelism involves sharding the model (vertically) into
+chunks, where each chunk comprises a subset of layers that is executed
+on a separate device. Figure 2a is an illustration of four-way pipeline
+parallelism, where the model is sequentially partitioned and a quarter
+subset of all layers are executed on each device. The outputs of a group
+of operations on one device are passed to the next, which continues
+executing the subsequent chunk.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>F</mi><mi>n</mi></msub><annotation encoding="application/x-tex">F_n</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>B</mi><mi>n</mi></msub><annotation encoding="application/x-tex">B_n</annotation></semantics></math>
+<sub> </sub>indicate forward and backward passes respectively on device
+n. The memory requirement for storing model weights on each device is
+effectively quartered.</p>
+<p>The main limitation of this method is that, due to the sequential
+nature of the processing, some devices or layers may remain idle while
+waiting for the output (activations, gradients) of previous layers. This
+results in inefficiencies or “pipeline bubbles” in both the forward and
+backward passes. In Figure 2b, the white empty areas are the large
+pipeline bubbles with naive pipeline parallelism where devices are idle
+and underutilized.<br />
+<br />
+Microbatching can mitigate this to some extent, as shown in Figure 2c.
+The global batch size of inputs is split into sub-batches, which are
+processed one by one, with gradients being accumulated at the end. Note
+that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>F</mi><mrow><mi>n</mi><mo>,</mo><mi>m</mi></mrow></msub><annotation encoding="application/x-tex">F_{n,m}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>B</mi><mrow><mi>n</mi><mo>,</mo><mi>m</mi></mrow></msub><annotation encoding="application/x-tex">B_{n,m}</annotation></semantics></math>
+indicate forward and backward passes respectively on device
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
+with microbatch
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>.
+This approach shrinks the size of pipeline bubbles, but it does not
+completely eliminate them.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca07240f&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca07240f">
+<img
+src="assets/8c1b0c03179562cba37776bfb5f153bf1efdf9f457ac9935540718139dc94b09.png"
+class="lazyload wp-image-73769"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1244px) 100vw, 1244px" width="1244" height="585"
+alt="Depiction of four-way pipeline parallelism. (a) Model is partitioned across layers in 4 parts, each subset executed on a separate device. (b) Naive pipeline parallelism results in large pipeline bubbles and GPU under-utilization. (c) Micro-batching reduces the size of pipeline bubbles, and improves GPU utilization. " />
+<figcaption><em>Figure 2. An illustration of four-way pipeline
+parallelism. Credit: <a href="https://arxiv.org/pdf/1811.06965.pdf"
+data-wpel-link="exclude">GPipe: Easy Scaling with Micro-Batch Pipeline
+Parallelism</a></em></figcaption>
+</figure>
+</div>
+<h3 class="wp-block-heading" id="tensor_parallelism">Tensor
+parallelism<a href="#tensor_parallelism" class="heading-anchor-link"
+aria-label="Scroll to Tensor parallelism section"><em></em></a></h3>
+<p>Tensor parallelism involves sharding (horizontally) individual layers
+of the model into smaller, independent blocks of computation that can be
+executed on different devices. Attention blocks and multi-layer
+perceptron (MLP) layers are major components of transformers that can
+take advantage of tensor parallelism. In multi-head attention blocks,
+each head or group of heads can be assigned to a different device so
+they can be computed independently and in parallel.  </p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca07300f&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca07300f">
+<img
+src="assets/d759f04bfcc4623043ecb0f599a914622978808d95c81844e7206368345f7a24.png"
+class="lazyload wp-image-73771"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 563px) 100vw, 563px" width="563" height="566"
+alt="Illustration of Tensor Parallelism in MLPs and Self-Attention Layers. In MLPs, the weight matrix is partitioned across multiple devices, enabling simultaneous computation on a batch of inputs using the split weights. In self-attention layers, the multiple attention heads are naturally parallel and can be distributed across devices. " />
+<figcaption><em>Figure 3. Illustration of tensor parallelism in
+multi-layer perceptron (MLP) and self-attention layers. Credit: <a
+href="https://arxiv.org/pdf/1909.08053.pdf"
+data-wpel-link="exclude">Megatron-LM: Training Multi-Billion Parameter
+Language Models Using Model Parallelism</a></em></figcaption>
+</figure>
+</div>
+<p>Figure 3a shows an example of two-way tensor parallelism on a
+two-layer MLP, with each layer represented by a rounded box. Within the
+first layer, the weight matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+is split into
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mn>1</mn></msub><annotation encoding="application/x-tex">A_1</annotation></semantics></math>
+<sub></sub> and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mn>2</mn></msub><annotation encoding="application/x-tex">A_2</annotation></semantics></math>.
+The computations
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msub><mi>A</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">XA_1</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msub><mi>A</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">XA_2</annotation></semantics></math>
+can be independently executed on the same batch
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math>
+is an identity operation) of inputs
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+on two different devices. This effectively halves the memory requirement
+of storing weights on each device. A reduction operation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+combines the outputs in the second layer.</p>
+<p>Figure 3b is an example of two-way tensor parallelism in the
+self-attention layer. The multiple attention heads are parallel by
+nature and can be split across devices. </p>
+<h3 class="wp-block-heading" id="sequence_parallelism">Sequence
+parallelism<a href="#sequence_parallelism" class="heading-anchor-link"
+aria-label="Scroll to Sequence parallelism section"><em></em></a></h3>
+<p>Tensor parallelism has limitations, as it requires layers to be
+divided into independent, manageable blocks. It’s not applicable to
+operations like LayerNorm and Dropout, which are instead replicated
+across the tensor-parallel group. While LayerNorm and Dropout are
+computationally inexpensive, they do require a considerable amount of
+memory to store (redundant) activations.<br />
+<br />
+As shown in <a href="https://arxiv.org/pdf/2205.05198.pdf"
+data-wpel-link="exclude">Reducing Activation Recomputation in Large
+Transformer Models</a>, these operations are independent across the
+input sequence, and these ops can be partitioned along that
+“sequence-dimension,” making them more memory efficient. This is called
+sequence parallelism.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca073e9c&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca073e9c">
+<img
+src="assets/4f4f5b6647aa7b8007b0a145912eda38d7489c2156ec655ce5751ad8a1ed57a7.png"
+class="lazyload wp-image-73783"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1026px) 100vw, 1026px" width="1026" height="389"
+alt=" Illustration of a transformer layer with both Tensor parallelism and Sequence parallelism. Sequence parallelism is applicable for operations like LayerNorm and Dropout, which are not well-suited for tensor parallelism. " />
+<figcaption><em>Figure 4. An illustration of a transformer layer with
+both tensor and sequence parallelism. Credit: <a
+href="https://arxiv.org/pdf/2205.05198.pdf"
+data-wpel-link="exclude">Reducing Activation Recomputation in Large
+Transformer Models</a></em></figcaption>
+</figure>
+</div>
+<p>Techniques for model parallelism are not exclusive and can be used in
+conjunction. They can help scale and reduce the per-GPU memory footprint
+of LLMs, but there are also optimization techniques specifically for the
+attention module.</p>
+<h2 class="wp-block-heading"
+id="optimizing_the_attention_mechanism">Optimizing the attention
+mechanism<a href="#optimizing_the_attention_mechanism"
+class="heading-anchor-link"
+aria-label="Scroll to Optimizing the attention mechanism section"><em></em></a></h2>
+<p>The scaled dot-product attention (SDPA) operation maps query and
+key-value pairs to an output, as described in <a
+href="https://arxiv.org/pdf/1706.03762.pdf"
+data-wpel-link="exclude">Attention Is All You Need</a>. </p>
+<h3 class="wp-block-heading" id="multi-head_attention">Multi-head
+attention<a href="#multi-head_attention" class="heading-anchor-link"
+aria-label="Scroll to Multi-head attention section"><em></em></a></h3>
+<p>As an enhancement to the SDPA, executing the attention layer multiple
+times in parallel with different, learned projections of the Q, K, and V
+matrices, enables the model to jointly attend to information from
+different representational subspaces at different positions. These
+subspaces are learned independently, providing the model with a richer
+understanding of different positions in the input.</p>
+<p>As depicted in Figure 5, the outputs from the multiple parallel
+attention operations are concatenated and linearly projected to combine
+them. Each parallel attention layer is called a ‘head,’ and this
+approach is called multi-head attention (MHA).</p>
+<p>In the original work, each attention head operates on a reduced
+dimension of the model (such as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>m</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi></mrow></msub><mi>/</mi><mn>8</mn></mrow><annotation encoding="application/x-tex">d_{model}/8</annotation></semantics></math>)
+when using eight parallel attention heads. This keeps the computational
+cost similar to single-head attention.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca075437&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca075437">
+<img
+src="assets/953eb87639a26e8ab78ffc3fe5f44fa6001d551cb6c0abe046d932d4bc8d807a.png"
+class="lazyload wp-image-73792"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 686px) 100vw, 686px" width="686" height="374"
+alt="An illustration of the scaled dot-product attention and multi-head attention. " />
+<figcaption><em>Figure 5. An illustration of the scaled dot-product
+attention (left) and multi-head attention (right), which is simply
+multiple SDPA heads in parallel. Credit: <a
+href="https://arxiv.org/pdf/1706.03762.pdf"
+data-wpel-link="exclude">Attention Is All You Need</a></em></figcaption>
+</figure>
+</div>
+<h3 class="wp-block-heading" id="multi-query_attention">Multi-query
+attention<a href="#multi-query_attention" class="heading-anchor-link"
+aria-label="Scroll to Multi-query attention section"><em></em></a></h3>
+<p>One of the inference optimizations to MHA, called multi-query
+attention (MQA), as proposed in <a
+href="https://arxiv.org/abs/1911.02150" data-wpel-link="exclude">Fast
+Transformer Decoding</a>, shares the keys and values among the multiple
+attention heads. The query vector is still projected multiple times, as
+before. </p>
+<p>While the amount of computation done in MQA is identical to MHA, the
+amount of data (keys, values) read from memory is a fraction of before.
+When bound by memory-bandwidth, this enables better compute utilization.
+It also reduces the size of the KV-cache in memory, allowing space for
+larger batch sizes.</p>
+<p>The reduction in key-value heads comes with a potential accuracy
+drop. Additionally, models that need to leverage this optimization at
+inference need to train (or <a
+href="https://arxiv.org/pdf/2305.13245.pdf" data-wpel-link="exclude">at
+least fine-tuned</a> with ~5% of training volume) with MQA enabled.</p>
+<h3 class="wp-block-heading" id="grouped-query_attention">Grouped-query
+attention<a href="#grouped-query_attention" class="heading-anchor-link"
+aria-label="Scroll to Grouped-query attention section"><em></em></a></h3>
+<p><a href="https://arxiv.org/pdf/2305.13245v2.pdf"
+data-wpel-link="exclude">Grouped-query attention</a> (GQA) strikes a
+balance between MHA and MQA by projecting key and values to a few groups
+of query heads (Figure 6). Within each of the groups, it behaves like
+multi-query attention. </p>
+<p>Figure 6 shows that multi-head attention has multiple key-value heads
+(left). Grouped-query attention (center) has more key-value heads than
+one, but fewer than the number of query heads, which is a balance
+between memory requirement and model quality. Multi-query attention
+(right) has a single key-value head to help save memory. </p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca0761e6&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca0761e6">
+<img
+src="assets/22327c666607344849d1b6f31a7311a376a8ec64bc174748c15eaf01a6287bc5.png"
+class="lazyload wp-image-73799"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1326px) 100vw, 1326px" width="1326" height="445"
+alt="Different attention mechanisms compared. Left: Multi-head attention has multiple key-value heads. Right: Multi-query attention has a single key-value head, which reduces memory requirements. Center: Grouped-query attention has a few key-value heads, balancing memory and model quality. " />
+<figcaption><em>Figure 6. A comparison of different attention
+mechanisms. Credit: <a href="https://arxiv.org/pdf/2305.13245v2.pdf"
+data-wpel-link="exclude">GQA: Training Generalized Multi-Query
+Transformer Models from Multi-Head Checkpoints</a></em></figcaption>
+</figure>
+</div>
+<p>Models originally trained with MHA, can be “uptrained” with GQA using
+a fraction of the original training compute. They attain quality close
+to MHA while maintaining a computational efficiency closer to MQA. <a
+href="https://ai.meta.com/llama/" data-wpel-link="external"
+target="_blank" rel="follow">Llama 2 70B</a> is an example of a model
+that leverages GQA. </p>
+<p>Optimizations like MQA and GQA help reduce the memory required by KV
+caches by reducing the number of key and value heads that are stored.
+There may still be inefficiencies in how this KV cache is managed. Of a
+different flavor than optimizing the attention module itself, the next
+section presents a technique for more efficient KV cache management.</p>
+<h3 class="wp-block-heading" id="flash_attention">Flash attention<a
+href="#flash_attention" class="heading-anchor-link"
+aria-label="Scroll to Flash attention section"><em></em></a></h3>
+<p>Another way of optimizing the attention mechanism is to modify the
+ordering of certain computations to take better advantage of the memory
+hierarchy of GPUs. Neural networks are generally described in terms of
+layers, and most implementations are laid out that way as well, with one
+kind of computation done on the input data at a time in sequence. This
+doesn’t always lead to optimal performance, since it can be beneficial
+to do more calculations on values that have already been brought into
+the higher, more performant levels of the memory hierarchy. </p>
+<p>Fusing multiple layers together during the actual computation can
+enable minimizing the number of times the GPU needs to read from and
+write to its memory and to group together calculations that require the
+same data, even if they are parts of different layers in the neural
+network. </p>
+<p>One very popular fusion is FlashAttention, an I/O aware exact
+attention algorithm, as detailed in <a
+href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dao%20%E7%AD%89%20-%202022%20-%20FlashAttention%20Fast%20and%20Memory-Efficient%20Exact%20Attention%20with%20IO-Awareness.pdf"
+data-wpel-link="exclude">FlashAttention: Fast and Memory-Efficient Exact
+Attention with IO-Awareness</a>. <em>Exact attention</em> means that it
+is mathematically identical to the standard multi-head attention (with
+variants available for multi-query and grouped-query attention), and so
+can be swapped into an existing model architecture or even an
+already-trained model with no modifications. </p>
+<p><em>I/O aware</em> means it takes into account some of the memory
+movement costs previously discussed when fusing operations together. In
+particular, FlashAttention uses “tiling” to fully compute and write out
+a small part of the final matrix at once, rather than doing part of the
+computation on the whole matrix in steps, writing out the intermediate
+values in between.</p>
+<p>Figure 7 shows the tiled FlashAttention computation pattern and the
+memory hierarchy on a 40 GB GPU. The chart on the right shows the
+relative speedup that comes from fusing and reordering the different
+components of the Attention mechanism. </p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca077116&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca077116">
+<img
+src="assets/ccbcde92c70b3009051c11aa79d1f563f66d887598625218e005ebce778b0a20.png"
+class="lazyload wp-image-73803"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 979px) 100vw, 979px" width="979" height="347"
+alt=" Diagram depicting the memory hierarchy and the FlashAttention computation." />
+<figcaption><em>Figure 7. The tiled FlashAttention computation pattern
+and the memory hierarchy on a 40 GB GPU. Credit: <a
+href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dao%20%E7%AD%89%20-%202022%20-%20FlashAttention%20Fast%20and%20Memory-Efficient%20Exact%20Attention%20with%20IO-Awareness.pdf"
+data-wpel-link="exclude">FlashAttention: Fast and Memory-Efficient Exact
+Attention with IO-Awareness</a></em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading"
+id="efficient_management_of_kv_cache_with_paging">Efficient management
+of KV cache with paging<a
+href="#efficient_management_of_kv_cache_with_paging"
+class="heading-anchor-link"
+aria-label="Scroll to Efficient management of KV cache with paging section"><em></em></a></h2>
+<p>At times, KV caches are statically “over-provisioned” to account for
+the largest possible input (the supported sequence length) because the
+size of inputs is unpredictable. For example, if the supported maximum
+sequence length of a model is 2,048, then regardless of the size of
+input and the generated output in a request, a reservation of size 2,048
+would be made in memory. This space may be contiguously allocated, and
+often, much of it remains unused, leading to memory waste or
+fragmentation. This reserved space is tied up for the lifetime of the
+request.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca077cbd&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca077cbd">
+<img
+src="assets/3b3dc6fd6d1d3348aae1276af526aa6e2bf1046897277f2918bf204c67d7891c.png"
+class="lazyload wp-image-73807"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1050px) 100vw, 1050px" width="1050" height="202"
+alt="An illustration of memory wastage and fragmentation due to over-provisioning and inefficient management of KV cache. 1) “reserved” indicates memory set aside for future use that is reserved for the entirety of the request duration. 2) “internal fragmentation” happens because it’s hard to predict how long the generation will be and thus memory is overprovisioned to account for the maximum sequence length. 3) “external fragmentation” indicates inefficiencies due to requests in a batch requiring different pre-allocated sizes. " />
+<figcaption><em>Figure 8. An illustration of memory wastage and
+fragmentation due to over-provisioning and inefficient KV cache
+management. Credit: <a href="../../../Serving-and-KV-Cache/2309.06180v1.pdf"
+data-wpel-link="exclude">Efficient Memory Management for Large Language
+Model Serving with PagedAttention</a></em></figcaption>
+</figure>
+</div>
+<p>Inspired by paging in operating systems, the <a
+href="https://vllm.ai/" data-wpel-link="external" target="_blank"
+rel="follow">PagedAttention</a> algorithm enables storing continuous
+keys and values in noncontiguous space in memory. It partitions the KV
+cache of each request into blocks representing a fixed number of tokens,
+which can be stored non-contiguously. </p>
+<p>These blocks are fetched as required during attention computation
+using a block table that keeps account. As new tokens are generated, new
+block allocations are made. The size of these blocks is fixed,
+eliminating inefficiencies arising from challenges like different
+requests requiring different allocations. This significantly limits
+memory wastage, enabling larger batch sizes (and, consequently,
+throughput).</p>
+<h2 class="wp-block-heading" id="model_optimization_techniques">Model
+optimization techniques<a href="#model_optimization_techniques"
+class="heading-anchor-link"
+aria-label="Scroll to Model optimization techniques section"><em></em></a></h2>
+<p>So far, we’ve discussed the different ways LLMs consume memory, some
+of the ways memory can be distributed across several different GPUs, and
+optimizing the attention mechanism and KV cache. There are also several
+model optimization techniques to reduce the memory use on each GPU by
+making modifications to the model weights themselves. GPUs also have
+dedicated hardware for accelerating operations on these modified values,
+providing even more speedups for models. </p>
+<h3 class="wp-block-heading" id="quantization">Quantization<a
+href="#quantization" class="heading-anchor-link"
+aria-label="Scroll to Quantization section"><em></em></a></h3>
+<p><em>Quantization</em> is the process of reducing the precision of a
+model’s weights and activations. Most models are trained with 32 or 16
+bits of precision, where each parameter and activation element takes up
+32 or 16 bits of memory—a single-precision floating point. However, most
+deep learning models can be effectively represented with eight or even
+fewer bits per value.  </p>
+<p>Figure 9 shows the distribution of values before and after one
+possible method of quantization. In this case, some precision is lost to
+rounding, and some dynamic range is lost to clipping, allowing the
+values to be represented in a much smaller format.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca078d96&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca078d96">
+<img
+src="assets/2510179c739229d8f0ea937b51cf6ec31b3f71b6e972b26723df200888e7b980.png"
+class="lazyload wp-image-73808"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 788px) 100vw, 788px" width="788" height="492"
+alt=" Two distribution plots, one showing the full range of values at high precision and another showing the compressed and rounded range at low precision. " />
+<figcaption><em>Figure 9. The distribution of values before and after
+one possible method of quantization</em></figcaption>
+</figure>
+</div>
+<p>Reducing the precision of a model can yield several benefits. If the
+model takes up less space in memory, you can fit larger models on the
+same amount of hardware. Quantization also means you can transfer more
+parameters over the same amount of bandwidth, which can help to
+accelerate models that are bandwidth-limited. </p>
+<p>There are many different quantization techniques for LLMs involving
+reduced precision on either the activations, the weights, or both. It’s
+much more straightforward to quantize the weights because they are fixed
+after training. However, this can leave some performance on the table
+because the activations remain at higher precisions. GPUs don’t have
+dedicated hardware for multiplying INT8 and FP16 numbers, so the weights
+must be converted back into a higher precision for the actual
+operations. </p>
+<p>It’s also possible to quantize the activations, the inputs of
+transformer blocks and network layers, but this comes with its own
+challenges. Activation vectors often contain outliers, effectively
+increasing their dynamic range and making it more challenging to
+represent these values at a lower precision than with the weights. </p>
+<p>One option is to find out where those outliers are likely to show up
+by passing a representative dataset through the model, and choosing to
+represent certain activations at a higher precision than others
+(LLM.int8()). Another option is to borrow the dynamic range of the
+weights, which are easy to quantize, and reuse that range in the
+activations.</p>
+<h3 class="wp-block-heading" id="sparsity">Sparsity<a href="#sparsity"
+class="heading-anchor-link"
+aria-label="Scroll to Sparsity section"><em></em></a></h3>
+<p>Similar to quantization, it’s been shown that many deep learning
+models are robust to pruning, or replacing certain values that are close
+to 0 with 0 itself. <em>Sparse matrices</em> are matrices where many of
+the elements are 0. These can be expressed in a condensed form that
+takes up less space than a full, dense matrix.</p>
+<div class="wp-block-image">
+<div class="wp-block-image aligncenter">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca079d9c&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca079d9c">
+<img
+src="assets/549e4e247104f76731154a5ad035fd302767fe857d7e76e8de20b44d8e7f0851.png"
+class="lazyload wp-image-73815"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 701px) 100vw, 701px" width="701" height="305"
+alt="A sparse matrix represented in a compressed format." />
+<figcaption><em>Figure 10. A sparse matrix represented in a compressed
+format consisting of non-zero data values and their corresponding
+two-bit indices</em></figcaption>
+</figure>
+</div>
+</div>
+<p>GPUs in particular have hardware acceleration for a certain kind of
+<em>structured sparsity</em>, where two out of every four values are
+represented by zeros. Sparse representations can also be combined with
+quantization to achieve even greater speedups in execution. Finding the
+best way to represent large language models in a sparse format is still
+an active area of research, and offers a promising direction for future
+improvements to inference speeds. </p>
+<h3 class="wp-block-heading" id="distillation">Distillation<a
+href="#distillation" class="heading-anchor-link"
+aria-label="Scroll to Distillation section"><em></em></a></h3>
+<p>Another approach to shrinking the size of a model is to transfer its
+knowledge to a smaller model through a process called
+<em>distillation</em>. This process involves training a smaller model
+(called a student) to mimic the behavior of a larger model (a
+teacher).</p>
+<p>Successful examples of distilled models include <a
+href="https://arxiv.org/abs/1910.01108"
+data-wpel-link="exclude">DistilBERT</a>, which compresses a BERT model
+by 40% while retaining 97% of its language understanding capabilities at
+a speed 60% faster.<br />
+<br />
+While distillation in LLMs is an active field of research, the general
+approach was first described for neural networks in <a
+href="https://arxiv.org/abs/1503.02531"
+data-wpel-link="exclude">Distilling the Knowledge in a Neural
+Network</a>:</p>
+<ul>
+<li>The student network is trained to mirror the performance of a larger
+teacher network, using a loss function that measures the discrepancy
+between their outputs. This objective is in addition to potentially
+including the original loss function of matching the student’s outputs
+with the ground-truth labels.</li>
+<li>The teacher’s outputs that are matched can be the very last layer
+(called <em>logits</em>) or intermediate layer activations.</li>
+</ul>
+<p>Figure 11 shows a general framework for knowledge distillation. The
+logits of the teacher are soft targets that the student optimizes for
+using a distillation loss. Other distillation methods may use other
+measures of loss to “distill” knowledge from the teacher.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca07ae70&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca07ae70">
+<img
+src="assets/7f9988b92f5aff6e4a5a2a7f02c5881a37801578280b9e89fa954b0b40d24f18.png"
+class="lazyload wp-image-73819"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 1225px) 100vw, 1225px" width="1225" height="289"
+alt="Figure depicting a general framework for knowledge distillation using a distillation loss between the logits of the teacher and student. " />
+<figcaption><em>Figure 11. A general framework for knowledge
+distillation. Credit: <a href="https://arxiv.org/pdf/2006.05525.pdf"
+data-wpel-link="exclude">Knowledge Distillation: A
+Survey</a></em></figcaption>
+</figure>
+</div>
+<p>An alternative approach to distillation is to use data synthesized by
+the teacher for supervised training of a student LLM, which is
+especially useful when human annotations are scarce or not available. <a
+href="https://arxiv.org/abs/2305.02301"
+data-wpel-link="exclude">Distilling Step by Step!</a> goes one step
+further by extracting rationales from a teacher LLM in addition to the
+labels that serve as ground truth. These rationales serve as
+intermediate reasoning steps to train smaller student LLMs in a
+data-efficient way.</p>
+<p>It’s important to note that many state-of-the-art LLMs today have
+restrictive licenses that prohibit using their outputs to train other
+LLMs, making it challenging to find a suitable teacher model. </p>
+<h2 class="wp-block-heading" id="model_serving_techniques">Model serving
+techniques<a href="#model_serving_techniques"
+class="heading-anchor-link"
+aria-label="Scroll to Model serving techniques section"><em></em></a></h2>
+<p>Model execution is frequently memory-bandwidth bound—in particular,
+bandwidth-bound in the weights. Even after applying all the model
+optimizations previously described, it’s still very likely to be memory
+bound. So you want to do as much as possible with your model weights
+when they are loaded. In other words, try doing things in parallel. Two
+approaches can be taken: </p>
+<ul>
+<li><strong>In-flight batching</strong> involves executing multiple
+different requests at the same time. </li>
+<li><strong>Speculative inference</strong> involves executing multiple
+different steps of the sequence in parallel to try to save time. </li>
+</ul>
+<h3 class="wp-block-heading" id="in-flight_batching">In-flight
+batching<a href="#in-flight_batching" class="heading-anchor-link"
+aria-label="Scroll to In-flight batching section"><em></em></a></h3>
+<p>LLMs have some unique execution characteristics that can make it
+difficult to effectively batch requests in practice. A single model can
+be used simultaneously for a variety of tasks that look very different
+from one another. From a simple question-and-answer response in a
+chatbot to the summarization of a document or the generation of a long
+chunk of code, workloads are highly dynamic, with outputs varying in
+size by several orders of magnitude. </p>
+<p>This versatility can make it challenging to batch requests and
+execute them in parallel effectively—a common optimization for serving
+neural networks. This could result in some requests finishing much
+earlier than others.</p>
+<p>To manage these dynamic loads, many LLM serving solutions include an
+optimized scheduling technique called continuous or in-flight batching.
+This takes advantage of the fact that the overall text generation
+process for an LLM can be broken down into multiple iterations of
+execution on the model. </p>
+<p>With in-flight batching, rather than waiting for the whole batch to
+finish before moving on to the next set of requests, the server runtime
+immediately evicts finished sequences from the batch. It then begins
+executing new requests while other requests are still in flight.
+In-flight batching can therefore greatly increase the overall GPU
+utilization in real-world use cases. </p>
+<h3 class="wp-block-heading" id="speculative_inference">Speculative
+inference<a href="#speculative_inference" class="heading-anchor-link"
+aria-label="Scroll to Speculative inference section"><em></em></a></h3>
+<p>Also known as speculative sampling, assisted generation, or blockwise
+parallel decoding, speculative inference is a different way of
+parallelizing the execution of LLMs. Normally, GPT-style large language
+models are autoregressive models that generate text token by token. </p>
+<p>Every token that is generated relies on all of the tokens that come
+before it to provide context. This means that in regular execution, it’s
+impossible to generate multiple tokens from the same sequence in
+parallel—you have to wait for the nth token to be generated before you
+can generate n+1. </p>
+<p>Figure 12 shows an example of speculative inference in which a draft
+model temporarily predicts multiple future steps that are verified or
+rejected in parallel. In this case, the first two predicted tokens in
+the draft are accepted, while the last is rejected and removed before
+continuing with the generation. </p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027ca07c8cd&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027ca07c8cd">
+<img
+src="assets/50a2c9b712bc9282c42c8d9657eace41e9b17858dbd6f3129a7ad39e68658f0b.png"
+class="lazyload wp-image-73827"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 863px) 100vw, 863px" width="863" height="337"
+alt="From the prompt “I saw a dog ride,” the draft model predicts “in the bus.” The verification model predicts “in the car” in parallel, so we reject the “car” token. " />
+<figcaption><em><em>Figure 12. An example of speculative inference.
+Credit:</em> <a href="https://arxiv.org/abs/1811.03115"
+data-wpel-link="exclude"><em>Blockwise Parallel Decoding for Deep
+Autoregressive Models</em></a></em></figcaption>
+</figure>
+</div>
+<p>Speculative sampling offers a workaround. The basic idea of this
+approach is to use some “cheaper” process to generate a draft
+continuation that is several tokens long. Then,  execute the main
+“verification” model at multiple steps in parallel, using the cheap
+draft as “speculative” context for the execution steps where it is
+needed. </p>
+<p>If the verification model generates the same tokens as the draft,
+then you know to accept those tokens for the output. Otherwise, you can
+throw out everything after the first non-matching token, and repeat the
+process with a new draft. </p>
+<p>There are many different options for how to generate draft tokens,
+and each comes with different tradeoffs. You can train multiple models,
+or fine-tune multiple heads on a single pretrained model, that predict
+tokens that are multiple steps in the future. Or, you can use a small
+model as the draft model, and a larger, more capable model as the
+verifier.</p>
+<h2 class="wp-block-heading"
+id="key_takeaways_for_optimizing_llm_inference">Key takeaways for
+optimizing LLM inference<a
+href="#key_takeaways_for_optimizing_llm_inference"
+class="heading-anchor-link"
+aria-label="Scroll to Key takeaways for optimizing LLM inference section"><em></em></a></h2>
+<p>This post outlines popular solutions to help optimize and serve LLMs
+efficiently, be it in the data center, cloud, or at the edge on a PC.
+Many of these techniques are optimized and available through <a
+href="https://github.com/NVIDIA/TensorRT-LLM/tree/release/0.5.0"
+data-wpel-link="external" target="_blank" rel="follow">NVIDIA
+TensorRT-LLM</a>. It’s an open source library consisting of the TensorRT
+deep learning compiler alongside optimized kernels, preprocessing and
+postprocessing steps, and multi-GPU/multi-node communication primitives
+for groundbreaking performance on NVIDIA GPUs. </p>
+<p>NVIDIA TensorRT-LLM is supported by <a
+href="https://www.nvidia.com/en-us/ai-data-science/products/triton-inference-server/"
+data-wpel-link="internal" target="_self" rel="follow">NVIDIA Dynamo</a>,
+enabling enterprises to serve multiple AI models concurrently across
+different AI frameworks, hardware accelerators, and deployment models
+with peak throughput and minimum latency. Open models like the <a
+href="https://developer.nvidia.com/nemotron?ncid=pa-srch-goog-405472&amp;_bt=785763502016&amp;_bk=nemotron&amp;_bm=p&amp;_bn=g&amp;_bg=194843200048&amp;gad_source=1&amp;gad_campaignid=23296574832&amp;gbraid=0AAAAAD4XAoFQIGZanfyJ8nkie-FTx8dxh"
+target="_self" rel="noreferrer noopener follow"
+data-wpel-link="internal">Nemotron</a> 3 family, alongside leading
+community models such as <a
+href="https://huggingface.co/collections/nvidia/llama-nemotron"
+target="_blank" rel="noreferrer noopener follow"
+data-wpel-link="external">Llama</a>, are available with optimized <a
+href="https://github.com/NVIDIA/TensorRT-LLM" target="_blank"
+rel="noreferrer noopener follow"
+data-wpel-link="external">TensorRT-LLM</a> configs. See reference
+deployments and example scripts on <a
+href="https://github.com/NVIDIA-NeMo/Nemotron/tree/main/usage-cookbook/Nemotron-3-Nano"
+target="_blank" rel="noreferrer noopener follow"
+data-wpel-link="external">GitHub</a> and <a
+href="https://developer.nvidia.com/ai-models" target="_self"
+rel="noreferrer noopener follow" data-wpel-link="internal">NVIDIA AI
+Models</a>.</p>
+<p><a href="https://developer.nvidia.com/nim" data-wpel-link="internal"
+target="_self" rel="follow">NVIDIA NIM</a> is the fastest way to
+leverage the latest inference optimization techniques in NVIDIA
+TensorRT-LLM, as well as popular community frameworks including <a
+href="https://github.com/vllm-project/vllm" data-wpel-link="external"
+target="_blank" rel="follow">vLLM</a> and <a
+href="https://github.com/sgl-project/sglang" data-wpel-link="external"
+target="_blank" rel="follow">SGLang</a>. NIM microservice containers for
+the latest AI models from NVIDIA and the community come prepackaged with
+everything AI teams need to deploy and scale AI models on NVIDIA
+GPUs—-optimized inference technology, runtime dependencies, and
+industry-standard APIs. And they’re validated, secured, and maintained
+by NVIDIA. NIM delivers workload-optimized inference performance with
+the lowest TCO through a streamlined, consistent workflow that
+integrates seamlessly into automated software delivery pipelines. </p>
+<p>Get started today at <a href="http://build.nvidia.com"
+data-wpel-link="internal" target="_self"
+rel="follow">build.nvidia.com</a>.</p>
+<p><em>Updated on Aug. 15 with key takeaways.</em></p>
+</div>
+</body>
+</html>

@@ -1,8 +1,8 @@
 # Paper Library
 
-这是按研究主题归档的本地论文、书籍和研究笔记库。当前完整 PDF 文件目录见 [CATALOG-20261119.md](CATALOG-20261119.md)，历史逐文件索引与笔记入口见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
+这是按研究主题归档的本地论文、书籍和研究笔记库。当前完整 PDF 文件目录见 [CATALOG-20261122.md](CATALOG-20261122.md)，历史逐文件索引与笔记入口见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
 
-更新日期：2026-11-19。
+更新日期：2026-11-22。
 
 ## 主题入口
 
@@ -10,8 +10,8 @@
 | --- | --- | ---: |
 | [Robotics-and-Embodied-AI](Robotics-and-Embodied-AI/) | 世界动作模型、VLA、扩散策略、部署、评测、运动控制与自动驾驶 | 72 |
 | [Generative-Models](Generative-Models/) | 图像／视频扩散、扩散语言模型、语音生成、多模态模型、推理与训练 | 47 |
-| [LLM-Systems](LLM-Systems/) | 模型架构、推测解码、推理内核、服务、KV Cache 与性能分析 | 104 |
-| [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式／高效训练、GPU 与加速器编程、编译器、框架与硬件性能 | 50 |
+| [LLM-Systems](LLM-Systems/) | 模型架构、推测解码、推理内核、服务、KV Cache 与性能分析 | 106 |
+| [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式／高效训练、GPU 与加速器编程、编译器、框架与硬件性能 | 52 |
 | [Machine-Learning-Foundations](Machine-Learning-Foundations/) | 蒸馏与模型合并、优化、校准、量化、强化学习与概率采样 | 30 |
 | [Natural-Language-Processing](Natural-Language-Processing/) | 数据集与基准、文本编码器、分类抽取、逻辑推理、分词与翻译 | 154 |
 | [Computer-Vision](Computer-Vision/) | 视觉语言预训练、高效视觉架构、目标检测、图像与视频分割 | 33 |
@@ -24,7 +24,13 @@
 | [Medical-AI](Medical-AI/) | 内窥镜与息肉分析、临床语言理解与医学问答 | 11 |
 | [Research-Landscapes](Research-Landscapes/) | 团队、研究机构与研究信息源笔记 | — |
 
-PDF 总数为 576，包含书籍、学位论文、公开技术报告及保留的同文出版版本／副本；不等同于 576 篇互异的已发表论文。
+PDF 总数为 580，包含书籍、学位论文、公开技术报告及保留的同文出版版本／副本；不等同于 580 篇互异的已发表论文。
+
+## Attention 与推理系统社区长文（2026-11-22）
+
+合并两轮学习清单，保存 **47个博客／文档来源的正文、343个不同图片／图表内容**，并保留代码、表格与公式供离线阅读。另新增 **SageAttention、TurboAttention、FlashAttention-4、P-EAGLE四篇论文PDF**（37.76 MiB、72页），复用已有9篇相关论文；原有576份PDF及历史快照不改写。
+
+从 **[离线HTML阅读目录](ATTENTION-Systems-20261122.html)** 或 [Markdown清单](ATTENTION-Systems-20261122.md) 进入；来源、版本、SHA-256与媒体记录见 [机器清单](ATTENTION-Systems-20261122.manifest.json)。正文与图片均已取得，视频、互动Demo和任意外部页面未打包；来源命令没有执行，历史教程不等于当前版本安装指南。
 
 ## Qwen 论文与官方技术长文补齐（2026-11-19）
 

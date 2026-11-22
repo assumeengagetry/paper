@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Unified Radix Cache in SGLang: one tree for hybrid model prefix caching</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<style>.viz-stage,.lesson-details{--page: oklch(.99 .01 85);--page-2: oklch(.96 .01 280);--surface: oklch(.995 .005 85);--surface-solid: #ffffff;--chrome: oklch(.972 0 0);--ink: oklch(.25 .02 280);--ink-2: var(--palette-text);--muted: var(--palette-text);--grid: #ece5d0;--axis: #dfd5b8;--border: rgba(0, 0, 0, .08);--tag-bg: #f0eeec;--accent: #d55815;--accent-hover: #b94a10;--accent-ink: #ffffff;--palette-mid: #d4612dcc;--palette-light: #f5f0e0cc;--palette-deep: #944c2ecc;--palette-apricot: #f1b78bcc;--palette-accent: #ccebb6cc;--palette-accent2: #9eb4cbcc;--palette-text: #565d66;--palette-ink: #26221c;--viz-text-annotation: 10px;--viz-text-label: 12px;--viz-text-node: 14px;--viz-weight-regular: 600;--viz-weight-bold: 750;--viz-stroke-hairline: 1;--viz-stroke-line: 1.5;--viz-stroke-emphasis: 2.5;--viz-stroke-hero: 4;--radius: 14px;--radius-sm: 10px;--shadow-sm: 0 1px 2px rgba(0, 0, 0, .03);--shadow-md: 0 4px 20px rgba(0, 0, 0, .05);--shadow-lg: 0 12px 40px rgba(0, 0, 0, .07)}.urc-note{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:.3rem;vertical-align:baseline}.urc-reuse{display:grid;gap:.55rem;margin:.4rem 0 .5rem}.urc-token-strip{display:grid;grid-template-columns:7.5rem repeat(12,1fr) minmax(0,9rem);gap:3px;align-items:center}.urc-token-label{font-size:var(--viz-text-annotation);color:var(--muted);padding-right:.5rem;text-align:right}.urc-token{height:18px;border-radius:3px;border:1px solid var(--grid);background:var(--surface);font-size:var(--viz-text-annotation);color:var(--muted);display:grid;place-items:center;font-variant-numeric:tabular-nums}.urc-reuse-row{display:grid;grid-template-columns:7.5rem repeat(12,1fr) minmax(0,9rem);gap:3px;align-items:center}.urc-reuse-cell{height:12px;border-radius:3px}.urc-reuse-cell.covered.full{background:var(--palette-mid)}.urc-reuse-cell.covered.swa{background:var(--palette-apricot)}.urc-reuse-cell.tomb{background:repeating-linear-gradient(45deg,transparent 0 3px,var(--axis) 3px 4.5px);border:1px solid var(--grid)}.urc-reuse-cell.ckpt{background:transparent;position:relative}.urc-reuse-cell.ckpt.covered:after{content:"";position:absolute;inset:-1px 25%;border-radius:4px;background:var(--palette-deep)}.urc-reuse-side{font-size:var(--viz-text-annotation);color:var(--muted);padding-left:.4rem}.urc-reuse-rowlabel{font-size:var(--viz-text-label);font-weight:650;text-align:right;padding-right:.5rem}.urc-reuse-rowlabel.full,.urc-reuse-rowlabel.swa,.urc-reuse-rowlabel.mamba{color:var(--muted)}.urc-matrix{display:grid;grid-template-columns:1fr 1.15fr;gap:1.2rem;margin:.5rem 0}@media(max-width:640px){.urc-matrix{grid-template-columns:1fr}}.urc-matrix-panel{display:grid;gap:.5rem;align-content:start}.urc-matrix-head{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-class-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem}.urc-class{border:1px solid var(--grid);border-radius:8px;padding:.4rem .55rem;display:grid;gap:.2rem}.urc-class b{font-size:var(--viz-text-label);color:var(--ink);font-weight:650}.urc-class small{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-class .urc-dup{display:flex;gap:2px;flex-wrap:wrap}.urc-class .urc-dup i{font-style:normal;font-size:var(--viz-text-annotation);color:var(--muted);border:1px dashed color-mix(in srgb,var(--palette-accent2) 45%,var(--grid));border-radius:3px;padding:0 .2rem}.urc-unified{border:1.5px solid var(--grid);border-radius:12px;padding:.6rem;display:grid;gap:.5rem}.urc-unified-core{border:1.5px solid var(--accent);border-radius:8px;padding:.4rem .6rem;font-size:var(--viz-text-label);color:var(--ink);font-weight:650}.urc-unified-cache{border:1px solid var(--grid);border-radius:8px;padding:.35rem .6rem;font-size:var(--viz-text-annotation);color:var(--ink-2)}.urc-chip-row{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}.urc-chip-row>small{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-chip{font-size:var(--viz-text-annotation);font-weight:650;border-radius:999px;padding:.12rem .6rem;border:1px solid var(--grid);color:var(--ink)}.urc-chip.full{background:color-mix(in srgb,var(--palette-mid) 25%,var(--surface));border-color:color-mix(in srgb,var(--palette-mid) 55%,var(--grid))}.urc-chip.swa{background:color-mix(in srgb,var(--palette-apricot) 60%,var(--surface));border-color:color-mix(in srgb,var(--palette-apricot) 55%,var(--grid))}.urc-chip.mamba{background:color-mix(in srgb,var(--palette-deep) 25%,var(--surface));border-color:color-mix(in srgb,var(--palette-deep) 55%,var(--grid))}.urc-chip.side{border-style:dashed;color:var(--muted);font-weight:500}.urc-hicache-band{border:1px dashed color-mix(in srgb,var(--palette-accent2) 60%,var(--grid));border-radius:8px;padding:.35rem .6rem;font-size:var(--viz-text-annotation);color:var(--ink-2)}.urc-vote-lane{position:relative;display:grid;gap:.45rem;margin:.3rem 0 .4rem}.urc-vote-nodes{display:grid;grid-template-columns:3.6rem repeat(4,minmax(0,1fr));gap:.5rem;align-items:stretch}.urc-vote-rowhead{font-size:var(--viz-text-annotation);color:var(--muted);display:flex;align-items:center;justify-content:flex-end;padding-right:.3rem;text-align:right}.urc-vote-rowhead.full,.urc-vote-rowhead.swa,.urc-vote-rowhead.mamba{color:var(--muted);font-weight:650}.urc-node{border:1.5px solid var(--grid);border-radius:10px;padding:.4rem .5rem;display:grid;gap:.25rem;transition:border-color .2s ease,box-shadow .2s ease,opacity .2s ease}.urc-node.unvisited{opacity:.45}.urc-node.current{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}.urc-node.inboundary{border-color:var(--palette-accent);background:color-mix(in srgb,var(--palette-accent) 55%,var(--surface))}.urc-node-name{font-size:var(--viz-text-label);font-weight:650;color:var(--ink);font-family:var(--font-mono, ui-monospace, monospace)}.urc-node-tokens{display:flex;gap:2px}.urc-node-tokens i{width:9px;height:9px;border-radius:2px;background:color-mix(in srgb,var(--palette-mid) 45%,var(--surface));border:1px solid var(--grid)}.urc-vote-cell{display:grid;place-items:center;min-height:1.7rem}.urc-vote-mark{width:1.55rem;height:1.55rem;display:grid;place-items:center;border-radius:50%;font-size:var(--viz-text-label);font-weight:700;border:1.5px solid var(--grid);color:var(--muted);background:var(--surface);transition:all .2s ease}.urc-vote-mark.pending{opacity:.3}.urc-vote-mark.accept{border-color:var(--palette-accent);color:var(--palette-ink);background:var(--palette-accent)}.urc-vote-mark.reject{border-color:var(--palette-accent2);color:var(--palette-ink);background:var(--palette-accent2)}.urc-vote-mark.off{border-style:dashed;opacity:.35}.urc-boundary-track{display:grid;grid-template-columns:3.6rem repeat(4,minmax(0,1fr));gap:.5rem;align-items:center;min-height:2rem}.urc-boundary-flag{font-size:var(--viz-text-annotation);font-weight:650;color:var(--muted);border:1.5px solid var(--palette-accent);border-radius:999px;padding:.12rem .55rem;justify-self:center;opacity:0;transition:opacity .2s ease;text-align:center}.urc-boundary-flag.shown{opacity:1}.urc-walk-flag{font-size:var(--viz-text-annotation);color:var(--accent);justify-self:center;white-space:nowrap}.urc-zone-bar{display:grid;grid-template-columns:3.6rem minmax(0,1fr);gap:.5rem;align-items:center}.urc-zone-cells{display:flex;height:14px;border-radius:4px;overflow:hidden;border:1px solid var(--grid)}.urc-zone-cells i{height:100%;transition:width .25s ease}.urc-zone-cells i.reuse{background:var(--palette-accent)}.urc-zone-cells i.recompute{background:repeating-linear-gradient(45deg,transparent 0 3px,var(--axis) 3px 4.5px)}.urc-zone-caption{display:flex;justify-content:space-between;font-size:var(--viz-text-annotation);color:var(--muted)}.urc-step-desc{margin-top:.9rem;font-size:var(--viz-text-label);color:var(--ink);border-left:3px solid var(--accent);padding:.25rem 0 .25rem .7rem;min-height:2.4em}.urc-scenarios{display:flex;flex-wrap:wrap;gap:.3rem}.urc-scenario-btn{font-size:var(--viz-text-annotation);color:var(--muted);border:1px solid var(--grid);border-radius:999px;padding:.12rem .6rem;background:transparent;cursor:pointer}.urc-scenario-btn.active{color:var(--accent-ink);background:var(--accent);border-color:var(--accent);font-weight:650}.urc-tiers{display:grid;gap:.5rem;margin:.4rem 0}.urc-tier{display:grid;grid-template-columns:9.5rem 1fr;gap:.6rem;align-items:center;border:1px solid var(--grid);border-radius:10px;padding:.45rem .6rem;min-height:3.4rem}.urc-tier-name{font-size:var(--viz-text-label);font-weight:650;color:var(--ink-2)}.urc-tier-name small{display:block;font-weight:400;font-size:var(--viz-text-annotation);color:var(--muted)}.urc-tier-slot{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;min-height:2.3rem}.urc-payload{border:1.5px solid var(--palette-mid);background:color-mix(in srgb,var(--palette-mid) 25%,var(--surface));border-radius:8px;padding:.3rem .55rem;font-size:var(--viz-text-label);font-weight:650;color:var(--ink);transition:box-shadow .2s ease}.urc-payload.moving{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}.urc-payload small{display:block;font-weight:400;font-size:var(--viz-text-annotation);color:var(--muted);font-family:var(--font-mono, ui-monospace, monospace)}.urc-sidecar-chip{border:1px dashed color-mix(in srgb,var(--palette-mid) 50%,var(--grid));border-radius:8px;padding:.25rem .5rem;font-size:var(--viz-text-annotation);color:var(--muted)}.urc-ghost{border:1px dashed var(--grid);border-radius:8px;padding:.3rem .55rem;font-size:var(--viz-text-annotation);color:var(--muted);opacity:.7}.urc-req{border:1.5px solid var(--accent);border-radius:8px;padding:.25rem .55rem;font-size:var(--viz-text-annotation);font-weight:650;color:var(--accent)}.urc-identity{margin-left:auto;font-size:var(--viz-text-annotation);color:var(--muted);font-weight:650;white-space:nowrap}.urc-idx{overflow-x:auto;padding:3px;display:grid;gap:.4rem;margin-top:.4rem}.urc-idx .urc-page{height:24px;cursor:pointer;font:inherit;font-size:var(--viz-text-annotation);font-family:var(--font-mono, ui-monospace, monospace);padding:0}.urc-idx .urc-page.empty{cursor:default}.urc-page.sidecar{border-style:dashed;color:var(--muted)}.urc-idx .urc-page.on{outline:2px solid var(--accent);outline-offset:1px;color:var(--ink);font-weight:700}.urc-idx-xlate{min-height:.9rem}.urc-xarrow{text-align:center;font-size:var(--viz-text-annotation);line-height:.9rem;color:var(--muted)}.urc-xarrow.on{color:var(--accent);font-weight:700}.urc-pagerow{display:grid;grid-template-columns:8.5rem repeat(6,minmax(2rem,3rem)) 1fr;gap:3px;align-items:center}.urc-pagerow-label{font-size:var(--viz-text-annotation);color:var(--muted);text-align:right;padding-right:.5rem}.urc-page{height:20px;border-radius:4px;border:1px solid var(--grid);display:grid;place-items:center;font-size:var(--viz-text-annotation);font-family:var(--font-mono, ui-monospace, monospace);color:var(--ink-2);background:var(--surface)}.urc-page.full{border-color:color-mix(in srgb,var(--palette-mid) 55%,var(--grid));background:color-mix(in srgb,var(--palette-mid) 25%,var(--surface))}.urc-page.swa{border-color:color-mix(in srgb,var(--palette-apricot) 60%,var(--grid));background:color-mix(in srgb,var(--palette-apricot) 60%,var(--surface))}.urc-page.empty{background:transparent;border:none}.urc-pagemap-note{font-size:var(--viz-text-annotation);color:var(--muted);padding-left:.4rem}.urc-bench{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:.5rem 0}@media(max-width:640px){.urc-bench{grid-template-columns:1fr}}.urc-bench-panel{display:grid;gap:.45rem;align-content:start}.urc-bench-model{font-size:var(--viz-text-label);color:var(--ink);font-weight:650}.urc-bench-model small{display:block;font-weight:400;font-size:var(--viz-text-annotation);color:var(--muted)}.urc-bench-head{font-size:var(--viz-text-annotation);color:var(--muted);margin-top:.3rem}.urc-bar-row{display:grid;grid-template-columns:5.6rem 1fr 4.1rem;align-items:center;gap:.5rem;font-size:var(--viz-text-label);color:var(--ink-2)}.urc-bar-row output{font-variant-numeric:tabular-nums;font-weight:650;color:var(--ink);text-align:right;white-space:nowrap}.urc-bar{height:14px;border-radius:3px;display:block;min-width:3px}.urc-stat-chips{display:flex;gap:.5rem;flex-wrap:wrap}.urc-hit-chart{display:grid;gap:.5rem;min-width:0;margin-top:.6rem}.urc-hit-chart>svg{display:block;width:100%;height:auto;overflow:visible}.urc-hit-axes line{stroke:var(--grid)}.urc-hit-axes text{fill:var(--muted)}.urc-hit-legend{display:flex;flex-wrap:wrap;gap:.35rem}.urc-hit-legend .archive-chart-legend{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .4rem;border:1px solid var(--grid);border-radius:6px;background:transparent;color:var(--muted);font:inherit;font-size:var(--viz-text-annotation);cursor:pointer}.urc-hit-legend .archive-chart-legend[aria-pressed=false]{opacity:.4}.urc-hit-legend .archive-chart-legend:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.urc-hit-legend svg{width:24px;height:8px}.urc-stat-chip{border:1px solid var(--grid);border-radius:8px;padding:.3rem .55rem;display:grid;gap:.1rem}.urc-stat-chip small{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-stat-chip b{font-size:var(--viz-text-node);color:var(--ink);font-variant-numeric:tabular-nums}.urc-hit-arrow{font-size:var(--viz-text-label);color:var(--ink-2);font-variant-numeric:tabular-nums}.urc-hit-arrow b{color:var(--muted)}.urc-sess{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:.4rem 0}@media(max-width:640px){.urc-sess{grid-template-columns:1fr}}.urc-sess-pane{display:grid;gap:.45rem;align-content:start;border:1px solid var(--grid);border-radius:10px;padding:.55rem .6rem}.urc-sess-head{font-size:var(--viz-text-label);font-weight:650;color:var(--ink)}.urc-sess-entries{display:flex;gap:.4rem;flex-wrap:wrap;min-height:3.2rem}.urc-entry{border-radius:8px;border:1.5px solid var(--grid);padding:.3rem .5rem;display:grid;gap:.12rem;transition:opacity .25s ease,border-color .2s ease}.urc-entry b{font-size:var(--viz-text-label);font-weight:650;color:var(--ink);font-family:var(--font-mono, ui-monospace, monospace)}.urc-entry small{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-entry.sa{border-color:color-mix(in srgb,var(--palette-mid) 65%,var(--grid))}.urc-entry.sb{border-color:color-mix(in srgb,var(--palette-apricot) 65%,var(--grid))}.urc-entry.sc{border-color:var(--grid);border-style:dashed}.urc-entry.evicted{opacity:.22;border-style:dotted}.urc-entry.hot{box-shadow:0 0 0 3px color-mix(in srgb,var(--palette-accent2) 25%,transparent)}.urc-sess-event{font-size:var(--viz-text-annotation);color:var(--ink-2);min-height:1.4em}.urc-sess-event b.bad,.urc-sess-event b.good{color:var(--muted)}.urc-sess-legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:var(--viz-text-annotation);color:var(--muted);margin-top:.2rem}.urc-split{display:grid;grid-template-columns:1fr auto 1fr;gap:.8rem;align-items:stretch;margin:.5rem 0}@media(max-width:640px){.urc-split{grid-template-columns:1fr}}.urc-split-box{border:1.5px solid var(--grid);border-radius:12px;padding:.6rem .7rem;display:grid;gap:.4rem;align-content:start}.urc-split-box.rust{border-color:color-mix(in srgb,var(--palette-deep) 60%,var(--grid))}.urc-split-box.py{border-color:color-mix(in srgb,var(--palette-mid) 55%,var(--grid))}.urc-split-box b{font-size:var(--viz-text-node);color:var(--ink)}.urc-split-box ul{margin:0;padding-left:1.1rem;font-size:var(--viz-text-label);color:var(--ink-2);display:grid;gap:.2rem}.urc-split-arrows{display:grid;gap:.6rem;align-content:center;justify-items:center;font-size:var(--viz-text-label);color:var(--muted);max-width:11rem;text-align:center}.urc-split-arrows .arrow{font-size:var(--viz-text-node);color:var(--axis);line-height:1}.urc-tree svg{width:100%;height:auto;display:block;margin:.4rem 0 .2rem}.urc-rt-tree{overflow-x:auto}.urc-rt-tree svg{max-width:400px;min-width:400px;margin-left:auto;margin-right:auto}.urc-rt-chips{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;margin-bottom:.35rem}.urc-rt-chips .label{font-size:var(--viz-text-annotation);color:var(--muted);margin-right:.25rem}.urc-rt-chip{width:1.55rem;height:1.55rem;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-family:var(--font-mono, ui-monospace, monospace);font-size:var(--viz-text-label);font-weight:650;border:1.5px solid var(--grid);color:var(--muted);transition:background .25s,border-color .25s,color .25s,opacity .25s}.urc-rt-chip.pend{opacity:.55}.urc-rt-chip.walk{border-color:var(--palette-mid);color:var(--ink)}.urc-rt-chip.reuse{background:var(--palette-accent);border-color:var(--palette-accent);color:var(--palette-ink)}.urc-rt-chip.done{background:color-mix(in srgb,var(--muted) 28%,transparent);border-color:transparent;color:var(--ink)}.urc-rt-chip.miss{border-color:var(--palette-accent2);color:var(--muted)}.urc-rt-chip.cur{box-shadow:0 0 0 2px var(--accent)}.urc-rt-node{fill:var(--surface);stroke:var(--grid);stroke-width:1.5;transition:opacity .3s}.urc-rt-node.ghost{fill:none;stroke:var(--axis);stroke-dasharray:5 4}.urc-rt-node.hl{stroke:var(--accent);stroke-width:2}.urc-rt-node.hide,.urc-rt-hide{opacity:0;transition:opacity .3s}.urc-rt-shift{transition:transform .4s}.urc-rt-edge{fill:none;stroke:var(--axis);stroke-width:1.5;transition:opacity .3s}.urc-rt-tok{font-size:var(--viz-text-label);font-family:var(--font-mono, ui-monospace, monospace);font-weight:700;fill:var(--ink)}.urc-rt-cell.ghost .urc-rt-tok{font-size:var(--viz-text-label);fill:var(--muted)}.urc-rt-f.live{fill:var(--palette-mid)}.urc-rt-f.ghost,.urc-rt-s.ghost{fill:none;stroke-dasharray:2.5 2.5;stroke-width:1}.urc-rt-f.ghost{stroke:var(--palette-mid)}.urc-rt-s.live{fill:var(--palette-apricot);transition:fill .3s}.urc-rt-s.tomb{fill:url(#urc-rt-hatch);stroke:var(--palette-apricot);stroke-width:1}.urc-rt-s.ghost{stroke:var(--palette-apricot)}.urc-rt-ring{fill:none;stroke-width:2}.urc-rt-ring.cur{stroke:var(--accent)}.urc-rt-ring.bad{stroke:var(--palette-accent2)}.urc-rt-tag{font-weight:700;fill:var(--muted)}.urc-rt-wash{fill:var(--palette-accent);transition:opacity .3s}.urc-rt-flag{transition:transform .4s}.urc-rt-flag line{stroke:var(--accent);stroke-width:1.6;stroke-dasharray:4 3}.urc-rt-flag text{font-weight:650;fill:var(--accent)}.urc-rt-ptr{fill:var(--accent);transition:transform .3s}.urc-rt-m circle{fill:none;stroke:var(--grid);stroke-width:1.3;transition:fill .3s,stroke .3s}.urc-rt-m text{font-size:var(--viz-text-annotation);font-weight:700;fill:var(--muted)}.urc-rt-m.filled circle{fill:var(--palette-deep);stroke:var(--palette-deep)}.urc-rt-m.filled text{fill:var(--surface)}.urc-rt-m.dashed circle{stroke-dasharray:3 3}.urc-rt-m.hide{opacity:0}.urc-rt-vote{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-top:.4rem;min-height:1.5rem}.urc-rt-vote .head{font-size:var(--viz-text-annotation);color:var(--muted)}.urc-vb-pill{border-radius:999px;padding:.1rem .55rem;font-size:var(--viz-text-annotation);font-weight:650;border:1px solid transparent}.urc-vb-pill.pass{color:var(--palette-ink);border-color:var(--palette-accent);background:var(--palette-accent)}.urc-vb-pill.fail{color:var(--palette-ink);border-color:var(--palette-accent2);background:var(--palette-accent2)}.urc-rt-vote .verdict{font-size:var(--viz-text-label);font-weight:650;color:var(--ink)}
+.archive-bar-0{width:6.46048%;background:var(--palette-apricot)}.archive-bar-1{width:9.82818%;background:var(--palette-mid)}.archive-bar-2{width:100%;background:var(--palette-deep)}.archive-bar-3{width:23.0999%;background:var(--palette-apricot)}.archive-bar-4{width:31.4456%;background:var(--palette-mid)}.archive-bar-5{width:100%;background:var(--palette-deep)}.archive-bar-6{width:66.2651%;background:var(--palette-mid)}.archive-bar-7{width:17.4699%;background:var(--palette-mid)}.archive-bar-8{width:81.3253%;background:var(--palette-mid)}.archive-bar-9{width:100%;background:var(--palette-mid)}.archive-bar-10{width:90.4762%;background:var(--palette-apricot)}.archive-bar-11{width:100%;background:var(--palette-mid)}.archive-bar-12{width:23.8095%;background:var(--palette-apricot)}.archive-bar-13{width:42.8571%;background:var(--palette-mid)}.archive-bar-14{width:11.9048%;background:var(--palette-apricot)}.archive-bar-15{width:16.6667%;background:var(--palette-mid)}</style><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Unified Radix Cache in SGLang: one tree for hybrid
+model prefix caching</h1>
+</header>
+<section
+id="unified-radix-cache-in-sglang-one-tree-for-hybrid-model-prefix-caching"
+class="header">
+<h1>Unified Radix Cache in SGLang: one tree for hybrid model prefix
+caching</h1>
+<p>来源：<a
+href="https://www.sglang.io/blog/unified-radix-cache">https://www.sglang.io/blog/unified-radix-cache</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div
+class="prose max-w-none prose-headings:font-heading prose-a:text-primary dark:prose-invert">
+<figure role="img"
+aria-label="Multi-turn benchmark on DeepSeek-V4-Flash (TP4, 4×H200): effective input throughput 9.4K tokens/s with GPU L1 only, 14.3K with host L2 added, 145.5K with Mooncake L3 added, 15.5×; prefix cache hit rate near 98% in later rounds with L3">
+<div>
+<div>
+<div>
+Unified Radix Cache in SGLang
+</div>
+<div>
+One radix tree, one slot per component, the same prefix identity across
+GPU, host, and external tiers
+</div>
+</div>
+<span>TP4 · 4×H200</span>
+</div>
+<div>
+<div>
+<div>
+<span>Effective input throughput (tok/s)<span> ·
+DeepSeek-V4-Flash</span></span><span>15.5× with L3</span>
+</div>
+<div>
+<div>
+<div>
+<canvas aria-hidden="true" data-engine="three.js r160" width="206" height="240">
+</canvas>
+<span>9.4K</span>
+</div>
+<div>
+L1
+</div>
+<div>
+GPU only
+</div>
+</div>
+<div>
+<div>
+<canvas aria-hidden="true" data-engine="three.js r160" width="206" height="240">
+</canvas>
+<span>14.3K</span>
+</div>
+<div>
+L1 + L2
+</div>
+<div>
++ host
+</div>
+</div>
+<div>
+<div>
+<canvas aria-hidden="true" data-engine="three.js r160" width="206" height="240">
+</canvas>
+<span>145.5K</span>
+</div>
+<div>
+L1 + L2 + L3
+</div>
+<div>
++ Mooncake
+</div>
+</div>
+</div>
+</div>
+<div>
+<div>
+<span>Prefix cache hit rate, later rounds<span> ·
+DeepSeek-V4-Flash</span></span><span>near 98%</span>
+</div>
+<div>
+<div>
+<div>
+<canvas aria-hidden="true" data-engine="three.js r160" width="618" height="240">
+</canvas>
+<span>~98%</span>
+</div>
+<div>
+L1 + L2 + L3
+</div>
+<div>
++ Mooncake
+</div>
+</div>
+</div>
+</div>
+</div>
+</figure>
+<p>Adapted from the <a
+href="https://www.lmsys.org/blog/2026-08-11-unified-radix-cache/">LMSYS
+article on Unified Radix Cache</a>.</p>
+<h2 id="background">Background</h2>
+<p>Prefix caching reuses KV when requests share a token prefix. Under
+full attention, a later request can reuse the cached prefix and compute
+only the new tokens.</p>
+<p>Hybrid models combine three kinds of data with different reuse rules:
+FULL (full attention) needs KV along the matched prefix, SWA (sliding
+window attention) needs a continuous window immediately before the reuse
+boundary, and MAMBA needs a snapshot of the recurrent state, or
+checkpoint, at that boundary.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Reuse semantics diagram</span><span
+class="viz-subtitle">Candidate boundary t8 · SWA window W = 4 · gray
+cells are outside the required range</span>
+</div>
+<div class="urc-reuse">
+<div class="urc-token-strip">
+<span class="urc-token-label">Matched token prefix</span><span
+class="urc-token">t1</span><span class="urc-token">t2</span><span
+class="urc-token">t3</span><span class="urc-token">t4</span><span
+class="urc-token">t5</span><span class="urc-token">t6</span><span
+class="urc-token">t7</span><span class="urc-token">t8</span><span
+class="urc-token">t9</span><span class="urc-token">t10</span><span
+class="urc-token">t11</span><span
+class="urc-token">t12</span><span></span>
+</div>
+<div class="urc-reuse-row">
+<span class="urc-reuse-rowlabel full">FULL · whole path</span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell covered full"></span><span
+class="urc-reuse-cell"></span><span class="urc-reuse-cell"></span><span
+class="urc-reuse-cell"></span><span class="urc-reuse-cell"></span>
+</div>
+<div class="urc-reuse-row">
+<span class="urc-reuse-rowlabel swa">SWA · required window</span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell covered swa"
+title="Required reuse window"></span><span
+class="urc-reuse-cell covered swa"
+title="Required reuse window"></span><span
+class="urc-reuse-cell covered swa"
+title="Required reuse window"></span><span
+class="urc-reuse-cell covered swa"
+title="Required reuse window"></span><span class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span><span
+class="urc-reuse-cell"
+title="Not required for this reuse; may be retained or evicted"></span>
+</div>
+<div class="urc-reuse-row">
+<span class="urc-reuse-rowlabel mamba">MAMBA · exact
+checkpoint</span><span class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt covered" title="checkpoint"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span><span
+class="urc-reuse-cell ckpt"></span>
+</div>
+</div>
+</figure>
+<p>DeepSeek-V4 pairs FULL with SWA, Kimi-K3 pairs FULL with MAMBA for
+its KDA recurrent state, and Inkling uses all three. SGLang handles
+these combinations on one shared tree, with each component defining its
+own reuse rule.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Class matrix vs components diagram</span><span
+class="viz-head-extra urc-scenarios"></span>
+</div>
+<div class="urc-matrix">
+<div class="urc-matrix-panel">
+<span class="urc-matrix-head">Before: one specialized cache class per
+combination × capability · <strong>2 in total</strong></span>
+<div class="urc-class-grid">
+<div class="urc-class">
+<strong>FULL</strong><span
+class="urc-dup"><em>matchinsertlockevict</em></span>
+</div>
+<div class="urc-class">
+<strong>FULL + SWA</strong><span
+class="urc-dup"><em>matchinsertlockevict</em></span>
+</div>
+</div>
+</div>
+<div class="urc-matrix-panel">
+<span class="urc-matrix-head">After: one tree plus pluggable components
+· <strong>components ×2</strong></span>
+<div class="urc-unified">
+<span class="urc-unified-core">UnifiedTreeCore: shared matching, split,
+insert, lock, evict mechanics</span><span
+class="urc-unified-cache">UnifiedRadixCache: pool orchestration</span>
+<div class="urc-chip-row">
+<span class="small">Components:</span><span
+class="urc-chip full">FULL</span><span
+class="urc-chip swa">SWA</span><span class="urc-chip side">sidecar
+×N</span>
+</div>
+</div>
+</div>
+</div>
+</figure>
+<h2 id="unified-radix-cache">Unified Radix Cache</h2>
+<h3 id="design-and-mechanism">Design and mechanism</h3>
+<p>Each radix node stores a token span and a slot for each component.
+FULL and SWA slots hold KV page indices; MAMBA holds a checkpoint at the
+prefix endpoint. SWA data outside the required window can stay cached or
+be evicted independently, leaving an empty slot called a tombstone.</p>
+<p>Components handle their own splits, inserts, locks, and evictions.
+Reclaiming part of a node's SWA data starts by splitting the node at the
+retention boundary. A MAMBA checkpoint stays at its original prefix
+endpoint; a request reusing it obtains a private copy through
+copy-on-write, then continues updating its state.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Unified radix tree replay</span><span
+class="viz-subtitle">Window W = 4 · one token per cell · earlier CSFA
+retained after request 2</span>
+</div>
+<div class="viz-controls">
+<span class="viz-tick">t = 0/8</span><span class="viz-head-extra"><span
+class="urc-scenarios"></span></span>
+</div>
+<div class="viz-frame">
+<div class="urc-rt-chips">
+<span class="label">Request 1 · token stream</span><span
+class="urc-rt-chip pend">A</span><span
+class="urc-rt-chip pend">B</span><span
+class="urc-rt-chip pend">C</span><span
+class="urc-rt-chip pend">S</span><span
+class="urc-rt-chip pend">F</span><span class="urc-rt-chip pend">A</span>
+</div>
+<div class="urc-tree urc-rt-tree">
+<svg viewbox="0 0 400 218" role="img" aria-label="Unified radix tree replay">
+<defs><pattern id="urc-rt-hatch" width="5" height="5" patternunits="userSpaceOnUse"><path d="M0 5 L5 0" stroke="var(--axis)" stroke-width="1"></path></pattern></defs><circle cx="52" cy="16" r="5" fill="none" stroke="var(--axis)"></circle><text x="62" y="20" font-size="10" fill="var(--muted)">root</text><text x="100" y="20" font-size="10" fill="var(--muted)">reuse
+boundary: 0</text>
+</svg>
+</div>
+<div class="urc-rt-vote">
+
+</div>
+</div>
+<div class="viz-footer">
+<span class="urc-note"><span>■ F = FULL KV pages</span><span>■ S = SWA
+window slot</span><span>● M = MAMBA checkpoint</span>hatched =
+tombstone　dashed = computing, not cached yetgreen band = reused span
+(all-pass)</span>
+</div>
+</figure>
+<h3 id="the-safe-reuse-boundary">The safe reuse boundary</h3>
+<p>Matching walks the matched path, and each component checks its data
+at every candidate boundary. Each candidate is evaluated independently.
+Computation resumes from the deepest boundary accepted by all
+components.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Reuse-boundary voting diagram</span><span
+class="viz-subtitle">Scenario: n3 has tombstoned SWA window slots; n4
+has no MAMBA checkpoint</span>
+</div>
+<div class="viz-controls">
+<span class="viz-tick">t = 0/5</span><span class="viz-head-extra"><span
+class="urc-scenarios"></span></span>
+</div>
+<div class="viz-frame">
+<div class="urc-vote-lane">
+<div class="urc-vote-nodes">
+<span class="urc-vote-rowhead"></span>
+<div class="urc-node unvisited">
+<span class="urc-node-name">n1</span><span class="urc-node-tokens"
+aria-hidden="true"><em></em></span>
+</div>
+<div class="urc-node unvisited">
+<span class="urc-node-name">n2</span><span class="urc-node-tokens"
+aria-hidden="true"><em></em></span>
+</div>
+<div class="urc-node unvisited">
+<span class="urc-node-name">n3</span><span class="urc-node-tokens"
+aria-hidden="true"><em></em></span>
+</div>
+<div class="urc-node unvisited">
+<span class="urc-node-name">n4</span><span class="urc-node-tokens"
+aria-hidden="true"><em></em></span>
+</div>
+</div>
+<div class="urc-vote-nodes">
+<span class="urc-vote-rowhead full">FULL</span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+</div>
+<div class="urc-vote-nodes">
+<span class="urc-vote-rowhead swa">SWA</span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+</div>
+<div class="urc-vote-nodes">
+<span class="urc-vote-rowhead mamba">MAMBA</span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+<span class="urc-vote-cell">
+<span class="urc-vote-mark pending">
+<svg viewbox="0 0 16 16" width="10" height="10" aria-hidden="true">
+<circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+</svg>
+</span></span>
+</div>
+<div class="urc-boundary-track">
+<span class="urc-vote-rowhead"></span><span><span
+class="urc-boundary-flag">▲ Safe boundary</span></span><span><span
+class="urc-boundary-flag">▲ Safe boundary</span></span><span><span
+class="urc-boundary-flag">▲ Safe boundary</span></span><span><span
+class="urc-boundary-flag">▲ Safe boundary</span></span>
+</div>
+<div class="urc-zone-bar">
+<span class="urc-vote-rowhead"></span><span><span class="urc-zone-cells"
+aria-hidden="true"><em></em></span><span
+class="urc-zone-caption"><span>Reused directly</span><span>Recomputed
+from here</span></span></span>
+</div>
+</div>
+</div>
+</figure>
+<h2 id="hicache-across-memory-tiers">HiCache across memory tiers</h2>
+<p>HiCache extends Unified Radix Cache across GPU L1, host memory L2,
+and external storage L3. See <a
+href="https://yichizhang.dev/AI-Infra-Visualized/en/lessons/hicache/">HiCache
+in SGLang</a> for its tiering and data transfers.</p>
+<h3 id="components-and-sidecars">Components and sidecars</h3>
+<p>DeepSeek-V4's FULL and SWA use separate page indices, mapped by the
+allocator. Auxiliary pools for compressed KV, indexer buffers, and
+compressor states act as sidecars: they share their component's indices
+and transfers. Three follow FULL and two follow SWA.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Index reuse diagram</span><span
+class="viz-subtitle">The blog's normalized six-page case · only the
+final two SWA pages retained here</span>
+</div>
+<div class="urc-idx">
+<div class="urc-pagerow">
+<span class="urc-pagerow-label">FULL pages (component)</span><span
+class="urc-pagemap-note"></span>
+</div>
+<div class="urc-pagerow">
+<span class="urc-pagerow-label">sidecars ×3 follow FULL</span><span
+class="urc-pagemap-note"></span>
+</div>
+<div class="urc-pagerow urc-idx-xlate">
+<span class="urc-pagerow-label"></span><span
+class="urc-xarrow"></span><span class="urc-xarrow"></span><span
+class="urc-xarrow"></span><span class="urc-xarrow"></span><span
+class="urc-xarrow on">↓</span><span class="urc-xarrow">↓</span><span
+class="urc-pagemap-note">allocator translates</span>
+</div>
+<div class="urc-pagerow">
+<span class="urc-pagerow-label">SWA window slots (component)</span><span
+class="urc-page empty"></span><span class="urc-page empty"></span><span
+class="urc-page empty"></span><span class="urc-page empty"></span><span
+class="urc-pagemap-note"></span>
+</div>
+<div class="urc-pagerow">
+<span class="urc-pagerow-label">sidecars ×2 follow SWA</span><span
+class="urc-page empty"></span><span class="urc-page empty"></span><span
+class="urc-page empty"></span><span class="urc-page empty"></span><span
+class="urc-pagemap-note"></span>
+</div>
+</div>
+<div class="urc-step-desc">
+Page 4: FULL's F4 and its three sidecars share page number 4. The
+allocator translates F4 to SWA's S0, and SWA's two sidecars copy page
+number 0.
+</div>
+</figure>
+<h3 id="multi-turn-benchmark">Multi-turn benchmark</h3>
+<p>Multi-turn conversations keep extending the reusable prefix. A
+comparison of L1 only, L1+L2, and an additional 500 GiB Mooncake L3 tier
+shows DeepSeek-V4-Flash reaching 145.5K effective input tokens/s with
+L3, up from 9.4K with L1 only, with average TTFT below 9 seconds.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Multi-turn benchmark results diagram</span><span
+class="viz-subtitle">Effective input throughput = total full prompt
+length ÷ wall-clock time; cache-hit prefix tokens count</span>
+</div>
+<div class="urc-bench">
+<div class="urc-bench-panel">
+<span class="urc-bench-model">DeepSeek-V4-Flash<span
+class="small">FULL+SWA · 4×H200 TP4 · 48 clients · 60 rounds · 4,096 in
++ 16 out per turn</span></span><span class="urc-bench-head">Effective
+input throughput (tokens/s)</span>
+<div class="urc-bar-row">
+<span>L1</span><span><span class="urc-bar archive-bar-0"
+title="9.4K tokens/s"></span></span>
+<output>
+9.4K
+</output>
+</div>
+<div class="urc-bar-row">
+<span>L1+L2</span><span><span class="urc-bar archive-bar-1"
+title="14.3K tokens/s"></span></span>
+<output>
+14.3K
+</output>
+</div>
+<div class="urc-bar-row">
+<span>L1+L2+L3</span><span><span class="urc-bar archive-bar-2"
+title="145.5K tokens/s"></span></span>
+<output>
+145.5K
+</output>
+</div>
+<div class="urc-hit-chart">
+<span class="urc-bench-head">Cache hit rate by round</span>
+<div class="urc-hit-legend" role="group"
+aria-label="Cache configuration curves">
+<span class="archive-chart-legend">
+<svg viewbox="0 0 24 8" aria-hidden="true">
+<line x1="1" x2="23" y1="4" y2="4" stroke="var(--palette-apricot)" stroke-width="3" stroke-dasharray="2 5"></line>
+</svg>
+L1</span>
+<span class="archive-chart-legend">
+<svg viewbox="0 0 24 8" aria-hidden="true">
+<line x1="1" x2="23" y1="4" y2="4" stroke="var(--palette-mid)" stroke-width="3" stroke-dasharray="8 5"></line>
+</svg>
+L1+L2</span>
+<span class="archive-chart-legend">
+<svg viewbox="0 0 24 8" aria-hidden="true">
+<line x1="1" x2="23" y1="4" y2="4" stroke="var(--palette-deep)" stroke-width="3"></line>
+</svg>
+L1+L2+L3</span>
+</div>
+<svg viewbox="0 0 440 245" role="img" aria-label="DeepSeek-V4-Flash · Cache hit rate by round">
+<title>
+DeepSeek-V4-Flash · Cache hit rate by round
+</title>
+<desc>Hit rate = cached prefix tokens ÷ complete prompt tokens, summed
+per round. Curves use approximate samples read from the source
+figure.</desc><g class="urc-hit-axes" font-size="12.6"><g><line x1="40" x2="428" y1="201" y2="201"></line><text x="32" y="205" text-anchor="end">0%</text></g><g><line x1="40" x2="428" y1="153.75" y2="153.75"></line><text x="32" y="157.75" text-anchor="end">25%</text></g><g><line x1="40" x2="428" y1="106.5" y2="106.5"></line><text x="32" y="110.5" text-anchor="end">50%</text></g><g><line x1="40" x2="428" y1="59.25" y2="59.25"></line><text x="32" y="63.25" text-anchor="end">75%</text></g><g><line x1="40" x2="428" y1="12" y2="12"></line><text x="32" y="16" text-anchor="end">100%</text></g><g><line x1="40" x2="40" y1="201" y2="206"></line><text x="40" y="221" text-anchor="middle">0</text></g><g><line x1="110.54545454545455" x2="110.54545454545455" y1="201" y2="206"></line><text x="110.54545454545455" y="221" text-anchor="middle">10</text></g><g><line x1="181.0909090909091" x2="181.0909090909091" y1="201" y2="206"></line><text x="181.0909090909091" y="221" text-anchor="middle">20</text></g><g><line x1="251.63636363636363" x2="251.63636363636363" y1="201" y2="206"></line><text x="251.63636363636363" y="221" text-anchor="middle">30</text></g><g><line x1="322.1818181818182" x2="322.1818181818182" y1="201" y2="206"></line><text x="322.1818181818182" y="221" text-anchor="middle">40</text></g><g><line x1="392.7272727272727" x2="392.7272727272727" y1="201" y2="206"></line><text x="392.7272727272727" y="221" text-anchor="middle">50</text></g><g><line x1="428" x2="428" y1="201" y2="206"></line><text x="428" y="221" text-anchor="middle">55</text></g><text x="234" y="242" text-anchor="middle">Round
+(zero-based)</text></g><polyline fill="none" stroke="var(--palette-deep)" stroke-width="3" stroke-linejoin="round" points="40,201 75.27272727272728,44.13000000000001 110.54545454545455,29.009999999999994 145.8181818181818,23.34000000000001 181.0909090909091,21.45000000000001 216.36363636363635,19.560000000000006 251.63636363636363,17.670000000000005 286.9090909090909,17.670000000000005 322.1818181818182,15.780000000000003 357.4545454545455,15.780000000000003 392.7272727272727,15.780000000000003 428,15.780000000000003">
+<title>
+L1+L2+L3
+</title>
+</polyline><polyline fill="none" stroke="var(--palette-mid)" stroke-width="3" stroke-dasharray="8 5" stroke-linejoin="round" points="40,201 75.27272727272728,44.13000000000001 110.54545454545455,29.009999999999994 145.8181818181818,23.34000000000001 181.0909090909091,21.45000000000001 216.36363636363635,19.560000000000006 251.63636363636363,17.670000000000005 286.9090909090909,17.670000000000005 322.1818181818182,201 357.4545454545455,201 392.7272727272727,201 428,201">
+<title>
+L1+L2
+</title>
+</polyline><polyline fill="none" stroke="var(--palette-apricot)" stroke-width="3" stroke-dasharray="2 5" stroke-linejoin="round" points="40,201 75.27272727272728,44.13000000000001 110.54545454545455,29.009999999999994 145.8181818181818,23.34000000000001 181.0909090909091,201 216.36363636363635,201 251.63636363636363,201 286.9090909090909,201 322.1818181818182,201 357.4545454545455,201 392.7272727272727,201 428,201">
+<title>
+L1
+</title>
+</polyline><rect x="35" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 0 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈0%
+</title>
+</rect><rect x="70.27272727272728" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 5 L1: ≈83% L1+L2: ≈83% L1+L2+L3: ≈83%
+</title>
+</rect><rect x="105.54545454545455" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 10 L1: ≈91% L1+L2: ≈91% L1+L2+L3: ≈91%
+</title>
+</rect><rect x="140.8181818181818" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 15 L1: ≈94% L1+L2: ≈94% L1+L2+L3: ≈94%
+</title>
+</rect><rect x="176.0909090909091" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 20 L1: ≈0% L1+L2: ≈95% L1+L2+L3: ≈95%
+</title>
+</rect><rect x="211.36363636363635" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 25 L1: ≈0% L1+L2: ≈96% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="246.63636363636363" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 30 L1: ≈0% L1+L2: ≈97% L1+L2+L3: ≈97%
+</title>
+</rect><rect x="281.9090909090909" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 35 L1: ≈0% L1+L2: ≈97% L1+L2+L3: ≈97%
+</title>
+</rect><rect x="317.1818181818182" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 40 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈98%
+</title>
+</rect><rect x="352.4545454545455" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 45 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈98%
+</title>
+</rect><rect x="387.7272727272727" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 50 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈98%
+</title>
+</rect><rect x="423" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 55 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈98%
+</title>
+</rect>
+</svg>
+</div>
+<span class="urc-bench-head">Final metrics with L3</span><span
+class="urc-stat-chips"><span class="urc-stat-chip"><span
+class="small">hit rate</span><strong>~98%</strong></span><span
+class="urc-stat-chip"><span class="small">avg TTFT</span><strong>&lt; 9
+s</strong></span></span>
+</div>
+<div class="urc-bench-panel">
+<span class="urc-bench-model">Inkling-Small<span
+class="small">FULL+SWA+MAMBA · 8×H200 TP8 · 64 clients · 30 rounds ·
+1,216 in + 64 out per turn</span></span><span
+class="urc-bench-head">Effective input throughput (tokens/s)</span>
+<div class="urc-bar-row">
+<span>L1</span><span><span class="urc-bar archive-bar-3"
+title="15.5K tokens/s"></span></span>
+<output>
+15.5K
+</output>
+</div>
+<div class="urc-bar-row">
+<span>L1+L2</span><span><span class="urc-bar archive-bar-4"
+title="21.1K tokens/s"></span></span>
+<output>
+21.1K
+</output>
+</div>
+<div class="urc-bar-row">
+<span>L1+L2+L3</span><span><span class="urc-bar archive-bar-5"
+title="67.1K tokens/s"></span></span>
+<output>
+67.1K
+</output>
+</div>
+<div class="urc-hit-chart">
+<span class="urc-bench-head">Cache hit rate by round</span>
+<div class="urc-hit-legend" role="group"
+aria-label="Cache configuration curves">
+<span class="archive-chart-legend">
+<svg viewbox="0 0 24 8" aria-hidden="true">
+<line x1="1" x2="23" y1="4" y2="4" stroke="var(--palette-apricot)" stroke-width="3" stroke-dasharray="2 5"></line>
+</svg>
+L1</span>
+<span class="archive-chart-legend">
+<svg viewbox="0 0 24 8" aria-hidden="true">
+<line x1="1" x2="23" y1="4" y2="4" stroke="var(--palette-mid)" stroke-width="3" stroke-dasharray="8 5"></line>
+</svg>
+L1+L2</span>
+<span class="archive-chart-legend">
+<svg viewbox="0 0 24 8" aria-hidden="true">
+<line x1="1" x2="23" y1="4" y2="4" stroke="var(--palette-deep)" stroke-width="3"></line>
+</svg>
+L1+L2+L3</span>
+</div>
+<svg viewbox="0 0 440 245" role="img" aria-label="Inkling-Small · Cache hit rate by round">
+<title>
+Inkling-Small · Cache hit rate by round
+</title>
+<desc>Hit rate = cached prefix tokens ÷ complete prompt tokens, summed
+per round. Curves use approximate samples read from the source
+figure.</desc><g class="urc-hit-axes" font-size="12.6"><g><line x1="40" x2="428" y1="201" y2="201"></line><text x="32" y="205" text-anchor="end">0%</text></g><g><line x1="40" x2="428" y1="153.75" y2="153.75"></line><text x="32" y="157.75" text-anchor="end">25%</text></g><g><line x1="40" x2="428" y1="106.5" y2="106.5"></line><text x="32" y="110.5" text-anchor="end">50%</text></g><g><line x1="40" x2="428" y1="59.25" y2="59.25"></line><text x="32" y="63.25" text-anchor="end">75%</text></g><g><line x1="40" x2="428" y1="12" y2="12"></line><text x="32" y="16" text-anchor="end">100%</text></g><g><line x1="40" x2="40" y1="201" y2="206"></line><text x="40" y="221" text-anchor="middle">0</text></g><g><line x1="106.89655172413794" x2="106.89655172413794" y1="201" y2="206"></line><text x="106.89655172413794" y="221" text-anchor="middle">5</text></g><g><line x1="173.79310344827587" x2="173.79310344827587" y1="201" y2="206"></line><text x="173.79310344827587" y="221" text-anchor="middle">10</text></g><g><line x1="240.6896551724138" x2="240.6896551724138" y1="201" y2="206"></line><text x="240.6896551724138" y="221" text-anchor="middle">15</text></g><g><line x1="307.58620689655174" x2="307.58620689655174" y1="201" y2="206"></line><text x="307.58620689655174" y="221" text-anchor="middle">20</text></g><g><line x1="374.48275862068965" x2="374.48275862068965" y1="201" y2="206"></line><text x="374.48275862068965" y="221" text-anchor="middle">25</text></g><g><line x1="428" x2="428" y1="201" y2="206"></line><text x="428" y="221" text-anchor="middle">29</text></g><text x="234" y="242" text-anchor="middle">Round
+(zero-based)</text></g><polyline fill="none" stroke="var(--palette-deep)" stroke-width="3" stroke-linejoin="round" points="40,201 53.37931034482759,104.61 66.75862068965517,72.47999999999999 80.13793103448276,57.36 93.51724137931035,47.90999999999999 106.89655172413794,42.24000000000001 120.27586206896552,38.46 133.6551724137931,34.68 147.0344827586207,32.79 160.41379310344828,30.899999999999995 173.79310344827587,29.009999999999994 187.17241379310343,27.11999999999999 200.55172413793105,25.22999999999999 213.93103448275863,25.22999999999999 227.31034482758622,23.34000000000001 240.6896551724138,23.34000000000001 254.06896551724137,23.34000000000001 267.44827586206895,21.45000000000001 280.82758620689657,21.45000000000001 294.2068965517241,21.45000000000001 307.58620689655174,21.45000000000001 320.9655172413793,19.560000000000006 334.34482758620686,19.560000000000006 347.7241379310345,19.560000000000006 361.1034482758621,19.560000000000006 374.48275862068965,19.560000000000006 387.86206896551727,19.560000000000006 401.2413793103448,17.670000000000005 414.62068965517244,17.670000000000005 428,17.670000000000005">
+<title>
+L1+L2+L3
+</title>
+</polyline><polyline fill="none" stroke="var(--palette-mid)" stroke-width="3" stroke-dasharray="8 5" stroke-linejoin="round" points="40,201 53.37931034482759,104.61 66.75862068965517,72.47999999999999 80.13793103448276,57.36 93.51724137931035,47.90999999999999 106.89655172413794,42.24000000000001 120.27586206896552,38.46 133.6551724137931,34.68 147.0344827586207,32.79 160.41379310344828,30.899999999999995 173.79310344827587,29.009999999999994 187.17241379310343,27.11999999999999 200.55172413793105,25.22999999999999 213.93103448275863,25.22999999999999 227.31034482758622,23.34000000000001 240.6896551724138,23.34000000000001 254.06896551724137,23.34000000000001 267.44827586206895,21.45000000000001 280.82758620689657,83.82000000000001 294.2068965517241,201 307.58620689655174,201 320.9655172413793,201 334.34482758620686,201 347.7241379310345,201 361.1034482758621,201 374.48275862068965,201 387.86206896551727,201 401.2413793103448,201 414.62068965517244,201 428,201">
+<title>
+L1+L2
+</title>
+</polyline><polyline fill="none" stroke="var(--palette-apricot)" stroke-width="3" stroke-dasharray="2 5" stroke-linejoin="round" points="40,201 53.37931034482759,189.66 66.75862068965517,201 80.13793103448276,201 93.51724137931035,201 106.89655172413794,201 120.27586206896552,201 133.6551724137931,201 147.0344827586207,201 160.41379310344828,201 173.79310344827587,201 187.17241379310343,201 200.55172413793105,201 213.93103448275863,201 227.31034482758622,201 240.6896551724138,201 254.06896551724137,201 267.44827586206895,201 280.82758620689657,201 294.2068965517241,201 307.58620689655174,201 320.9655172413793,201 334.34482758620686,201 347.7241379310345,201 361.1034482758621,201 374.48275862068965,201 387.86206896551727,201 401.2413793103448,201 414.62068965517244,201 428,201">
+<title>
+L1
+</title>
+</polyline><rect x="35" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 0 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈0%
+</title>
+</rect><rect x="48.37931034482759" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 1 L1: ≈6% L1+L2: ≈51% L1+L2+L3: ≈51%
+</title>
+</rect><rect x="61.758620689655174" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 2 L1: ≈0% L1+L2: ≈68% L1+L2+L3: ≈68%
+</title>
+</rect><rect x="75.13793103448276" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 3 L1: ≈0% L1+L2: ≈76% L1+L2+L3: ≈76%
+</title>
+</rect><rect x="88.51724137931035" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 4 L1: ≈0% L1+L2: ≈81% L1+L2+L3: ≈81%
+</title>
+</rect><rect x="101.89655172413794" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 5 L1: ≈0% L1+L2: ≈84% L1+L2+L3: ≈84%
+</title>
+</rect><rect x="115.27586206896552" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 6 L1: ≈0% L1+L2: ≈86% L1+L2+L3: ≈86%
+</title>
+</rect><rect x="128.6551724137931" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 7 L1: ≈0% L1+L2: ≈88% L1+L2+L3: ≈88%
+</title>
+</rect><rect x="142.0344827586207" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 8 L1: ≈0% L1+L2: ≈89% L1+L2+L3: ≈89%
+</title>
+</rect><rect x="155.41379310344828" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 9 L1: ≈0% L1+L2: ≈90% L1+L2+L3: ≈90%
+</title>
+</rect><rect x="168.79310344827587" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 10 L1: ≈0% L1+L2: ≈91% L1+L2+L3: ≈91%
+</title>
+</rect><rect x="182.17241379310343" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 11 L1: ≈0% L1+L2: ≈92% L1+L2+L3: ≈92%
+</title>
+</rect><rect x="195.55172413793105" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 12 L1: ≈0% L1+L2: ≈93% L1+L2+L3: ≈93%
+</title>
+</rect><rect x="208.93103448275863" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 13 L1: ≈0% L1+L2: ≈93% L1+L2+L3: ≈93%
+</title>
+</rect><rect x="222.31034482758622" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 14 L1: ≈0% L1+L2: ≈94% L1+L2+L3: ≈94%
+</title>
+</rect><rect x="235.6896551724138" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 15 L1: ≈0% L1+L2: ≈94% L1+L2+L3: ≈94%
+</title>
+</rect><rect x="249.06896551724137" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 16 L1: ≈0% L1+L2: ≈94% L1+L2+L3: ≈94%
+</title>
+</rect><rect x="262.44827586206895" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 17 L1: ≈0% L1+L2: ≈95% L1+L2+L3: ≈95%
+</title>
+</rect><rect x="275.82758620689657" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 18 L1: ≈0% L1+L2: ≈62% L1+L2+L3: ≈95%
+</title>
+</rect><rect x="289.2068965517241" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 19 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈95%
+</title>
+</rect><rect x="302.58620689655174" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 20 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈95%
+</title>
+</rect><rect x="315.9655172413793" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 21 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="329.34482758620686" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 22 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="342.7241379310345" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 23 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="356.1034482758621" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 24 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="369.48275862068965" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 25 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="382.86206896551727" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 26 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈96%
+</title>
+</rect><rect x="396.2413793103448" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 27 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈97%
+</title>
+</rect><rect x="409.62068965517244" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 28 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈97%
+</title>
+</rect><rect x="423" y="8" width="10" height="197" fill="transparent">
+<title>
+Round (zero-based) 29 L1: ≈0% L1+L2: ≈0% L1+L2+L3: ≈97%
+</title>
+</rect>
+</svg>
+</div>
+<span class="urc-bench-head">Final metrics with L3</span><span
+class="urc-stat-chips"><span class="urc-stat-chip"><span
+class="small">hit rate</span><strong>96.8%</strong></span><span
+class="urc-stat-chip"><span class="small">avg TTFT</span><strong>1.23
+s</strong></span></span>
+</div>
+</div>
+<div class="viz-footer">
+<span class="urc-note">Hit rate = cached prefix tokens ÷ complete prompt
+tokens, summed per round. Curves use approximate samples read from the
+source figure. <a
+href="https://www.lmsys.org/blog/2026-08-11-unified-radix-cache/#hicache-multi-turn-benchmark-results">Source:
+LMSYS Figure 4</a></span>
+</div>
+</figure>
+<h2 id="session-aware-eviction">Session-aware eviction</h2>
+<p>Applications use a stable <code>session_id</code> to identify
+requests from the same conversation. SGLang tracks that session's
+references to cached entries. Calling <code>/close_session</code>
+removes its references; shared prefixes keep those from other
+sessions.</p>
+<p>FULL orders unlocked, eligible entries by reference presence,
+reference count, and then the base eviction policy, usually reclaiming
+unreferenced data first. Session retention applies to L1/L2; the storage
+backend manages L3 eviction.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Session-aware eviction diagram</span><span
+class="viz-subtitle">FULL entries · unlocked and eligible for eviction ·
+AB is shared by A and B</span>
+</div>
+<div class="viz-controls">
+<span class="viz-tick">t = 0/5</span>
+</div>
+<div class="viz-frame">
+<div class="urc-sess">
+<div class="urc-sess-pane">
+<span class="urc-sess-head">Ordinary LRU</span>
+<div class="urc-sess-entries">
+<span class="urc-entry sa"><strong>A1</strong><span
+class="small"></span></span><span
+class="urc-entry sa"><strong>AB</strong><span
+class="small"></span></span><span
+class="urc-entry sb"><strong>B1</strong><span
+class="small"></span></span><span
+class="urc-entry sc"><strong>C1</strong><span
+class="small"></span></span><span
+class="urc-entry sc"><strong>C2</strong><span class="small">recently
+used</span></span>
+</div>
+<span class="urc-sess-event"></span>
+</div>
+<div class="urc-sess-pane">
+<span class="urc-sess-head">Session-aware eviction</span>
+<div class="urc-sess-entries">
+<span class="urc-entry sa"><strong>A1</strong><span class="small">A ·
+active</span></span><span class="urc-entry sa"><strong>AB</strong><span
+class="small">A + B · 2</span></span><span
+class="urc-entry sb"><strong>B1</strong><span class="small">B ·
+active</span></span><span class="urc-entry sc"><strong>C1</strong><span
+class="small">unreferenced</span></span><span
+class="urc-entry sc"><strong>C2</strong><span
+class="small">unreferenced</span></span>
+</div>
+<span class="urc-sess-event"></span>
+</div>
+</div>
+<div class="urc-step-desc">
+A and B retain session references, AB is shared by both, and C1/C2 are
+unreferenced.
+</div>
+</div>
+</figure>
+<h3 id="swe-bench-results">SWE-bench results</h3>
+<p>On SWE-bench, enabling Unified Radix Cache together with
+session-aware eviction lowers TTFT by up to 11.0% on DeepSeek-V4-Pro and
+16.6% on Qwen3.5-397B-A17B, compared with HiRadixCache and LRU.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">SWE-bench session-aware results diagram</span>
+</div>
+<div class="urc-bench">
+<div class="urc-bench-panel">
+<span class="urc-bench-model">DeepSeek-V4-Pro · TP8</span><span
+class="urc-bench-head">TTFT reduction vs baseline</span>
+<div class="urc-bar-row">
+<span>batch 128</span><span><span class="urc-bar archive-bar-6"
+title="TTFT −11%"></span></span>
+<output>
+−11%
+</output>
+</div>
+<div class="urc-bar-row">
+<span>batch 256</span><span><span class="urc-bar archive-bar-7"
+title="TTFT −2.9%"></span></span>
+<output>
+−2.9%
+</output>
+</div>
+<span class="urc-bench-head">Hit-ratio change</span><span
+class="urc-hit-arrow">batch 128 · device hits 42% →
+<strong>51%</strong></span>
+</div>
+<div class="urc-bench-panel">
+<span class="urc-bench-model">Qwen3.5-397B-A17B · TP8</span><span
+class="urc-bench-head">TTFT reduction vs baseline</span>
+<div class="urc-bar-row">
+<span>batch 32</span><span><span class="urc-bar archive-bar-8"
+title="TTFT −13.5%"></span></span>
+<output>
+−13.5%
+</output>
+</div>
+<div class="urc-bar-row">
+<span>batch 64</span><span><span class="urc-bar archive-bar-9"
+title="TTFT −16.6%"></span></span>
+<output>
+−16.6%
+</output>
+</div>
+<span class="urc-bench-head">Hit-ratio change</span><span
+class="urc-hit-arrow">batch 32 · device hits 5% →
+<strong>34%</strong></span><span class="urc-hit-arrow">batch 64 ·
+device+host hits 58% → <strong>67%</strong></span>
+</div>
+</div>
+<div class="viz-footer">
+
+</div>
+</figure>
+<h2 id="rust-tree-core">Rust tree core</h2>
+<p>SGLang runs tree traversal, lock bookkeeping, and LRU updates in Rust
+to reduce their CPU overhead on the scheduler. Python handles physical
+KV allocation and cache orchestration, applying the operations Rust
+returns to the pools.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Rust and Python ownership diagram</span><span
+class="viz-subtitle">Ownership of tree structure and pool
+operations</span>
+</div>
+<div class="urc-split">
+<div class="urc-split-box py">
+<strong>Python owns</strong>
+<ul>
+<li>request-to-token mappings</li>
+<li>physical KV allocation</li>
+<li>pool ops and orchestration</li>
+</ul>
+</div>
+<div class="urc-split-arrows">
+<span>match / insert / evict calls<span
+class="arrow">→</span></span><span><span class="arrow">←</span>deferred
+actions</span>
+</div>
+<div class="urc-split-box rust">
+<strong>Rust tree core owns</strong>
+<ul>
+<li>radix topology</li>
+<li>per-component lock accounting</li>
+<li>intrusive LRU lists</li>
+<li>eviction walks</li>
+</ul>
+</div>
+</div>
+</figure>
+<p>The L1-only Rust prototype <a
+href="https://github.com/sgl-project/sglang/pull/29074">#29074</a>
+reduced TTFT by 38% for SWA, 10% for full attention, and 5% for hybrid
+SSM against the Python tree in a <a
+href="https://github.com/lm-sys/lm-sys.github.io/tree/main/scripts/rust_radix_cache/multi_turn">200-turn
+conversation benchmark</a>.</p>
+<figure class="viz-stage urc-viz">
+<div class="viz-head">
+<span class="viz-title">Rust prototype benchmark diagram</span><span
+class="viz-subtitle">Prototype #29074 · L1 only · 200 turns · 100 in +
+100 out per turn · 6 trials · sequential runs on the same GPUs</span>
+</div>
+<div>
+<div class="urc-bench-panel">
+<span class="urc-bench-model">SWA <span class="small">gpt-oss-20b ·
+TP2</span></span>
+<div class="urc-bar-row">
+<span>All 200 turns</span><span><span class="urc-bar archive-bar-10"
+title="TTFT reduction 38%"></span></span>
+<output>
+−38%
+</output>
+</div>
+<div class="urc-bar-row">
+<span>Turns 176–200</span><span><span class="urc-bar archive-bar-11"
+title="TTFT reduction 42%"></span></span>
+<output>
+−42%
+</output>
+</div>
+</div>
+<div class="urc-bench-panel">
+<span class="urc-bench-model">Full attention <span
+class="small">Qwen3-32B · TP2</span></span>
+<div class="urc-bar-row">
+<span>All 200 turns</span><span><span class="urc-bar archive-bar-12"
+title="TTFT reduction 10%"></span></span>
+<output>
+−10%
+</output>
+</div>
+<div class="urc-bar-row">
+<span>Last 25 turns</span><span><span class="urc-bar archive-bar-13"
+title="TTFT reduction 18%"></span></span>
+<output>
+−18%
+</output>
+</div>
+</div>
+<div class="urc-bench-panel">
+<span class="urc-bench-model">Hybrid SSM <span
+class="small">Qwen3-Next-80B-A3B · TP4</span></span>
+<div class="urc-bar-row">
+<span>All 200 turns</span><span><span class="urc-bar archive-bar-14"
+title="TTFT reduction 5%"></span></span>
+<output>
+−5%
+</output>
+</div>
+<div class="urc-bar-row">
+<span>Last 25 turns</span><span><span class="urc-bar archive-bar-15"
+title="TTFT reduction 7%"></span></span>
+<output>
+−7%
+</output>
+</div>
+</div>
+</div>
+</figure>
+<p>The subsequently merged <a
+href="https://github.com/sgl-project/sglang/pull/32710">Rust TreeCore
+#32710</a> supports FULL, SWA, and MAMBA combinations and HiCache.
+Session-aware caching continues to use the Python tree core.</p>
+<h2 id="further-reading">Further reading</h2>
+<ul>
+<li><a
+href="https://www.lmsys.org/blog/2026-08-11-unified-radix-cache/">LMSYS
+Blog: Unified Radix Cache: One Tree for Hybrid Model Prefix
+Caching</a></li>
+<li><a
+href="https://github.com/sgl-project/sglang/pull/32710">sglang#32710:
+[Radix Cache] Add Rust TreeCore backend with shared parity
+tests</a></li>
+<li><a
+href="https://github.com/sgl-project/sglang/issues/20415">sglang#20415:
+[Roadmap] Unified Hybrid Radix Cache Refactor</a></li>
+<li><a
+href="https://github.com/sgl-project/sglang/issues/21846">sglang#21846:
+[Roadmap]: SGLang Distributed KVCache System For Agentic
+Workload</a></li>
+<li><a
+href="https://github.com/sgl-project/sglang/pull/29074">sglang#29074:
+[WIP] Rust Unified Radix Cache (L1 only)</a></li>
+<li><a
+href="https://github.com/lm-sys/lm-sys.github.io/tree/main/scripts/rust_radix_cache/multi_turn">Rust
+prototype: reproduction scripts</a></li>
+<li><a
+href="https://docs.sglang.io/docs/advanced_features/hicache_design">SGLang
+HiCache system design</a></li>
+</ul>
+</div>
+</body>
+</html>

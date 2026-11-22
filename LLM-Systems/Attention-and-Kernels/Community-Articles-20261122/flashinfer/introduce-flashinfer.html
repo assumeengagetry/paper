@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Accelerating Self-Attentions for LLM Serving with FlashInfer</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Accelerating Self-Attentions for LLM Serving with
+FlashInfer</h1>
+</header>
+<section
+id="accelerating-self-attentions-for-llm-serving-with-flashinfer"
+class="header">
+<h1>Accelerating Self-Attentions for LLM Serving with FlashInfer</h1>
+<p>来源：<a
+href="https://flashinfer.ai/2024/02/02/introduce-flashinfer.html">https://flashinfer.ai/2024/02/02/introduce-flashinfer.html</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content e-content" itemprop="articleBody">
+<p><img
+src="assets/7a306046f84fa8a266f59385db35260493f300799e977515bb15634039452576.png"
+width="600" alt="flashinfer-logo" /></p>
+<p>LLM (Large Language Models) Serving quickly became an important
+workload. The efficacy of operators within Transformers – namely GEMM,
+Self-Attention, GEMV, and elementwise computations are critical to the
+overall performance of LLM serving. While optimization efforts have
+extensively targeted GEMM and GEMV, there is a lack of performance
+studies focused on Self-Attention in the context of LLM serving. In this
+blog post, we break Self-Attention down into three stages: prefill,
+decode, and append; analyze the performance bottleneck of Self-Attention
+on both single-request and batching scenarios in these three stages; and
+propose a solution to tackle these challenges. These ideas have been
+integrated into <a
+href="https://github.com/flashinfer-ai/flashinfer/">FlashInfer</a>, an
+open-source library for accelerating LLM serving released under Apache
+2.0 license.</p>
+<p>FlashInfer has been developed by researchers from the University of
+Washington, Carnegie Mellon University, and OctoAI since summer 2023.
+FlashInfer provides PyTorch APIs for quick prototyping, and a
+dependency-free, header-only C++ APIs for integration with LLM serving
+systems. Compared to existing libraries, FlashInfer has several unique
+advantages:</p>
+<ol>
+<li><strong>Comprehensive Attention Kernels</strong>: FlashInfer
+implements attention kernels that cover all the common use cases of LLM
+serving with state-of-the-art performance, including single-request and
+batching versions of Prefill, Decode, and Append kernels, on various
+formats of KV-Cache (Padded Tensor, Ragged Tensor, and Page Table).</li>
+<li><strong>Optimized Shared-Prefix Batch Decoding</strong>: FlashInfer
+enhances shared-prefix batch decoding performance through cascading,
+resulting in an impressive up to 31x speedup compared to the baseline
+vLLM PageAttention implementation (for long prompt of 32768 tokens and
+large batch size of 256), check <a
+href="https://flashinfer.ai/2024/02/02/cascade-inference">another blog
+post</a> for more details.</li>
+<li><strong>Accelerate Attention for Compressed/Quantized
+KV-Cache</strong> Modern LLMs are often deployed with
+quantized/compressed KV-Cache to reduce memory traffic. FlashInfer
+accelerates these scenarios by optimizing performance for
+<em>Grouped-Query Attention</em>, <em>Fused-RoPE Attention</em> and
+<em>Quantized Attention</em>. Notably, FlashInfer achieves up to 2-3x
+speedup for Grouped-Query Attention on A100 &amp; H100, compared to vLLM
+implementation.</li>
+</ol>
+<p>FlashInfer has been adopted by LLM serving systems such as <a
+href="https://github.com/mlc-ai/mlc-llm">MLC-LLM</a> (for its CUDA
+backend), <a href="https://github.com/punica-ai/punica">Punica</a> and
+<a href="https://github.com/sgl-project/sglang">sglang</a>. We welcome
+wider adoption and contribution from the community. Please join our <a
+href="https://github.com/orgs/flashinfer-ai/discussions">discussion
+forum</a> or <a
+href="https://github.com/flashinfer-ai/flashinfer/issues">creating an
+issue</a> to leave your feedback and suggestions.</p>
+<h2 id="attentions-in-llm-serving">Attentions in LLM Serving</h2>
+<p>There are three generic stages in LLM serving: <em>prefill</em>,
+<em>decode</em> and <em>append</em>. During the prefill stage, attention
+computation occurs between the KV-Cache and all queries. In the decode
+stage, the model generates tokens one at a time, computing attention
+only between the KV-Cache and a single query. In the append stage,
+attention is computed between the KV-Cache and queries of the appended
+tokens. <em>append</em> attention is also useful in <a
+href="https://arxiv.org/abs/2211.17192">speculative decoding</a>: the
+draft model suggests a sequence of tokens and the larger model decides
+whether to accept these suggestions. During the attention stage,
+proposed tokens are added to the KV-Cache, and the large model
+calculates attention between the KV-Cache and the proposed tokens.</p>
+<p>The crucial factor affecting the efficiency of attention computation
+is the length of the query
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>l</mi><mi>q</mi></msub><annotation encoding="application/x-tex">l_q</annotation></semantics></math>),
+determining whether the operation is compute-bound or IO-bound. The
+operational intensity (number of operations per byte of memory traffic)
+for attention computation is expressed as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mn>1</mn><mi>/</mi><msub><mi>l</mi><mi>q</mi></msub><mo>+</mo><mn>1</mn><mi>/</mi><msub><mi>l</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mrow></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">O\left(\frac{1}{1/l_q + 1/l_{kv}} \right)</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>l</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><annotation encoding="application/x-tex">l_{kv}</annotation></semantics></math>
+represents the length of the KV-Cache. During the decode stage, where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>l</mi><mi>q</mi></msub><annotation encoding="application/x-tex">l_q</annotation></semantics></math>
+is consistently 1, the operational intensity is close to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>,
+making the operator entirely IO-bound. In the append/prefill stages, the
+attention operational intensity is approximately
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>l</mi><mi>q</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(l_q)</annotation></semantics></math>,
+leading to compute-bound scenarios when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>l</mi><mi>q</mi></msub><annotation encoding="application/x-tex">l_q</annotation></semantics></math>
+is substantial.</p>
+<p>The diagram illustrates the attention computation process in the
+prefill, append, and decode stages:</p>
+<p><img src="assets/708d1b38cfd2165fa50db7cbef3760e3f232be41fcd1b68a48ab6a7518b30a7b.png"
+width="800" alt="Attention in LLMs" /><br />
+Figure 1: Decode attention fills one row of the attention map at a time,
+prefill attention fills the entire attention map (under the causal
+mask), and the append attention fills the trapezoid region.</p>
+<p>The figure below shows the roofline model of the three stages of
+attention computations. Decode attention performance is always
+underneath the peak bandwidth ceiling (bounded by peak memory bandwidth
+in GPU), and thus is IO-bound. Prefill attention has high operational
+intensity and is under the peak compute performance ceiling (bounded by
+peak floating point performance). Append attention is IO-bound when the
+query length is small, and compute-bound when the query length is
+large.</p>
+<p><img src="assets/1aeb9ed004c7a84269a7b9549174a60f24415027e17c3463519d4535fe0651af.png"
+width="600" alt="Roofline of Attention Operators" /><br />
+Figure 2. Roofline model of attention operators in LLM Serving, data
+from A100 PCIe 80GB.</p>
+<h3 id="single-request-and-batching">Single-Request and Batching</h3>
+<p>There two common ways to serve LLM models: batching and single
+request. Batching groups several user requests together and process them
+in parallel to improve the throughput, however, the operational
+intensity of attention kernels is irrelevant to batch size <sup><span
+id="fnref:1"><a href="#fn:1" class="footnote"
+rel="footnote">1</a></span></sup>, and batch decoding attention still
+has operational intensity of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>.</p>
+<h2 id="flashinfer-overview">FlashInfer Overview</h2>
+<p><a href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dao%20%E7%AD%89%20-%202022%20-%20FlashAttention%20Fast%20and%20Memory-Efficient%20Exact%20Attention%20with%20IO-Awareness.pdf">FlashAttention</a>
+proposes to fuse multi-head attention into a single kernel by
+generalizing <a href="../../../../ML-Systems-and-Hardware/GPU-Programming/1805.02867v2.pdf">online
+softmax</a> trick to self-attention, thus avoiding the overhead of
+materializing the attention matrix on GPU global memory. <a
+href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dao%20-%202023%20-%20FlashAttention-2%20Faster%20Attention%20with%20Better%20Parallelism%20and%20Work%20Partitioning.pdf">FlashAttention2</a> further
+improves performance by adopting a more reasonable tiling strategy and
+reducing the number of non tensor ops to alleviate the issue that
+A100/H100 has low non-tensor cores performance. vLLM proposes <a
+href="../../../Serving-and-KV-Cache/2309.06180v1.pdf">PageAttention</a> where KV-Cache
+is organized as a page table, to alleviate the memory fragmentation
+issue in LLM serving.</p>
+<p>FlashInfer implements single-request and batch version of
+FlashAttention for all three stages: prefill, append and decode on
+versatile KV-Cache formats (e.g. Ragged Tensor, Page Table). For single
+decode/prefill and batch decoding kernels, FlashInfer achieves
+state-of-the-art performance for single-request decode/prefill and batch
+decode kernels. Moreover, FlashInfer implements <em>prefill/append
+kernels for Paged KV-Cache</em> which none of the existing libraries
+have done before, and it be used to serve models in <a
+href="https://arxiv.org/abs/2211.17192">speculative decoding</a>
+setting.</p>
+<p>Many recent work proposes KV-Cache compression techniques to reduce
+memory traffic. In light of this, FlashInfer optimize kernels for
+<em>Grouped-Query Attention</em>, <em>Fused-RoPE Attention</em> and
+<em>Quantized Attention</em> for efficient serving with compressed
+KV-Cache:</p>
+<ul>
+<li><strong>Grouped Query Attention</strong>: <a
+href="https://arxiv.org/abs/2305.13245">Grouped Query Attention</a> uses
+a smaller number of heads for keys and values thus saving memory
+traffic. The operational intensity of Grouped Query Attention grows from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><msub><mi>H</mi><mrow><mi>q</mi><mi>o</mi></mrow></msub><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">O\left(\frac{H_{qo}}{H_{kv}}\right)</annotation></semantics></math>
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>H</mi><mrow><mi>q</mi><mi>o</mi></mrow></msub><annotation encoding="application/x-tex">H_{qo}</annotation></semantics></math>
+is the number of heads for queries and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><annotation encoding="application/x-tex">H_{kv}</annotation></semantics></math>
+is the number of heads for keys and values. GPUs such as A100/H100 has
+low non-tensor cores performance, and thus traditional implementation of
+Grouped Query Attention is compute-bound. FlashInfer proposes to use
+prefill kernels (which utilizes Tensor Cores) for decode attention in
+GQA, and achieves up to 2-3x speedup compared to vLLM
+implementation.</li>
+<li><strong>Fused-RoPE Attention</strong>: <a
+href="https://arxiv.org/abs/2104.09864">RoPE (Rotary Positional
+Embeddings)</a> has become a standard component of Transformers, most
+existing serving systems stores post-RoPE keys (the keys after applying
+rotary embeddings) in KV-Cache. However, some recent work such as <a
+href="https://arxiv.org/abs/2309.17453">StreamingLLM</a> will prune
+tokens in KV-Cache, and the position of tokens will change after
+pruning, thus the post-RoPE keys in KV-Cache become meaningless. In this
+case, FlashInfer proposes to save pre-RoPE keys in KV-Cache, and fuses
+RoPE into attention kernel. Experiments on various platform and settings
+show that FlashInfer’s Fused-RoPE Attention kernel can apply RoPE on the
+fly with negligible overhead.</li>
+<li><strong>Quantized Attention</strong>: Another way to compress
+KV-Cache is through pruning, <a
+href="https://arxiv.org/abs/2303.06865">FlexGen</a> and <a
+href="https://arxiv.org/abs/2310.19102">Atom</a> show that it’s possible
+to prune KV-Cache to 4-bit with negligible accuracy loss. FlashInfer
+implements low-precision attention kernels so that we can achieve nearly
+linear speedup to the compression ratio (~4x for 4bit, ~2x for
+8bit).</li>
+</ul>
+<p>Some recent work such as <a
+href="https://github.com/ModelTC/lightllm">LightLLM</a> and <a
+href="https://github.com/sgl-project/sglang">sglang</a> uses a special
+form of PageAttention where page size equals one, for easy management of
+KV-Cache in complicated serving scenarios such as structured generation.
+FlashInfer optimizes PageAttention kernels by pre-fetching page indices
+in GPU shared memory, so that kernel performance is not affected by the
+page size.</p>
+<p>In the subsequent sections, we will delve into the detailed
+optimizations and benchmark results achieved by FlashInfer.</p>
+<h2 id="benchmark-settings">Benchmark Settings</h2>
+<h3 id="hardware">Hardware</h3>
+<p>We benchmarked on 4 different GPUs: H100 SXM 80GB, A100 PCIe 80GB,
+RTX 6000 Ada and RTX 4090, the first two is widely used data center GPU
+in <a
+href="https://www.hpctech.co.jp/catalog/gtc22-whitepaper-hopper_v1.01.pdf">Hopper</a>
+and <a
+href="https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf">Ampere</a>
+architectures, respectively, and latter two are workstation and gaming
+GPUs in <a
+href="https://images.nvidia.com/aem-dam/Solutions/geforce/ada/nvidia-ada-gpu-architecture.pdf">Ada
+Lovelace architecture</a> that are much more affordable, the
+specifications are listed in the following table:</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th> </th>
+<th>H100 SXM 80GB</th>
+<th>A100 PCIe 80GB</th>
+<th>RTX Ada 6000</th>
+<th>RTX 4090</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPU Memory (GB)</td>
+<td>80</td>
+<td>80</td>
+<td>48</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Micro Architecture</td>
+<td>Hopper (sm_90)</td>
+<td>Ampere (sm_80)</td>
+<td>Ada Lovelace (sm_89)</td>
+<td>Ada Lovelace (sm_89)</td>
+</tr>
+<tr>
+<td>Memory bandwidth (GB/s)</td>
+<td>3,352</td>
+<td>1,935</td>
+<td>960</td>
+<td>1,008</td>
+</tr>
+<tr>
+<td>Number of SM</td>
+<td>132</td>
+<td>108</td>
+<td>142</td>
+<td>128</td>
+</tr>
+<tr>
+<td>Peak Tensor Cores Performance (TFLops/s)</td>
+<td>989</td>
+<td>312</td>
+<td>366</td>
+<td>165 (f32 accum)<br />
+330 (f16 accum)</td>
+</tr>
+<tr>
+<td>Peak (Non-Tensor Cores) FP32 Performance (TFLops/s)</td>
+<td>67</td>
+<td>20</td>
+<td>90</td>
+<td>80</td>
+</tr>
+<tr>
+<td>Max Shared Memory (KB/SM)</td>
+<td>228</td>
+<td>164</td>
+<td>100</td>
+<td>100</td>
+</tr>
+<tr>
+<td>L2 Cache (KB)</td>
+<td>51200</td>
+<td>40960</td>
+<td>98304</td>
+<td>73728</td>
+</tr>
+</tbody>
+</table>
+<p>H100 SXM 80GB uses HBM3 and A100 PCIe 80GB use HBM2e, both have
+larger memory bandwidth than RTX Ada 6000 and RTX 4090 that use GDDR6X.
+RTX Ada 6000 and RTX 4090 have much larger non-Tensor Cores peak
+performance (90 and 80 TFLops/s respectively) than A100 (20 TFLops/s).
+The later three GPUs have similar peak Tensor Cores (fp16 input, without
+sparsity) performance for f16 accumulation, RTX 4090’s Tensor Cores have
+2x throughput with fp16 accumulation compared to fp32 accumulation,
+while the other GPUs have the same throughput for fp16 and fp32
+accumulation.</p>
+<p>Below is the roofline curve of the four GPUs for both Tensor Cores
+and CUDA Cores:</p>
+<p><img src="assets/a1fcc9023e672c020a01c2830bbab0dd62b76778b084636f1c45ba2fd8105689.png"
+width="600" alt="Roofline of different devices" /><br />
+Figure 3: Devices Roofline of 4 GPUs, Tensor Cores Performance and CUDA
+Cores Performance are indicated separately.</p>
+<p>The ridge point is determined by the ratio of peak floating point
+performance and memory bandwidth.</p>
+<h3 id="software">Software</h3>
+<p>The baselines being compared are: <a
+href="https://github.com/Dao-AILab/flash-attention/releases/tag/v2.4.2">FlashAttention
+2.4.2</a> which has incorporated <a
+href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dao%20-%202023%20-%20FlashAttention-2%20Faster%20Attention%20with%20Better%20Parallelism%20and%20Work%20Partitioning.pdf">FlashAttention 2</a> and <a
+href="https://crfm.stanford.edu/2023/10/12/flashdecoding.html">Flash-Decoding</a>,
+and <a
+href="https://github.com/vllm-project/vllm/releases/tag/v0.2.6">vLLM
+v0.2.6</a> that implements PageAttention 1&amp;2. For vLLM we use
+prebuilt wheels from pip, we build FlashAttention &amp; FlashInfer from
+source code with the NVCC compiler in <a
+href="https://developer.nvidia.com/cuda-12-3-1-download-archive">CUDA
+12.3.1 release</a>. The kernel profiling is done with <a
+href="https://github.com/NVIDIA/nvbench">nvbench</a> library, we take
+the “cold” GPU time which flushes the L2 cache before each kernel
+launch.</p>
+<h3 id="metrics">Metrics</h3>
+<p>We report achieved TFLops/s for prefill &amp; append attention
+kernels, and GPU memory bandwidth utilization (computed by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mtext mathvariant="normal">number of bytes read by the kernel</mtext><mtext mathvariant="normal">kernel latency</mtext></mfrac><mi>/</mi><mtext mathvariant="normal">hardware GPU memory bandwidth</mtext></mrow><annotation encoding="application/x-tex">\frac{\textrm{number of bytes read by the kernel}}{\textrm{kernel latency}} / \textrm{hardware GPU memory bandwidth}</annotation></semantics></math>)
+for decode &amp; append attention kernels.</p>
+<h3 id="prefill-kernels">Prefill Kernels</h3>
+<p>For prefill (multi-query) attention, we reimplemented the
+FlashAttention 2 algorithm in pure CUDA with some additional
+optimizations. Standard FlashAttention implementation uses Tensor Cores
+with fp16 input and fp32 accumulator, however, RTX 4090 GPUs has lower
+Tensor Cores performance with fp32 accumulator, we observe that the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mfrac><mrow><mi mathvariant="bold-italic">𝒒</mi><mo>⋅</mo><msup><mi mathvariant="bold-italic">𝒌</mi><mi>T</mi></msup></mrow><mrow><msqrt><mi>(</mi></msqrt><mi>d</mi><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><annotation encoding="application/x-tex">\frac{\mathbf{q}\cdot \mathbf{k}^{T}}{\sqrt(d)}</annotation></semantics></math>
+phase in attention computation have small value range and can be
+accumulated with fp16 (because the head dimension is always small: e.g.
+128), FlashInfer provides an <code
+class="language-plaintext highlighter-rouge">allow_fp16_qk_reduction</code>
+option to allow this optimization (but still use fp32 accumulation for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="bold-italic">𝒔</mi><mi mathvariant="bold-italic">𝒄</mi><mi mathvariant="bold-italic">𝒐</mi><mi mathvariant="bold-italic">𝒓</mi><mi mathvariant="bold-italic">𝒆</mi></mrow><mo>⋅</mo><mi mathvariant="bold-italic">𝒗</mi></mrow><annotation encoding="application/x-tex">\mathbf{score} \cdot \mathbf{v}</annotation></semantics></math>),
+this optimization could bring 50% speedup on RTX 4090. Below is the
+performance comparison of FlashInfer 0.0.1 and FlashAttention 2.4.2 on
+different GPUs:</p>
+<p><img
+src="assets/91c1049c2c27c8c900ae8121e345afac33c65a9e2338d0360e7b3b4b05caa685.png"
+width="800" alt="single prefill kernel benchmarks" /><br />
+Figure 4: Single request prefill kernel performance, use Llama2-7B
+setting: num_kv_heads=num_qo_heads=32, head_dim=128. Sequence length
+varies from 32 to 65535.</p>
+<p>In f32 accumulation setting, FlashInfer’s prefill kernel
+implementation achieves best performance on all 4 GPUs. <code
+class="language-plaintext highlighter-rouge">allow_fp16_qk_reduction</code>
+option can further improve performance, especially for RTX 4090.</p>
+<h3 id="append--decode-optimizations">Append &amp; Decode
+Optimizations</h3>
+<p>Append and decode attention tend to have larger KV length than query
+length, which could limit the SM(StreamMultiprocessor) utilization in
+GPUs when batch size is small, FlashInfer propose to use the <a
+href="https://github.com/NVIDIA/cutlass/blob/8825fbf1efebac973d96730892919ab241b755bb/media/docs/efficient_gemm.md#parallelized-reductions">Split-K</a>
+trick in GEMM optimizations which splits the KV-Cache on sequence
+dimension to increase parallelism. Another work, Flash-Decoding also
+explored this idea, you can check their great <a
+href="https://crfm.stanford.edu/2023/10/12/flashdecoding.html">blog
+post</a> for visualizations and explanations. Below is the decode
+attention performance comparison of FlashInfer 0.0.1 and FlashAttention
+2.4.2 on different GPUs:</p>
+<p><img
+src="assets/9ec7149cd5be73d9e5f9acc1bafe05c29147b94fe750e8228d0689d67b25e550.png"
+width="800" alt="single decode kernel benchmarks" /><br />
+Figure 5: Single request decode kernel performance, use Llama2-7B
+setting: num_kv_heads=num_qo_heads=32, head_dim=128. Sequence length
+varies from 32 to 65536.</p>
+<p>FlashInfer achieves best performance on all 4 GPUs, and the GPU
+bandwidth utilization is close to 100% for long sequences. An
+interesting fact is that split-KV do not improve performance for GPUs
+such as RTX Ada 6000 and RTX 4090 because they have relatively smaller
+memory bandwidth and stronger CUDA Cores performance (decode attention
+has low operational intensity and we use CUDA Cores in non-GQA setting).
+Unlike compute units which is SM local, the global memory traffic on
+GPUs is shared, thus using 32 (number of heads in Llama2-7B setting) of
+108 SMs can still fully utilize the memory bandwidth if the operator is
+not compute-bound. A100 GPUs has low CUDA Cores performance (20
+TFLops/s), using 32 of 108 SMs (5.9 TFLops/s) will make the kernel
+compute-bound (besides multiply and add, there are also time-consuming
+computations such as <code
+class="language-plaintext highlighter-rouge">exp</code> in attention
+computation), and split-KV is helpful in this case.</p>
+<p>For batch decoding attention, FlashInfer implements PageAttention
+with optimizations such as pre-fetching page indices, below is
+performance comparison of FlashInfer PageAttention kernel and vLLM
+PageAttention kernel:</p>
+<p><img
+src="assets/6475f2eaaf209130995b18340f65eb061625f129e4decc32f191268a025a94b3.png"
+width="800" alt="batch decode kernel benchmarks" /><br />
+Figure 6: Batch decode kernel performance, use Llama2-7B setting:
+num_kv_heads=num_qo_heads=32, head_dim=128, batch_size=[1,16,64].
+Sequence length varies from 32 to 65536 for batch_size = 1, from 32 to
+4096 for batch_size = 16, and from 32 to 1024 for batch_size = 64.</p>
+<p>FlashInfer PageAttention kernel has consistent speedup over vLLM
+0.2.6’s implementation in different batch sizes and different sequence
+lengths.</p>
+<p>We also benchmark the append attention kernels (append attention
+shares the same set of APIs with prefill attention, with the distinction
+that query length is smaller than key/value length in append
+attention):</p>
+<p><img
+src="assets/ce566af32fe99212c69140ddd5f937a36984a473bf3ea5c7991434673189c38c.png"
+width="800" alt="append kernel benchmarks" /><br />
+Figure 7: Append attention kernel performance, use Llama2-7B setting,
+num_kv_heads=num_qo_heads=32, head_dim=128. The append length is set to
+128 or 256, KV sequence length varies from 32 to 65536.</p>
+<p>FlashInfer still achieves the best performance on all 4 GPUs, either
+with fp16 or fp32 qk accumulator. Split-KV significantly improves the
+performance of append kernels for append length of both 128 and 256,
+because the operational intensity of the operator becomes large, and
+using 32/100+ SMs no longer provides enough compute units, thus making
+the kernel compute-bound. Note that the ridge point of RTX 4090’s Tensor
+Cores fp32 accumulator roofline is 163 (165 TFLops/s / 1008 GB/s), the
+kernel will be compute bound when query length (which approximately
+equals operational intensity) reaches 256, using <code
+class="language-plaintext highlighter-rouge">allow_fp16_qk_reduction</code>
+can alleviate the issue.</p>
+<p>FlashInfer also implemented batch append attention kernel where
+key/value is stored in Page Tables, this could accelerate speculative
+decoding in LLM serving, and we will discuss this in another blog
+post.</p>
+<h3 id="grouped-query-attention">Grouped-Query Attention</h3>
+<p><a href="https://arxiv.org/abs/2305.13245">Grouped-Query
+Attention</a> uses smaller number of key/value heads than the number of
+query/output heads, makes the operational intensity higher than ordinary
+multi-head attention. FlashInfer proposes to use prefill(multi-query)
+attention kernel, which utilize Tensor Cores, for decode attention in
+GQA. Below is the GQA kernel performance comparison between FlashInfer
+(w/ CUDA Cores and w/ Tensor Cores), and FlashAttention 2.4.2 on A100
+&amp; H100:</p>
+<p><img src="assets/fbb9b024f09c0f1a4043f3de3ff537eed0f25337ca6a81aa88b39216392dfa80.png"
+width="800" alt="single gqa benchmarks" /><br />
+Figure 8: Single request GQA decode performance, use llama2-70b setting:
+tp=2, num_kv_heads=4, num_qo_heads=32, head_dim=128. Sequence length
+varies from 32 to 65536.</p>
+<p>For single-request GQA decoding attention, FlashInfer (Tensor Cores)
+achieves better performance than FlashAttention 2.4.2 on both A100 &amp;
+H100, and FlashInfer (CUDA Cores) can only achieve 40%+ bandwidth
+utilization because of limited CUDA Cores performance.</p>
+<p><img src="assets/09f238a43f2ab58c0cc4ec588415f05fe1b029bdeb96d004311924af33a5541c.png"
+width="800" alt="batch gqa benchmarks" /><br />
+Figure 9: Batch GQA decode performance, use llama2-70b setting: tp=2,
+num_kv_heads=4, num_qo_heads=32, head_dim=128. batch_size is set to 64
+and sequence length per request varies from 32 to 8192.</p>
+<p>For batch GQA decoding attention, FlashInfer w/ Tensor Cores is 3x
+faster than vLLM PagaAttention when <code
+class="language-plaintext highlighter-rouge">batch_size=64</code>.</p>
+<h3 id="fused-rope-attention">Fused-RoPE Attention</h3>
+<p>KV-Cache compression techniques such as <a
+href="https://arxiv.org/abs/2306.14048">H2O</a> and <a
+href="https://github.com/mit-han-lab/streaming-llm">Streaming-LLM</a>
+prunes KV-Cache by removing tokens, and the original relative positions
+of tokens in KV-Cache will be polluted, storing post-RoPE keys in
+KV-Cache become meaningless. FlashInfer implements high-performance
+Fused-RoPE attention kernels which applies RoPE on the fly, below is the
+performance comparison of FlashInfer decoding attention with and without
+RoPE:</p>
+<p><img src="assets/2e2db02c1764dbea778fb320ecd78689e9083e4cc06c743149d57ff4c5fd3568.png"
+width="800" alt="fused rope attention" /><br />
+Figure 10: Fused RoPE attention performance, use Llama2-7B setting:
+um_kv_heads=num_qo_heads=32, head_dim=128. Sequence length varies from
+32 to 65536.</p>
+<p>RoPE has negligible overhead on all 4 GPUs, especially for RTX 6000
+Ada and RTX 4090 GPU which has strong CUDA Cores performance (RoPE
+requires <code
+class="language-plaintext highlighter-rouge">sin</code>/<code
+class="language-plaintext highlighter-rouge">cos</code> computation that
+can not be accelerated with Tensor Cores).</p>
+<h3 id="low-precision-attention">Low-Precision Attention</h3>
+<p>More and more work show that KV-Cache can be quantized to low bits
+with negligible accuracy loss. FlashInfer implements high-performance
+fp8 decode decode kernels, which could accelerate the kernel by up to 2x
+compared with fp16 kernels:</p>
+<p><img src="assets/12b1b092feeda5a2df6d8e9dba8b0ba56d53e7e0b613de2559d5c1587e04f20b.png"
+width="800" alt="fp8 attention" /><br />
+Figure 11: FP8 decode attention performance, use Llama2-7B setting:
+num_kv_heads=num_qo_heads=32, head_dim=128. Sequence length varies from
+32 to 65536.</p>
+<p>There is some gap between bandwidth utilization of fp8 and fp16
+kernels, however the gap is getting closer as the query length
+grows.</p>
+<p><a href="https://github.com/efeslab/Atom/">Atom</a> implemented
+high-performance decode attention kernels with int4 quantization on top
+of FlashInfer.</p>
+<h3 id="effect-of-page-size-on-flashinfers-pageattention">Effect of Page
+Size on FlashInfer’s PageAttention</h3>
+<p>The FlashInfer decode kernels prefetches page indices in GPU shared
+memory, thus minimizing the impact of the page size on kernel
+performance. Below is the performance comparison of FlashInfer
+PageAttention with different page sizes on A100:</p>
+<p><img
+src="assets/62c88f924705518c87ee3d918bfe0d12d3063b411c30a29dfcaf598561bf2f35.png"
+width="400" alt="ablation page size attention" /><br />
+Figure 12: Batch decode performance on different page_size. batch_size
+is set to 1, use Llama2-7B setting: num_kv_heads=num_qo_heads=32,
+head_dim=128. Sequence lengths varies from 32 to 65536. We also add a
+reference line for the performance of FlashInfer single-request decode
+attention without using Page Table.</p>
+<p>The memory bandwidth utilization of the 4 different page sizes are
+nearly identical, and they are close to the single-request decode
+attention curve, which indicates that page size has little effect on
+FlashInfer PageAttention’s kernel performance, and page table itself has
+little overhead.</p>
+<p>Some recent work such <a
+href="https://github.com/sgl-project/sglang">sglang</a> explores novel
+KV-Cache management algorithm which requires <code
+class="language-plaintext highlighter-rouge">page_size=1</code>, and the
+performance could benefit from FlashInfer’s optimization.</p>
+<h2 id="remarks-and-future-work">Remarks and Future Work</h2>
+<p>The idea of splitting KV-Cache on sequence dimension to increase
+parallelism was also explored in <a
+href="https://crfm.stanford.edu/2023/10/12/flashdecoding.html">Flash-Decoding</a>,
+FlashInfer implemented this idea concurrently, see our <a
+href="https://github.com/flashinfer-ai/flashinfer/tree/2977506bad2b49727a65e04211373f53816432ee">github
+checkpoint on Sept 1st, 2023</a> and <a
+href="https://youtu.be/GcbuODb51Sc?feature=shared&amp;t=1570">our public
+talk at TVM Unity Open Development Meeting on Sept 5th, 2023</a>.</p>
+<p>Currently FlashInfer only supports NVIDIA GPUs, the AMD and Apple GPU
+version of FlashInfer have been initially supported in <a
+href="https://github.com/mlc-ai/mlc-llm">MLC-LLM</a> project with the
+help of <a href="https://github.com/apache/tvm">Apache TVM</a> compiler.
+Our next release will include the 4-bit fused dequantize+attention
+operators proposed in <a
+href="https://github.com/efeslab/Atom/">Atom</a> and LoRA operators used
+in <a href="https://github.com/punica-ai/punica">Punica</a>. In a longer
+term, we are interested in performance optimization on post-Hopper
+NVIDIA GPUs and AMD/Apple GPUs, and new operators from emerging LLM
+architectures. Please check our <a
+href="https://github.com/flashinfer-ai/flashinfer/issues?q=is%3Aopen+is%3Aissue+label%3Aroadmap">roadmap</a>
+for development plans, and leave your suggestions on what features you
+want to see in FlashInfer.</p>
+<h2 id="acknowledgement">Acknowledgement</h2>
+<p>FlashInfer is inspired by <a
+href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dao%20-%202023%20-%20FlashAttention-2%20Faster%20Attention%20with%20Better%20Parallelism%20and%20Work%20Partitioning.pdf">FlashAttention 2</a>, <a
+href="https://github.com/vllm-project/vllm">vLLM</a>, <a
+href="https://github.com/NVIDIA/cutlass">cutlass</a> and <a
+href="https://arxiv.org/abs/2301.03598">Stream-K</a> project.</p>
+<p>This blog post is written by <a
+href="https://homes.cs.washington.edu/~zhye/">Zihao Ye</a>. We thank the
+entire FlashInfer team for their contributions to the project:</p>
+<ul>
+<li>Zihao Ye (UW): design and implementation of FlashInfer</li>
+<li>Lequn Chen (UW): page table data structure design, API design, CI/CD
+and Punica integration</li>
+<li>Ruihang Lai (CMU): KV-Cache design, API design and integration with
+MLC-LLM</li>
+<li>Yilong Zhao (UW &amp; SJTU): int4 attention operators</li>
+<li>Size Zheng (UW &amp; PKU): CUDA optimizations and speculative
+decoding</li>
+<li>Junru Shao and Yaxing Cai (OctoAI): MLC-LLM integration</li>
+<li>Bohan Hou and Hongyi Jin (CMU): porting FlashInfer to AMD and Mac
+GPUs with Apache TVM</li>
+<li>Liangsheng Yin (SJTU &amp; LMSys): PyTorch bindings and sglang
+integration.</li>
+<li>Yifei Zuo (UW &amp; USTC): PyTorch bindings</li>
+<li>Tianqi Chen (CMU &amp; OctoAI): recursive form of softmax/attention
+merge and advices</li>
+<li>Luis Ceze (UW &amp; OctoAI): performance breakdown analysis and
+advices</li>
+</ul>
+<p>We also thank Masahiro Masuda (OctoAI), Yixin Dong (UW &amp; SJTU),
+Roy Lu (UW), Chien-Yu Lin (UW), Ying Sheng (Stanford &amp; LMSys) and
+Lianmin Zheng (Berkeley &amp; LMSys) for their valuable feedbacks and
+discussions.</p>
+<h2 id="citation">Citation</h2>
+<div class="language-bibtex highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>@misc{flashinfer,
+    title = {Accelerating Self-Attentions for LLM Serving with FlashInfer},
+    url = {https://flashinfer.ai/2024/02/02/introduce-flashinfer.html},
+    author = {Ye, Zihao and Chen, Lequn and Lai, Ruihang and Zhao, Yilong and Zheng, Size and Shao, Junru and Hou, Bohan and Jin, Hongyi and Zuo, Yifei and Yin, Liangsheng and Chen, Tianqi and Ceze, Luis},
+    month = {February},
+    year = {2024}
+}</code></pre>
+</div>
+</div>
+<h2 id="footnotes">Footnotes</h2>
+<div class="footnotes">
+<ol>
+<li><div id="fn:1">
+<p><a
+href="https://le.qun.ch/en/blog/2023/05/13/transformer-batching/">Dissecting
+Batching Effects in GPT Inference</a> by Lequn Chen <a href="#fnref:1"
+class="reversefootnote" role="doc-backlink">↩︎</a></p>
+</div></li>
+</ol>
+</div>
+</div>
+</body>
+</html>

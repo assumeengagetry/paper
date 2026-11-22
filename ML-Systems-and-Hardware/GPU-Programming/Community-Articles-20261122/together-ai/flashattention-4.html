@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FlashAttention-4: Algorithm and Kernel Pipelining Co-Design for Asymmetric Hardware Scaling</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FlashAttention-4: Algorithm and Kernel Pipelining
+Co-Design for Asymmetric Hardware Scaling</h1>
+</header>
+<section
+id="flashattention-4-algorithm-and-kernel-pipelining-co-design-for-asymmetric-hardware-scaling"
+class="header">
+<h1>FlashAttention-4: Algorithm and Kernel Pipelining Co-Design for
+Asymmetric Hardware Scaling</h1>
+<p>来源：<a
+href="https://www.together.ai/blog/flashattention-4">https://www.together.ai/blog/flashattention-4</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="text-rich w-richtext" data-click-zoom-article=""
+data-fs-richtext-element="rich-text" data-fs-toc-element="contents"
+data-fs-toc-offsettop="7.5em">
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/9d21e168778a7ce7bb7a80cdd64ff1beefd6ff265e6bd11ccd7be10b14cee5cd.png" />
+</div>
+</figure>
+<p>Modern accelerators like Blackwell GPUs continue the trend of
+<strong>asymmetric hardware scaling</strong>, where tensor core
+throughput grows far faster than other resources such as shared memory
+bandwidth, special function units (SFUs) for transcendental operations
+like exponential, and general-purpose integer and floating-point ALUs.
+From the Hopper <a href="https://www.together.ai/gpu/nvidia-h100"
+target="_blank"
+data-wf-native-id-path="d0b10108-b5fe-2bf2-5cd5-05f40847d767"
+data-wf-ao-click-engagement-tracking="true"
+data-wf-element-id="d0b10108-b5fe-2bf2-5cd5-05f40847d767">H100</a> to
+the Blackwell <a href="https://www.together.ai/gpu/nvidia-hgx-b200"
+target="_blank"
+data-wf-native-id-path="387f8e82-1a2d-cb02-139d-2c5efd7074c7"
+data-wf-ao-click-engagement-tracking="true"
+data-wf-element-id="387f8e82-1a2d-cb02-139d-2c5efd7074c7">B200</a>, for
+instance, BF16 tensor core throughput increases from 1 to 2.25 PFLOPs,
+while both the SFU count and shared memory bandwidth remains
+unchanged.</p>
+<p>This scaling asymmetry has profound implications for optimizing
+complex kernels like attention for the Blackwell architecture. At its
+core, attention comprises two GEMMs
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mo>=</mo><mi>Q</mi><mo>⋅</mo><msup><mi>K</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">(S=Q \cdot K^T</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo>=</mo><mi>P</mi><mo>⋅</mo><mi>V</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O=P \cdot V)</annotation></semantics></math>
+with softmax in-between; in practice, it also involves substantial
+plumbing and bookkeeping: data movement, synchronization, layout
+transforms, element-wise ops, scheduling, masking, etc.</p>
+<p>A naive viewpoint on attention might be that the speed of the GEMMs
+completely controls the kernel performance and one can effectively
+disregard these other attention components, at least to first order.
+However, doing a “feeds and speeds” analysis for B200 in fact shows the
+opposite: the main performance bottleneck lies not in how fast the
+tensor cores can do MMA, but rather (a) in the SFU units for softmax
+exponential during the FWD computation, and (b) in the shared-memory
+traffic during the BWD computation.</p>
+<p>In this blog post, we present <strong>FlashAttention-4</strong>, an
+algorithm and kernel co-design that maximizes overlap between matmul and
+these other resource bottlenecks. On B200 with BF16, it reaches up to
+<em>1605 TFLOPs/s</em> (71% utilization), up to <em>1.3×</em> faster
+than cuDNN version <em>9.13</em> and <em>2.7×</em> faster than
+Triton.</p>
+<p>Our main algorithmic and kernel co-design ideas are as follows:</p>
+<ol>
+<li><strong>New pipelining for maximum overlap</strong>: New forward and
+backward software pipelines that exploit Blackwell fully asynchronous
+MMA and larger tile sizes, overlapping tensor cores, softmax
+exponential, and memory operations.</li>
+<li><strong>Forward (FWD) pass</strong>: A software emulation of the
+exponential function implemented via polynomial approximation on FMA
+units to mitigate the exponential bottleneck, plus conditional online
+softmax rescaling.<strong>‍</strong></li>
+<li><strong>Backward (BWD) pass</strong>: Storing intermediate results
+in tensor memory to relieve shared-memory traffic, combined with
+Blackwell's new 2-CTA MMA mode to reduce shared memory traffic further
+and also cut atomic reduction in half, and additional support for
+deterministic execution mode for reproducible
+training.<strong>‍</strong></li>
+<li><strong>Scheduling:</strong> New tile scheduler to mitigate load
+imbalance from causal mask and variable sequence length.</li>
+</ol>
+<h2 id="new-hardware-features-on-blackwell">New hardware features on
+Blackwell</h2>
+<ol>
+<li><strong>Tensor memory (TMEM):</strong> On B200, each of the 148 SMs
+has 256 KB of TMEM, an on chip scratchpad wired into the tensor cores
+for warp synchronous intermediate storage.</li>
+<li><strong>Fully asynchronous 5th gen tensor cores:</strong>
+<code>tcgen05.mma</code> is asynchronous and accumulates in TMEM. For
+BF16 and FP16, the largest single CTA UMMA tile is 128×256×16, which is
+about 2× larger than the largest Hopper WGMMA atom. UMMA is launched by
+a single thread, easing register pressure and making larger tiles and
+deeper pipelines practical without the spilling pain points of Hopper
+warpgroup MMA. This also makes warp specialization more viable, with
+some warps moving tiles while others issue MMA to overlap matrix
+multiply accumulate with softmax and memory traffic.
+<code>tcgen05.mma</code> can also source operand A from TMEM.</li>
+<li><strong>2-CTA MMA.:</strong> Blackwell can execute one UMMA across a
+CTA pair in the same cluster, spanning the TMEM of both peer CTAs. One
+thread in the leader CTA launches the MMA, but both CTAs must stay
+active while it is in flight. This scales the MMA tile dimension up to
+256×256×16 by splitting M and N across the pair, reducing redundant
+traffic and lowering per CTA footprint. The CTA group size, 1 or 2, must
+remain constant across TMEM and tensor core operations within a
+kernel.</li>
+</ol>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/4eecd2cbbfba19ef6035009a450a935a35967eaa09b4e83a6ff4e7c3bbd12fde.png" />
+</div>
+</figure>
+<h2 id="feeds-and-speeds">Feeds and Speeds</h2>
+<p>For M=N=D=128</p>
+<p><strong>Feeds</strong> on B200 (per SM):</p>
+<ol>
+<li>Tensor Cores (BF16):
+ <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mfrac><mrow><mn>8192</mn><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> ops</mtext></mrow></mrow><mrow><mi>c</mi><mi>y</mi><mi>c</mi><mi>l</mi><mi>e</mi></mrow></mfrac><annotation encoding="application/x-tex">\frac{8192 \text{ ops}}{cycle}</annotation></semantics></math></li>
+<li>Exponential unit:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mfrac><mrow><mn>16</mn><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> ops</mtext></mrow></mrow><mrow><mi>c</mi><mi>y</mi><mi>c</mi><mi>l</mi><mi>e</mi></mrow></mfrac><annotation encoding="application/x-tex">\frac{16 \text{ ops}}{cycle}</annotation></semantics></math></li>
+<li>Shared Memory traffic:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mfrac><mrow><mn>128</mn><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> bytes</mtext></mrow></mrow><mrow><mi>c</mi><mi>y</mi><mi>c</mi><mi>l</mi><mi>e</mi></mrow></mfrac><annotation encoding="application/x-tex">\frac{128 \text{ bytes}}{cycle}</annotation></semantics></math></li>
+</ol>
+<p><strong>Speeds</strong> (clock-cycles per tile):</p>
+<ol>
+<li>Forward (2 MMAs + MN exp)
+<ol>
+<li>Tensor Cores:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1024</mn><annotation encoding="application/x-tex">1024</annotation></semantics></math></li>
+<li>Exp:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1024</mn><annotation encoding="application/x-tex">1024</annotation></semantics></math></li>
+<li>SMEM:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>768</mn><annotation encoding="application/x-tex">768</annotation></semantics></math></li>
+</ol></li>
+<li>Backward (5 MMAs + MN exp): 1-CTA
+<ol>
+<li>Tensor Cores:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>2560</mn><annotation encoding="application/x-tex">2560</annotation></semantics></math></li>
+<li>Exp:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1024</mn><annotation encoding="application/x-tex">1024</annotation></semantics></math></li>
+<li>SMEM:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3328</mn><annotation encoding="application/x-tex">3328</annotation></semantics></math></li>
+</ol></li>
+</ol>
+<p><strong>Takeaway:</strong> Forward is bottlenecked by compute and
+exponential, backward is bottlenecked by shared memory bandwidth. So we
+overlap softmax with MMA in the forward pass and reduce shared memory
+traffic in the backward pass.</p>
+<h2
+id="forward-pass-new-softmax-pipelining-with-conditional-rescaling"><strong>Forward
+pass: New softmax pipelining with conditional rescaling</strong></h2>
+<p>The forward pass has two matmuls, <code>QK^T</code> and
+<code>PV</code>. On Blackwell, tensor cores got much faster, but the
+exponential unit (MUFU.EX2) did not. So softmax is no longer “just the
+thing between the two matmuls”, it is a bottleneck that must be
+carefully pipelined.</p>
+<p><strong>The FWD pass in short:</strong></p>
+<ul>
+<li><strong>Ping-pong schedule
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>x</mi></mrow><annotation encoding="application/x-tex">2x</annotation></semantics></math>
+Q and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>x</mi></mrow><annotation encoding="application/x-tex">2x</annotation></semantics></math>
+O tiles per CTA:</strong> maximize overlap between MMA and Softmax</li>
+<li><strong>2x softmax warpgroups:</strong> per tile softmax with
+synchronization to not overlap when computing exponential
+<ul>
+<li><strong>Software emulation of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>2</mn><mi>x</mi></msup><annotation encoding="application/x-tex">2^x</annotation></semantics></math>:</strong>
+distribute exp computation across hardware's MUFU and software emulated
+on FMA</li>
+<li><strong>Store P in TMEM in stages:</strong> mitigate register
+pressure</li>
+</ul></li>
+<li><strong>Correction warpgroup:</strong> designated "correction"
+warpgroup to perform rescaling to remove from critical path
+<ul>
+<li><strong>Online softmax (conditional) rescaling:</strong> Rescale
+less frequently to minimize non-matmul operations</li>
+</ul></li>
+</ul>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/4273c793628e2d4b401691d05e9e25dd43d90f3417af88598a6cfd7afb6facb2.png" />
+</div>
+</figure>
+<h3
+id="pipeline-ping-pong-q-tiles-plus-a-dedicated-correction-stage">Pipeline:
+Ping-pong Q tiles plus a dedicated correction stage</h3>
+<p>FlashAttention-4 computes <strong>two</strong> query tiles per CTA —
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>Q</mi><mi>H</mi></msup><annotation encoding="application/x-tex">Q^H</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>Q</mi><mi>L</mi></msup><annotation encoding="application/x-tex">Q^L</annotation></semantics></math>
+— each covering 128 query tokens, and alternates them in a ping-pong
+schedule.</p>
+<p>Blackwell changes the softmax mapping. The accumulator tile for
+<code>S = QK^T</code> is 128×128 and lives in tensor memory; however,
+upon being read into registers, we have <strong>one thread per
+row</strong> for the partitioning of the tile as dictated by the
+hardware. We use two 128 thread warpgroups, one per Q tile, and each
+<strong>softmax warpgroup</strong> executes the following sequence of
+operations:</p>
+<ol>
+<li>Each thread loads one 128 element row of <code>S</code> from tensor
+memory into registers</li>
+<li>Reduce <code>rowmax</code> and <code>rowsum</code></li>
+<li>Using a tunable parameter, decide which portion of the 128 elements
+uses hardware's MUFU vs. software-emulated
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>e</mi><mi>x</mi></msup><annotation encoding="application/x-tex">e^x</annotation></semantics></math></li>
+<li>Compute <code>P = softmax(S)</code> and convert to <code>BF16</code>
+precision</li>
+<li>Store <code>P</code> back to tensor memory in stages to relieve
+register pressure (as opposed to holding <em>128</em> elements of S and
+<em>64</em> (BF16) elements of P simultaneously)</li>
+<li>Trigger the corresponding <code>PV</code> matmul as soon as a
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mfrac><mn>3</mn><mn>4</mn></mfrac><annotation encoding="application/x-tex">\frac{3}{4}</annotation></semantics></math>th
+chunk of <code>P</code> is stored</li>
+</ol>
+<p>The critical detail is that exp is the bottlenecked section. We
+explicitly synchronize the two softmax warpgroups so they do not
+evaluate exp at the same time, thereby reducing MUFU contention.</p>
+<p>To keep rescaling off the critical path, the kernel assigns it to a
+dedicated warpgroup. The <strong>correction warpgroup</strong>
+computes:</p>
+<ol>
+<li>Only rescale when the max jump is large:</li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>O</mi><mi>j</mi></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">{</mo><mtable><mtr><mtd columnalign="left" style="text-align: left"><mrow><mi mathvariant="normal">exp</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>m</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>−</mo><msub><mi>m</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><msub><mi>O</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mrow><mi mathvariant="normal">exp</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mi>j</mi></msub><mo>−</mo><msub><mi>m</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><msub><mi>V</mi><mi>j</mi></msub><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><mrow><mtext mathvariant="normal">if </mtext><mspace width="0.333em"></mspace></mrow><msub><mi>m</mi><mi>j</mi></msub><mo>−</mo><msub><mi>m</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>&gt;</mo><mi>τ</mi><mo>,</mo></mtd></mtr><mtr><mtd columnalign="left" style="text-align: left"><msub><mi>O</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mrow><mi mathvariant="normal">exp</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mi>j</mi></msub><mo>−</mo><msub><mi>m</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><msub><mi>V</mi><mi>j</mi></msub><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><mtext mathvariant="normal">otherwise.</mtext></mtd></mtr></mtable></mrow></mrow><annotation encoding="application/x-tex">O_j =\begin{cases}\exp(m_{j-1}-m_j)\,O_{j-1} + \exp(S_j-m_j)\,V_j, &amp; \text{if } m_j - m_{j-1} &gt; \tau,\\O_{j-1} + \exp(S_j-m_{j-1})\,V_j, &amp; \text{otherwise.}\end{cases}</annotation></semantics></math></li>
+<li>Apply the final normalization at the end of the iteration
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>O</mi><mrow><mi>f</mi><mi>i</mi><mi>n</mi><mi>a</mi><mi>l</mi></mrow></msub><mo>=</mo><mfrac><mi>O</mi><msub><mi>l</mi><mrow><mi>f</mi><mi>i</mi><mi>n</mi><mi>a</mi><mi>l</mi></mrow></msub></mfrac></mrow><annotation encoding="application/x-tex">O_{final} = \frac{O}{l_{final}}</annotation></semantics></math></li>
+<li>Optionally compute and store LSE</li>
+</ol>
+<p>At the end we still normalize using the true final statistics, so
+skipping small rescale steps preserves the final output while deleting
+many vector computations from the critical path. We make the decision at
+warp granularity to avoid divergence.</p>
+<h3
+id="faster-exponential-distribute-2x-across-mufu.ex2-and-fma-software-emulation">Faster
+exponential: Distribute
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>2</mn><mi>x</mi></msup><annotation encoding="application/x-tex">2^x</annotation></semantics></math>
+across MUFU.EX2 and FMA (software emulation)</h3>
+<p>Softmax requires many exponentials, and MUFU throughput is much lower
+than tensor core throughput. FlashAttention-4 increases effective exp
+throughput by running the software emulation of <code>exp2</code>
+alongside the hardware <code>MUFU.EX2</code> path, using FMA units that
+would otherwise be underutilized.</p>
+<p><strong>Range-reduction (Cody-Waite):</strong> We use the classical
+technique of Cody-Waite range reduction to decompose the exponential
+computation into the integer and the fractional part:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mi>x</mi></msup><mo>=</mo><msup><mn>2</mn><mi>n</mi></msup><mo>⋅</mo><msup><mn>2</mn><mi>f</mi></msup></mrow><annotation encoding="application/x-tex">2^x = 2^{n} \cdot 2^{f}</annotation></semantics></math>
+. In IEEE 754 float32, scaling by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>2</mn><mi>n</mi></msup><annotation encoding="application/x-tex">2^{n}</annotation></semantics></math>
+is just an exponent update.</p>
+<p><strong>Polynomial approximation of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>2</mn><msub><mi>x</mi><mrow><mi>f</mi><mi>r</mi><mi>a</mi><mi>c</mi></mrow></msub></msup><annotation encoding="application/x-tex">2^{x_{frac}}</annotation></semantics></math>
+(Horner’s Method):</strong> To ****approximate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>2</mn><mi>f</mi></msup><annotation encoding="application/x-tex">2^{f}</annotation></semantics></math>
+we rewrite in Horner's form for efficient evaluation.</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><msub><mi>x</mi><mrow><mi mathvariant="normal">f</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">c</mi></mrow></msub></msup><mo>≈</mo><msub><mi>p</mi><mn>0</mn></msub><mo>+</mo><msub><mi>p</mi><mn>1</mn></msub><msub><mi>x</mi><mrow><mi mathvariant="normal">f</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">c</mi></mrow></msub><mo>+</mo><msub><mi>p</mi><mn>2</mn></msub><msubsup><mi>x</mi><mrow><mi mathvariant="normal">f</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">c</mi></mrow><mn>2</mn></msubsup><mo>+</mo><msub><mi>p</mi><mn>3</mn></msub><msubsup><mi>x</mi><mrow><mi mathvariant="normal">f</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">c</mi></mrow><mn>3</mn></msubsup></mrow><annotation encoding="application/x-tex">2^{x_{\mathrm{frac}}} \approx p_0 + p_1 x_{\mathrm{frac}} + p_2 x_{\mathrm{frac}}^{2} + p_3 x_{\mathrm{frac}}^{3}</annotation></semantics></math></p>
+<p>The coefficients <code>p0 = 1.0</code>, <code>p1 ≈ 0.6951</code>,
+<code>p2 ≈ 0.2276</code>, <code>p3 ≈ 0.0771</code> are chosen using the
+Sollya software package to minimize the relative approximation error
+over
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">[0, 1)</annotation></semantics></math>.</p>
+<p><strong>Exponent bits shift and add:</strong> The final step is to
+combine the integer part n and the fractional approximation 2^{f} to
+form 2^{x}  \approx 2^{n}\cdot 2^{f} . Since 2^f \in[1,2) has float32
+exponent 127, multiplying by 2^{n} is just shifting the integer n into
+the exponent field and then adding the mantissa bits of 2^{f}.</p>
+<h2 id="backward-pass-where-shared-memory-traffic-dominates">Backward
+pass: Where shared memory traffic dominates</h2>
+<p>Optimizing FlashAttention backward can feel like stuffing an
+oversized rug into a room: flatten one corner and another pops up.
+Backward computes about 2.5× the tensor core work of the forward pass,
+chaining five MMA operations to recompute S and run the QK and PV
+gradient MMAs for dQ, dK, dP, and dV, plus the element wise work for P
+and dS. On Blackwell, FLOPs are not the limiter for backward; shared
+memory bandwidth is</p>
+<h3 id="pipeline-overlap-mmas-with-softmax"><strong>Pipeline: Overlap
+MMAs with <em>softmax</em></strong></h3>
+<p>Hopper-era FlashAttention-3 keeps MMA accumulators in registers, so
+register pressure often forces a more serial schedule. On Blackwell,
+accumulators live in TMEM, which makes it practical to keep multiple
+MMAs in flight while the CUDA cores handle the element wise work for P
+and dS. Since exponential throughput is comparable to two MMAs in our
+roofline, hiding it is worth it.</p>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/56604f6564811c574f65d3cbdf5eff2c88cf489a0827b0571659fb099da12d35.jpg" />
+</div>
+</figure>
+<p><strong>The key overlap is simple</strong>: while we compute softmax
+for tile j, we already issue the <strong>dK</strong> and
+<strong>dQ</strong> MMAs for tile j−1</p>
+<p>To reduce shared memory traffic, the backward pass recomputes S and P
+in a transposed tile relative to the forward pass, so the intermediate
+is already
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>S</mi><mi>T</mi></msup><annotation encoding="application/x-tex">S^T</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>P</mi><mi>T</mi></msup><annotation encoding="application/x-tex">P^T</annotation></semantics></math>.
+We can then store
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>P</mi><mi>T</mi></msup><annotation encoding="application/x-tex">P^T</annotation></semantics></math>
+(and later
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><msup><mi>S</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">dS^T</annotation></semantics></math>)
+directly in TMEM in the exact operand A layout consumed by the dV and dK
+MMAs respectively.</p>
+<p>TMEM cannot hold five full accumulators and intermediates at once, so
+FA4 reuses TMEM columns across stages: S and P share one set of columns,
+and dP, dS, and dQ share another.</p>
+<h3
+id="cta-backward-pass-reducing-shared-memory-traffic-and-global-atomic-adds">2-CTA
+backward pass: Reducing shared memory traffic and global atomic
+adds</h3>
+<p><strong>Shared memory traffic.</strong> Even with the improved
+pipeline and with two of the ten GEMM operands kept in tensor memory,
+the backward pass is still limited by shared memory bandwidth. We
+mitigate this with Blackwell 2-CTA MMA mode, which partitions the output
+accumulator across the CTA pair. With M=256 and N=K=128, the two CTAs
+cooperate as one tile: each CTA stages half of operand B and keeps only
+its own accumulator slice. This roughly halves shared memory traffic for
+operand B.</p>
+<p><strong>Reduction axis conflict.</strong> We use M=256 and N=K=128
+MMA tile across the five backward GEMMs to cut B traffic, but the nature
+of dQ MMA introduces a mismatch. In FlashAttention backward, each CTA
+owns a fixed KV tile (outer loop parallelized across N CTAs) and
+iterates over M tiles in the inner loop. The dQ update reduces over the
+KV sequence in the outer loop. 2-CTA MMA splits the output tile, not the
+reduction, and the dQ reduction dimension is N, which is already split
+across the CTA pair. Each CTA still needs the full reduction for the
+rows it owns.</p>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/7f45ac855ca0c79712d868d23e0636a14b810546453ec4d3530e83ca8749ef8e.png" />
+</div>
+</figure>
+<p><strong>Solution: DSMEM exchange.</strong> We resolve this by
+exchanging half of dS between the two CTAs using distributed shared
+memory within the cluster. This repacks dS so it is partitioned along
+the non reduction axis: each CTA owns M/2 rows while holding the full 2N
+reduction. The per CTA dQ MMA becomes (M/2, 2N)(2N, d), accumulating an
+(M/2, d) tile in tensor memory. In 2-CTA mode, the S, dP, dV, and dK
+MMAs keep M=256, while dQ uses M=128 with doubled reduction 2N=256. We
+then reorder the pipeline to hide DSMEM latency: compute dP for the
+current tile before computing dQ for the previous tile. Since the dQ
+tile fits in TMEM alongside P, it can reuse the TMEM region used for S,
+so dP and dQ no longer share a region as in 1-CTA mode. With this
+ordering, element-wise dS for the current tile overlaps with the dQ MMA
+from the previous iteration.</p>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/adf916e220b405ccd1efdbe55a7f1d68c301c33398b25de730399da5428b00ba.jpg" />
+</div>
+</figure>
+<p><strong>dQ atomic adds.</strong> As a side benefit, the dQ
+decomposition halves the number of global atomic reductions. Atomics are
+nondeterministic and expensive, and they occur in every inner loop
+iteration. Consequently, in the 2CTA backward pass each CTA writes only
+half of the dQ tile and performs half as many global atomic reductions
+as the 1-CTA counterpart.</p>
+<h3
+id="deterministic-mode-reproducible-dq-without-crushing-throughput">Deterministic
+mode: Reproducible <code>dQ</code> without crushing throughput</h3>
+<p>The source of nondeterminism is the global atomic accumulation for
+<code>dQ</code>. FA4 provides a deterministic mode that serializes the
+global reductions with a semaphore-style lock and memory fence to
+enforce a fixed accumulation order. However, determinism does not have
+to mean “everything stops.” FA4 reduces lock contention with CTA
+swizzling, and uses a shortest-processing-time-first (SPT) ordering for
+causal masking to reduce stalls. In practice, deterministic backward
+reaches up to about 85-90% of the nondeterministic throughput in our
+benchmarks.</p>
+<h2 id="scheduling">Scheduling</h2>
+<p>Causal masking and variable sequence length make attention load
+imbalanced because different worktiles have different mainloop lengths,
+so FA4 improves grid linearization and applies
+<strong><em>longest-processing-time-first (LPT)</em></strong> scheduling
+to reduce the tail. In fact, these ideas are non-specific to Blackwell
+or any particular GPU architecture, and we also use them in FA3.</p>
+<p>For <strong>causal masking</strong>, the standard (mblocks, heads,
+batches) grid order suboptimally processes tiles from shortest to
+longest, so FA4 swizzles batch-heads into L2-sized sections and
+traverses the grid by batch-head section, iterating mblocks in reverse
+order and then the batch-heads within each section.</p>
+<p>For <strong>variable sequence length</strong>, since different
+batches involve different amounts of work, the given batch-processing
+order is typically suboptimal from the point of view of the LPT
+scheduling heuristic. To rectify this, we can launch a preprocessing
+kernel that sorts batches by maximum per-worktile execution time and
+writes a virtual to actual batch index mapping that the attention kernel
+uses to traverse batches in sorted order; moreover, the metadata can be
+cached so that sorting adds no performance loss. At the time of this
+writing, we have validated this idea and implemented it for FA3, and we
+expect to incorporate sorting and other metadata preparation more
+generally into F4 in the near future.</p>
+<h2 id="language-and-framework-cute-dsl">Language and framework:
+CuTe-DSL</h2>
+<p>FA4 is implemented entirely in CuTe-DSL, CUTLASS’ Python kernel DSL.
+Kernels are written in Python; the DSL lowers to PTX, then the CUDA
+toolkit compiles to GPU machine code. The programming model mirrors
+CuTe/CUTLASS abstractions with a PTX escape hatch, while cutting compile
+times by ~20–30× vs C++ templates.</p>
+<h2 id="attention-benchmarks">Attention Benchmarks</h2>
+<p>We show results for FlashAttention-4 on B200 (BF16) and compare it to
+FlashAttention-2, as well as to implementations in Triton, Gluon, and
+cuDNN. For cuDNN, we compare against cuDNN 9.13 and the latest version,
+9.19.1.2. Starting with versions 9.13 and 9.14, we have worked with the
+cuDNN team to incorporate some techniques from FlashAttention-4 into
+cuDNN, so that our work can benefit as many practitioners as possible.
+For backward FlashAttention-4 consistently outperforms the other
+baselines for large sequence lengths. In the forward pass,
+FlashAttention-4 is 1.1-1.3x faster than cuDNN 9.13 and 2.1-2.7x faster
+than Triton.</p>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/662de95003d65b3afc82dfbd77308b35fee3f6c431e80848743b5fab94b09865.png" />
+</div>
+</figure>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/5e05cb16b8d5b18a147634525475615bab642021fee8882dc7a4fcff8ea32f51.png" />
+</div>
+</figure>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/ed5f80fa23817d80857b7dd607c7bc239c3e26604f5bad550959eaddd491bd21.png" />
+</div>
+</figure>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/94fe40399588d4aad8dc700e099364e1ee768db46edd3bffce6d2ab9ac9c5740.png" />
+</div>
+</figure>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/1052b6e21e4b076ec58a048361112b7027a17d31bf5ff14df2c8505872dec245.png" />
+</div>
+</figure>
+<figure class="w-richtext-align-center w-richtext-figure-type-image">
+<div>
+<img
+src="assets/c077c43a5a9315d6b20a4d1adb7d2b1d01bf41e2eb009694fc2b87edff02ad9f.png"
+alt="Bar chart comparing cuDNN versions and FA4 on Forward TFLOPS across sequence lengths from 1K to 32K." />
+</div>
+</figure>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>We thank Together AI, Meta, xAI, and Princeton Language and
+Intelligence (PLI) for compute support. We want to further thank the
+following teams at Nvidia: CuDNN, TensorRT-LLM, and CUTLASS teams for
+constant discussions, ideas, and feedback.</p>
+</div>
+</body>
+</html>

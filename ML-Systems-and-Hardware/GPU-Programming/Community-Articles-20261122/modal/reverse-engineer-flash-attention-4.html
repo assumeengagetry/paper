@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>We reverse-engineered Flash Attention 4</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">We reverse-engineered Flash Attention 4</h1>
+</header>
+<section id="we-reverse-engineered-flash-attention-4" class="header">
+<h1>We reverse-engineered Flash Attention 4</h1>
+<p>来源：<a
+href="https://modal.com/blog/reverse-engineer-flash-attention-4">https://modal.com/blog/reverse-engineer-flash-attention-4</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="article-body svelte-1lpv322">
+<article class="blog">
+<p>
+<em>
+This blog post made the front page of HackerNews! Discussion
+<a class="link inheritColor svelte-18aoyuv" href="https://news.ycombinator.com/item?id=45399637" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.</em>
+</p>
+<p>
+<em>
+This blog post was presented to the
+<a class="link inheritColor svelte-18aoyuv" href="https://discord.com/invite/gpumode" rel="noreferrer external" target="_blank">
+GPU MODE Discord
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>! Watch the recording
+<a class="link inheritColor svelte-18aoyuv" href="https://www.youtube.com/watch?v=ZIEq-WTquy4" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.</em>
+</p>
+<p>
+One month ago at
+<a class="link inheritColor svelte-18aoyuv" href="https://hotchips.org/" rel="noreferrer external" target="_blank">
+Hot Chips
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, Tri Dao presented preliminary results on Flash Attention 4, the
+latest addition to the
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention" rel="noreferrer external" target="_blank">
+Flash Attention series of CUDA kernels
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. These kernels are used in the attention layers of Transformer
+neural networks. Along with more standard matrix multiplications, these
+calculations are the primary bottlenecks in contemporary generative AI
+workloads. Billions of dollars and gigawatts of power are being expended
+on GPUs to run more of these calculations faster. And Flash Attention 4
+is the way to run lots of them as fast as possible. This blog post
+explains how it works.
+</p>
+<p>The new FA4 kernel is optimized for Nvidia’s new <a
+href="https://modal.com/blog/introducing-b200-h200"
+class="link inheritColor svelte-18aoyuv">Blackwell Streaming
+Multiprocessor architecture</a> and achieves a reported ~20% speedup
+over the previous state-of-the-art, the attention kernels in Nvidia’s <a
+href="https://modal.com/gpu-glossary/host-software/cudnn"
+class="link inheritColor svelte-18aoyuv"><code>cudnn</code></a>
+library.</p>
+<p><img
+src="assets/9a5e6951f3e08d4ceb7161df7ad92832bebe5293fc64ea307c6af761da221a71.jpg"
+class="mx-auto my-6"
+alt="A chart depicting the ~20% performance improvement of Flash Attention 4 over cudnn attention kernels." /></p>
+<p><code>cudnn</code> kernels are closed source, so Jensen only knows
+what’s going on in there.</p>
+<p>
+There’s also no official technical report on how FA4 works yet. But the
+source code for Flash Attention 4 was already released online
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. We’ve
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/sgl-project/sglang/pull/9588" rel="noreferrer external" target="_blank">
+recently
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> been contributing to open source LLM inference engines, so we read
+the code and reverse-engineered how the kernel works, including two math
+tricks (faster approximate exponentials and a more efficient online
+softmax) that are classic Dao. This write-up contains our findings.
+</p>
+<p>Perhaps surprisingly, the architecture of FA4 is readily
+understandable by a general software engineering audience.</p>
+<p>
+That’s because the biggest change in FA4 isn’t the (very cool) math —
+it’s a massive increase in the complexity of its asynchronous “pipeline”
+of operations. This kind of asynchronous programming is fairly new in
+the world of CUDA, but
+<a class="link inheritColor svelte-18aoyuv" href="https://assets.bitbashing.io/images/cubedrone-103.png" rel="noreferrer external" target="_blank">
+pipes have been in Unix for like 40 goddamn years
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. A programmer who has experience with parallel and concurrent
+programs, like high performance databases and web servers, will feel
+right at home (absent some novel <a
+href="https://modal.com/gpu-glossary/readme"
+class="link inheritColor svelte-18aoyuv">GPU technical vocabulary</a>).
+</p>
+<p>So we organize our write-up into two parts.</p>
+<p>The first section, a “quick tour”, covers the architecture of FA4 by
+tracing what happens as a block of inputs is turned into a block of
+outputs. It is written to be understandable by a practicing software
+engineer without any CUDA programming experience. We give brief
+explanations of CUDA concepts and hardware, like <a
+href="https://modal.com/gpu-glossary/device-software/warp"
+class="link inheritColor svelte-18aoyuv">warps</a> and <a
+href="https://modal.com/gpu-glossary/device-hardware/warp-scheduler"
+class="link inheritColor svelte-18aoyuv">warp schedulers</a>, but defer
+detailed explanation to our <a
+href="https://modal.com/gpu-glossary/readme"
+class="link inheritColor svelte-18aoyuv">GPU Glossary</a> (linked
+throughout).</p>
+<p>The second section, a “deep dive”, walks through each of the
+subcomponents in turn, explaining what each does, supported by links to
+the source code for particularly intrepid spelunkers.</p>
+<h2 id="a-quick-tour-of-flash-attention-4-the-life-of-a-tile">A quick
+tour of Flash Attention 4: The “Life of a Tile”</h2>
+<p>
+We start with
+<a class="link inheritColor svelte-18aoyuv" href="https://float.exposed/b0x3a0a" rel="noreferrer external" target="_blank">
+bf16
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> tensors of queries, keys, and values in <a
+href="https://modal.com/gpu-glossary/device-software/global-memory"
+class="link inheritColor svelte-18aoyuv">global memory</a> (aka <a
+href="https://modal.com/gpu-glossary/device-hardware/gpu-ram"
+class="link inheritColor svelte-18aoyuv">GPU RAM</a>). We’re aiming to
+produce a tensor of bf16 outputs, also in global memory. Outputs are
+values weighted by the similarity of queries to keys. Computing this
+weighting requires matrix multiplication, exponentiation, and
+normalization.
+</p>
+<p>Like the good engineers we are, we tackle this very big problem by
+breaking it down into smaller pieces. That’s fairly literal in this
+case: we take our very large input tensor and split it up into “tiles”
+of adjacent rows and columns, each of which contribute to the
+calculation of one tile of outputs.</p>
+<p>Specifically, one running instance of our kernel program (namely, one
+<a
+href="https://modal.com/gpu-glossary/device-software/cooperative-thread-array"
+class="link inheritColor svelte-18aoyuv">“cooperative thread array”</a>
+of threads) produces two tiles of the outputs tensor by reading two
+tiles of the queries tensor. In between, it streams all of the keys
+&amp; values for each query tile. Keys and values are also read in
+tiles. If you’re a database ‘head, you might think of it as a vectorized
+sequential scan for a batch of aggregation queries against a key-value
+store.</p>
+<p><img src="assets/b0af55396a7761e957c9ac0a6b3575fc74fb7d72cc3ff824f0aa9ff03dcf7a4c.jpg"
+class="mx-auto my-6"
+alt="A diagram showing a tile of queries combining with a stream of key and value tiles to produce an output tile." /></p>
+<p>By running this tile-level program many times concurrently
+(typically, massively in parallel), we produce the entire outputs
+tensor. This is a <a
+href="https://modal.com/gpu-glossary/device-software/kernel"
+class="link inheritColor svelte-18aoyuv">“single program, multiple data”
+execution model</a>, where each datum is a pair of tiles. This kind of
+concurrency <em>across</em> program instances is the bread-and-butter of
+the <a
+href="https://modal.com/gpu-glossary/device-software/cuda-programming-model"
+class="link inheritColor svelte-18aoyuv">CUDA programming model</a> and
+is transparently handled for the programmer by the <a
+href="https://modal.com/gpu-glossary/host-software/cuda-software-platform"
+class="link inheritColor svelte-18aoyuv">CUDA runtime</a>.</p>
+<p>But with the fastest contemporary kernels, like Flash Attention 3
+&amp; 4 and all state-of-the-art matrix multiplications, there is also
+concurrency <em>within</em> our program. Each program instance sets up
+an asynchronous pipeline of operations that together effect the
+tile-level computation depicted above. We write our kernel such that all
+of our pipeline steps can run as concurrently as possible as we process
+a tile. In Flash Attention 4, we achieve this by mapping chunks of our
+pipeline onto 32-thread groups called <a
+href="https://modal.com/gpu-glossary/device-software/warp"
+class="link inheritColor svelte-18aoyuv"><em>warps</em></a> (a technique
+called <em>warp specialization</em>).</p>
+<p>
+We then rely on the <a
+href="https://modal.com/gpu-glossary/device-hardware/warp-scheduler"
+class="link inheritColor svelte-18aoyuv">warp schedulers</a> to switch
+between pipeline steps within program instances on each clock, swapping
+out when a step stalls and swapping back in when a step’s next input is
+ready. Think
+<a class="link inheritColor svelte-18aoyuv" href="https://blog.codingconfessions.com/p/simultaneous-multithreading" rel="noreferrer external" target="_blank">
+simultaneous multithreading
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>/“hyperthreading” from CPUs, but on steroids. The diagram below,
+from our <a href="https://modal.com/gpu-glossary/perf"
+class="link inheritColor svelte-18aoyuv">GPU Performance Glossary</a>,
+depicts four cycles across four parallel slots, for a total of sixteen
+<a href="https://modal.com/gpu-glossary/perf/issue-efficiency"
+class="link inheritColor svelte-18aoyuv">execution slots</a>, fifteen of
+which are filled with warps actively executing instructions thanks to
+this rapid warp switching. See the <a
+href="https://modal.com/gpu-glossary/perf/warp-execution-state"
+class="link inheritColor svelte-18aoyuv">associated article</a> for
+details.
+</p>
+<p><img src="assets/f4af76002a7f9c03d225f2f34f17893f59e432282c11090c5671696e4c5d134e.svg"
+class="mx-auto my-6"
+alt="A diagram depicting sixteen execution slots. Fifteen of them are colored in, indicating that they are filled with an active warp." /></p>
+<p>
+This execution model is “dual” to
+<a class="link inheritColor svelte-18aoyuv" href="https://ibraheem.ca/posts/too-many-web-servers/" rel="noreferrer external" target="_blank">
+the way that an asynchronous program for CPUs works
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> in the following sense. In an async CPU program, a single thread
+implements the entire journey of a single datum (e.g. request) through a
+state machine (e.g. Reading, Parsing, Writing), switching between
+transitions as data become ready. In an async GPU program like FA4, a
+single warp implements a single <em>transition</em> (e.g. from queries
+and values to attention scores) in a similar state machine.
+</p>
+<p><img
+src="assets/d7588a2938c002090b3dfd332cb1897831154aa9250c515ad604f4e8b12bb59c.jpg"
+class="mx-auto my-6" alt="cpu-async-vs-gpu-async.drawio.png" /></p>
+<p>The pipeline is organized with a producer/consumer model and uses
+barriers for synchronization.</p>
+<p>
+Unlike the concurrency across program instances, the internal pipeline
+concurrency is all implemented manually. This leads to quite gnar code —
+though the control flow will look familiar to anyone who has
+<a class="link inheritColor svelte-18aoyuv" href="https://os.phil-opp.com/async-await/" rel="noreferrer external" target="_blank">
+written their own event loop
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+So like most async code, the FA4 kernel is best understood by tracing
+the path of a single tile: the “life of a tile”, akin to
+<a class="link inheritColor svelte-18aoyuv" href="https://groups.google.com/a/chromium.org/g/blink-dev/c/AK_rwEp61ME" rel="noreferrer external" target="_blank">
+the “life of a pixel” in a browser’s rendering pipeline
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. In particular, let’s follow the tile’s path through the <a
+href="https://modal.com/gpu-glossary/device-software/memory-hierarchy"
+class="link inheritColor svelte-18aoyuv">memory hierarchy of the GPU</a>
+as it is transformed from initial query tile to final output tile.
+</p>
+<p>At a high level, and eliding a few details about multiple buffering
+that increase concurrency and parallelism, that looks something like
+this:</p>
+<p><img src="assets/745e0a348c5d1e1daa8269ddee08bbcd3b1ad32a88a9f8f6105a227763e2f26e.jpg"
+class="mx-auto my-6" alt="fa4-life-of-tile.drawio.png" /></p>
+<p>
+Which vaguely resembles a
+<a class="link inheritColor svelte-18aoyuv" href="https://microservices.io/patterns/microservices.html" rel="noreferrer external" target="_blank">
+microservices diagram
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. As above, so below!
+</p>
+<p>Spelled out, that’s:</p>
+<ul>
+<li>A tile of queries is loaded from global memory (<code>mQ</code>)
+into shared memory (<code>sQ</code>) by the Load warp. <a
+href="https://modal.com/gpu-glossary/device-software/shared-memory"
+class="link inheritColor svelte-18aoyuv">Shared memory</a> is a
+“scratchpad” L1 cache managed by the programmer.</li>
+<li>Tiles of keys (<code>mK</code>) and values (<code>mV</code>) are
+streamed into shared memory (<code>sK</code>, <code>sV</code>), also by
+the Load warp. Note that if the working set size permits, future loads
+of these tiles for other query tiles will be serviced from the
+hardware-managed L2 cache (not pictured).</li>
+<li>When each tile of keys is ready, the MMA warp multiplies it with our
+tile of queries using a Tensor Core, producing a tile of unnormalized
+attention scores in Tensor Memory (<code>tS</code>). <a
+href="https://modal.com/gpu-glossary/device-hardware/tensor-core"
+class="link inheritColor svelte-18aoyuv">Tensor Cores</a> are
+single-purpose hardware for running matmuls. <a
+href="https://modal.com/gpu-glossary/device-hardware/tensor-memory"
+class="link inheritColor svelte-18aoyuv">Tensor Memory</a> is another
+programmer-managed L1 cache designed to hold and accumulate
+intermediates during sequences of Tensor Core operations.</li>
+<li>When each tile of unnormalized attention scores is ready, a Softmax
+warp produces normalized attention scores for that tile in Tensor Memory
+(<code>tP</code>) without using the Tensor Core and updates a scaling
+factor used for numerical stability (in shared memory, not pictured).
+<ul>
+<li>⚡️ New in Flash Attention 4: this step can use CUDA Cores instead of
+<a
+href="https://modal.com/gpu-glossary/device-hardware/special-function-unit"
+class="link inheritColor svelte-18aoyuv">Special Function Units
+(SFUs)</a> to perform the exponential step of the normalization. SFUs
+are intended to provide hardware acceleration for transcendental
+operations like exponentials. But there are <a
+href="https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor"
+class="link inheritColor svelte-18aoyuv">far fewer SFUs than CUDA
+Cores</a>, which can lead to queueing. The basic idea, fast software
+exponentiation for neural networks, was proposed in
+<a class="link inheritColor svelte-18aoyuv" href="https://nic.schraudolph.org/pubs/Schraudolph99.pdf" rel="noreferrer external" target="_blank">
+a 1999 <em>Neural Computation</em> paper by Schraudolph
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, but the implementation here is quite different, involving a cubic
+polynomial approximation to match the hardware precision (as described
+in detail below).</li>
+</ul></li>
+<li>When each tile of normalized attention scores is ready, a Correction
+warp checks if the normalization scaling factor has changed and, if
+necessary, rescales the final output tile in Tensor Memory
+(<code>tO</code>).
+<ul>
+<li>⚡️ New in Flash Attention 4: the choice of when to rescale became
+much smarter, reportedly cutting down on output rescaling operations by
+a factor of 10. Roughly: the scaling factor used to be a simple running
+maximum. Now updates are applied only when the maximum has changed
+enough to impact numerical stability. This seems like a good, and very
+portable, idea.</li>
+</ul></li>
+<li>When each rescaling update finishes, the MMA warp updates the output
+tile in Tensor Memory (<code>tO</code>) by accumulating it with the
+value tile (<code>sV</code>) scaled by the attention score tile
+(<code>tP</code>).</li>
+<li>When each tile of final output values is ready, the Correction warp
+stores it in shared memory (<code>sO</code>), then the Epilogue warp
+stores it in global memory (<code>mO</code>), and we’re done with that
+tile.</li>
+</ul>
+<p>Our high-level, tile-centric view elides a number of details, like
+the number of warps assigned to each pipeline step and the use of
+buffers to store different tiles. It also leaves out all of the details
+of the barrier synchronization, which is required on both sides of every
+producer/consumer relationship (aka where an arrow tip meets an arrow
+tail in the diagram). These are critical for performance.</p>
+<p>We go through these details in a “warp-centric” view of the kernel
+below, which focuses on the operations in each warp, rather than the
+movement of tiles, and includes links to the source code. This is
+necessarily more technical and goes through some GPU-specific features
+at higher speed, so it’s less suitable for a general software
+engineering audience.</p>
+<p>But before that, one last takeaway for those only interested in the
+high level.</p>
+<h2 id="where-does-gpu-programming-go-from-here">Where does GPU
+programming go from here?</h2>
+<p>
+When
+<a class="link inheritColor svelte-18aoyuv" href="https://graphics.stanford.edu/papers/brookgpu/brookgpu.pdf" rel="noreferrer external" target="_blank">
+Ian Buck
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and others designed <a
+href="https://modal.com/gpu-glossary/host-software/cuda-c"
+class="link inheritColor svelte-18aoyuv">CUDA C</a>, they were driven by
+a north star: can it be used to write a single precision vector addition
+(<code>saxpy</code>) with respectable performance as a clean one-liner
+that’s easily understood by a C programmer? The core of the <a
+href="https://modal.com/gpu-glossary/device-software/cuda-programming-model"
+class="link inheritColor svelte-18aoyuv">CUDA programming model</a> laid
+down then and described in the
+<a class="link inheritColor svelte-18aoyuv" href="https://www.cs.cmu.edu/afs/cs/academic/class/15869-f11/www/readings/lindholm08_tesla.pdf" rel="noreferrer external" target="_blank">
+2008 Lindholm et al. paper
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> still persists today.
+</p>
+<p>
+What’s new in the last few years (in the Hopper and Blackwell
+architectures) is an increasing reliance on programmer-managed
+asynchrony, like FA4’s multi-stage, multi-buffered pipeline. This
+represents a major jump in complexity from FA3’s simpler “ping-pong”
+pipeline (
+<a class="link inheritColor svelte-18aoyuv" href="../together-ai/flashattention-3.html" rel="noreferrer external" target="_blank">
+added to take advantage of Hopper GPUs’ async capabilities
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>).
+</p>
+<p>
+And
+<a class="link inheritColor svelte-18aoyuv" href="https://bitbashing.io/async-rust.html" rel="noreferrer external" target="_blank">
+just as in other well-designed languages
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, CUDA C/C++ has struggled to accommodate the introduction of
+asynchrony. It is a
+<a class="link inheritColor svelte-18aoyuv" href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/" rel="noreferrer external" target="_blank">
+truth universally acknowledged
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> that
+<a class="link inheritColor svelte-18aoyuv" href="https://fasterthanli.me/articles/pin-and-suffering" rel="noreferrer external" target="_blank">
+async programming sucks absolute ass
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. That’s especially true when you need to manage your own event
+loop, as we’re effectively doing here. And it’s made harder, not easier,
+by the thread-centricity and warp uniformity of the CUDA programming
+model and <a
+href="https://modal.com/gpu-glossary/device-software/parallel-thread-execution"
+class="link inheritColor svelte-18aoyuv">PTX machine model</a>.
+</p>
+<p>
+No wonder
+<a class="link inheritColor svelte-18aoyuv" href="https://www.youtube.com/watch?v=5e1YKqsP8i8&amp;t=1059s" rel="noreferrer external" target="_blank">
+the Triton team gave up on writing Blackwell attention
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and added the new Gluon frontend at a lower level!
+</p>
+<p>
+Triton’s troubles notwithstanding, this kernel is a clear instance of
+the swing towards tile-based, warp-specialized programming. And Nvidia
+is betting big on a number of new languages and libraries to try to make
+this easier, from the
+<a class="link inheritColor svelte-18aoyuv" href="https://docs.nvidia.com/cutlass/media/docs/pythonDSL/cute_dsl_general/dsl_introduction.html" rel="noreferrer external" target="_blank">
+CuTe DSL
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and
+<a class="link inheritColor svelte-18aoyuv" href="https://docs.nvidia.com/cutlass/index.html" rel="noreferrer external" target="_blank">
+CUTLASS
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> C++ used in this kernel to the forthcoming
+<a class="link inheritColor svelte-18aoyuv" href="https://www.youtube.com/watch?v=uZTtViomW6w" rel="noreferrer external" target="_blank">
+CuTile
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. Say what you will about the chatbot hype wave, these are exciting
+times for high performance numerical computing!
+</p>
+<h2
+id="deep-dive-for-the-gpu-enjoyers-what-does-each-warp-do-in-flash-attention-4">Deep
+dive for the GPU enjoyers: What does each warp do in Flash Attention
+4?</h2>
+<p>There are five different specializations for warps in the Flash
+Attention 4 kernel. They are listed below, along with links to their
+source code.</p>
+<ol>
+<li>A
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L837" rel="noreferrer external" target="_blank">
+Load warp
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to load query, key, and value tiles from global memory into shared
+memory</li>
+<li>An
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L953" rel="noreferrer external" target="_blank">
+MMA warp
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to compute unnormalized attention scores from query and key tiles
+and accumulate score-weighted value tiles into the output tiles</li>
+<li>Eight
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1143-L1145" rel="noreferrer external" target="_blank">
+Softmax warps
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to compute normalized attention scores and track running stats
+(max, sum)</li>
+<li>Four
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1413" rel="noreferrer external" target="_blank">
+Correction warps
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to watch for updates to the normalization scale and re-normalize
+the output tiles</li>
+<li>One or two
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1737" rel="noreferrer external" target="_blank">
+Epilogue warps
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to store completed output tiles from shared memory into global
+memory</li>
+</ol>
+<p>
+In the above discussion, we implied that each CTA works on just two
+query tiles and produces just two output tiles. That’s true in some
+settings, but the mapping between tiles and CTAs is technically
+abstracted by a
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L398-L404" rel="noreferrer external" target="_blank">
+<code>TileScheduler</code>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. For the best performance, you need to use the
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/1ceaa984b2f348caea18b39a98458d33b4ea7a09/flash_attn/cute/tile_scheduler.py#L122" rel="noreferrer external" target="_blank">
+<code>StaticPersistentTileScheduler</code>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, which launches
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/1ceaa984b2f348caea18b39a98458d33b4ea7a09/flash_attn/cute/tile_scheduler.py#L162-L163" rel="noreferrer external" target="_blank">
+at most one CTA per Streaming Multiprocessor
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and then schedules tiles onto those SMs. This reduces CTA launch
+overhead and allows for more fine-grained concurrency (e.g. overlapping
+Epilogue warps for one tile with the Load and MMA warps for the next
+tile).
+</p>
+<p>
+The core work of the kernel is the same — there’s just not a clean
+mapping of work onto thread constructs, which makes explaining the work
+harder. From here, we’ll go back to speaking about the code as though
+each CTA handles only two tiles (which is literally true if you use the
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/1ceaa984b2f348caea18b39a98458d33b4ea7a09/flash_attn/cute/tile_scheduler.py#L56" rel="noreferrer external" target="_blank">
+<code>SingleTileScheduler</code>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>).
+</p>
+<p>Also, from here we will start using some shorthand, matching the code
+and convention: Q for queries, K for keys, V for values, O for outputs,
+S for unnormalized attention scores, and P for normalized attention
+scores/“probabilities”.</p>
+<h3
+id="the-load-warp-loads-two-q-tiles-and-streams-all-k-and-v-tiles">The
+Load warp loads two Q tiles and streams all K and V tiles.</h3>
+<p>
+The
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L837" rel="noreferrer external" target="_blank">
+Load warp
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> operates on
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L841-L843" rel="noreferrer external" target="_blank">
+pointers to Q, K, and V tensors in global memory
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and writes to
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L844-L846" rel="noreferrer external" target="_blank">
+Q, K, and V tensors in shared memory
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. It supports paged keys and values (as in
+<a class="link inheritColor svelte-18aoyuv" href="../../../../LLM-Systems/Serving-and-KV-Cache/2309.06180v1.pdf" rel="noreferrer external" target="_blank">
+Paged Attention
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, not as in operating system pages) via an
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L847" rel="noreferrer external" target="_blank">
+optional “page table” tensor
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> (again, <em>not</em> the page tables co-managed by the OS, the CPU,
+and the MMU).
+</p>
+<p>
+It uses the <a
+href="https://modal.com/gpu-glossary/device-hardware/tensor-memory-accelerator"
+class="link inheritColor svelte-18aoyuv">Tensor Memory Accelerator
+(TMA)</a> to reduce register pressure from multidimensional array access
+and
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L889-L909" rel="noreferrer external" target="_blank">
+fire off copies asynchronously
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. This also avoids very long <a
+href="https://modal.com/gpu-glossary/perf/warp-execution-state"
+class="link inheritColor svelte-18aoyuv">warp stalls</a> on loads that
+would require even more warp specialization to <a
+href="https://modal.com/gpu-glossary/perf/latency-hiding"
+class="link inheritColor svelte-18aoyuv">hide latency</a>.
+</p>
+<p>
+The Load warp
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L934-L935" rel="noreferrer external" target="_blank">
+loads two Q tiles
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. It loads all K and V blocks
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L939-L946" rel="noreferrer external" target="_blank">
+in a loop
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. It is the ”
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L859" rel="noreferrer external" target="_blank">
+producer
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>” of these tiles (in a producer/consumer setup). It can
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L170" rel="noreferrer external" target="_blank">
+concurrently load up to three blocks each of K and V
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+As it completes these loads, the Load warp signals their completion to
+the MMA warp through
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L852" rel="noreferrer external" target="_blank">
+an array of barriers in shared memory
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. All barriers (not just for Load/MMA synchronization) are
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L913" rel="noreferrer external" target="_blank">
+referenced via their offset in this array
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to support variable barrier counts with different configuration
+settings.
+</p>
+<h3
+id="the-mma-warp-computes-unnormalized-attention-scores-and-output-values">The
+MMA warp computes unnormalized attention scores and output values.</h3>
+<p>
+The
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L953" rel="noreferrer external" target="_blank">
+MMA warp
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> operates on pointers to Q, K, and V tensors in
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L957-L959" rel="noreferrer external" target="_blank">
+shared memory
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. For every K/V tile, it runs
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L990" rel="noreferrer external" target="_blank">
+two matmuls to create S tiles
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L998" rel="noreferrer external" target="_blank">
+two matmuls for O
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> (Q/K for the S tiles, P/V for the O tiles). The matmuls are
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/1ceaa984b2f348caea18b39a98458d33b4ea7a09/flash_attn/cute/blackwell_helpers.py#L327-L369" rel="noreferrer external" target="_blank">
+emitted as inline PTX assembly
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, as is necessary for CUDA C/C++ programs to use the Tensor Cores in
+Hopper and Blackwell. The vast majority of the FLOPS in this kernel are
+driven by these lines; most everything else is memory management.
+</p>
+<p>
+The specific PTX instruction used is
+<code>tcgen05.mma.cta_group::1</code>. <code>mma</code> is
+matrix-multiply-accumulate. <code>tcgen05</code> means <code>5</code>th
+generation <code>t</code>ensor <code>c</code>ore, aka Blackwell, as in
+<code>sm100</code>/<a
+href="https://modal.com/gpu-glossary/device-software/compute-capability"
+class="link inheritColor svelte-18aoyuv">Compute Capability 10.0</a>.
+<code>cta_group::1</code> means we run our matmul using only a single
+CTA, avoiding the nastiness of <a
+href="https://modal.com/gpu-glossary/device-hardware/texture-processing-cluster"
+class="link inheritColor svelte-18aoyuv">TPC</a>-based 2SM/2CTA matmuls
+<a class="link inheritColor svelte-18aoyuv" href="https://docs.nvidia.com/cutlass/media/docs/cpp/blackwell_functionality.html" rel="noreferrer external" target="_blank">
+available in Blackwell
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. This likely introduces a small memory throughput penalty but
+simplifies CTA/tile scheduling. Interestingly, the
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/HazyResearch/ThunderKittens/blob/2ba96ceedfb1b5c5d6e1eb4a1241a24d16049be4/kernels/attn/b200/b200.cu" rel="noreferrer external" target="_blank">
+ThunderKittens Blackwell attention kernel
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> makes a different choice.
+</p>
+<p>Also on the front of scheduling/simplification: only a single
+<code>leader_thread</code> issues the instruction. And we’re only
+working from a single warp. This is an important difference from
+performant Hopper MMAs, which were coordinated across an entire <a
+href="https://modal.com/gpu-glossary/device-software/warpgroup"
+class="link inheritColor svelte-18aoyuv">warpgroup</a>.</p>
+<p>
+After
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1017" rel="noreferrer external" target="_blank">
+getting hold of a Q tile
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and our first K tile, we
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1031" rel="noreferrer external" target="_blank">
+run our first matmul
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to produce our first result for S. Then we
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1045" rel="noreferrer external" target="_blank">
+loop over the remaining K and V tiles
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and update S and O. These
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L963-L964" rel="noreferrer external" target="_blank">
+S and O tensors
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> live in Tensor Memory. This is <a
+href="https://modal.com/gpu-glossary/device-hardware/tensor-memory"
+class="link inheritColor svelte-18aoyuv">the “intended” use of Tensor
+Memory</a>, as a store for accumulators read from and written to by the
+Tensor Cores.
+</p>
+<p>
+Since the K and V tiles are buffered, we need to signal the Load warp
+every time we finish using them (eg
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1073-L1075" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, signaling that the memory containing V can be reused once it has
+been used to construct the second O tile). There’s some additional
+coordination here (around S, P, and O), which we’ll discuss as it comes
+in up in the other warps.
+</p>
+<h3 id="eight-softmax-warps-produce-normalized-attention-scores">Eight
+Softmax warps produce normalized attention scores.</h3>
+<p>
+The Softmax warps
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1401" rel="noreferrer external" target="_blank">
+produce normalized attention scores
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> (P, as in “probabilities”) consumed by the MMA warps. Ignore the
+name and don’t try to come up with an interpretation of the attention
+scores as the probability distribution for a random variable; it’ll make
+your head hurt and give you bad intuition about Transformers. They’re
+<a class="link inheritColor svelte-18aoyuv" href="https://transformer-circuits.pub/" rel="noreferrer external" target="_blank">
+better thought of
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> as weights for a linear combination of vectors from V.
+</p>
+<p>
+The core
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1143-L1145" rel="noreferrer external" target="_blank">
+softmax operation is implemented by two warpgroups
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, aka eight warps. The two warpgroups are mapped onto the two
+query/output tile workstreams. <a
+href="https://modal.com/gpu-glossary/device-software/warpgroup"
+class="link inheritColor svelte-18aoyuv">Warpgroups</a> are made up of
+four adjacent warps with a warp index alignment of four. Using them was
+critical for the fast warpgroup MMAs in Hopper GPUs,
+<a class="link inheritColor svelte-18aoyuv" href="../together-ai/flashattention-3.html" rel="noreferrer external" target="_blank">
+as in Flash Attention 3
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, but we didn’t see anything in this kernel that made explicit use
+of them. Warpgroup alignment may lead to more even distribution of work
+across warp schedulers/subunits of the SM, as it did in Hopper, which
+had <a
+href="https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture"
+class="link inheritColor svelte-18aoyuv">four warp schedulers per
+SM</a>. To our
+<a class="link inheritColor svelte-18aoyuv" href="https://en.wikipedia.org/wiki/Blackwell_(microarchitecture)#Blackwell_dies" rel="noreferrer external" target="_blank">
+and Wikipedia’s
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> knowledge, this level of detail on SM100 Blackwell GPUs like B200s
+is not published anywhere (but it
+<a class="link inheritColor svelte-18aoyuv" href="https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf" rel="noreferrer external" target="_blank">
+is true of SM120 RTX Blackwell GPUs
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>).
+</p>
+<p>We’re also not certain of the reason why some pipeline stages are
+assigned more warps than others and in this particular ratio.
+Presumably, it helps ensure balanced throughput across the different
+stages, but our napkin math on relative operational load, bandwidth, and
+latency between the matmuls and the attention operations didn’t produce
+a smoking gun. We speculate that it was determined by benchmarking.</p>
+<p>
+Each warp runs
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1315" rel="noreferrer external" target="_blank">
+a single step
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> of the online softmax calculation at a time while
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1267-L1269" rel="noreferrer external" target="_blank">
+looping over
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> the
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1384" rel="noreferrer external" target="_blank">
+S tiles produced by the MMA warp
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+Looking within the individual
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1315" rel="noreferrer external" target="_blank">
+softmax step
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>: the unnormalized attention scores are stored in Tensor Memory,
+which can only be <em>directly</em> operated on by the Tensor Cores. But
+the Tensor Cores can only do matrix multiplication. So the Softmax warps
+have to
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1363" rel="noreferrer external" target="_blank">
+copy the scores
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> into the registers to apply the exponentiation and then
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1398" rel="noreferrer external" target="_blank">
+copy the result back
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+The exponentiation is done differently than in previous versions of
+Flash Attention. FA3 and earlier used the GPU’s Special Function Units
+to perform a hardware-accelerated exponentiation. Specifically, they use
+the <code>exp2</code> CUDA PTX intrinsic, which is typically
+<a class="link inheritColor svelte-18aoyuv" href="https://godbolt.org/z/7e5jx9qcr" rel="noreferrer external" target="_blank">
+mapped by the (closed-source) <code>ptxas</code> compiler to the
+<code>MUFU.EX2</code> SASS instruction
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+The FA4 kernel does that too, but for
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/add175637c5d54b74bc25372e49ce282d6f236fc/flash_attn/cute/flash_fwd_sm100.py#L1390-L1391" rel="noreferrer external" target="_blank">
+smaller attention head sizes
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> it
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/0165c96fff7a7cd2e152aa9659f75c972a702f5d/flash_attn/cute/softmax.py#L234-L238" rel="noreferrer external" target="_blank">
+additionally mixes in a different exponentiation algorithm on some
+iterations with a tunable frequency
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. That implementation uses
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/add175637c5d54b74bc25372e49ce282d6f236fc/flash_attn/cute/utils.py#L501-L541" rel="noreferrer external" target="_blank">
+this block of inline PTX
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> to compute <code>2 ** x</code>. The algorithm splits the
+exponentiation into two parts: the easy integer part
+(<code>2 ** floor(x)</code>) and the hard rational part
+(<code>2 ** (x - floor(x))</code>). It uses a cubic polynomial to
+approximate <code>2 ** x</code> on the unit interval (check out the
+approximation on Wolfram Alpha
+<a class="link inheritColor svelte-18aoyuv" href="https://www.wolframalpha.com/input?i=0.07711909%2Ar%5E3%2B0.22756439%2Ar%5E2%2B0.69514614%2Ar%2B1.0+compared+to+2%5Er" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>). This approximation matches the output of the SFUs for
+<code>bf16</code> values.
+</p>
+<p>The cubic polynomial calculation is done, following Horner’s method
+for linear time polynomial evaluation, with three fused multiply-adds
+(<code>fma</code>):</p>
+<div class="not-prose my-6">
+<div class="relative">
+<div class="code scroller default svelte-o5eekp">
+<div class="relative flex min-w-0">
+<div class="content">
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode px-3.5"><code class="sourceCode mandoc"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>// Horner&#39;s method: (((c3 * r) + c2) * r + c1) * r + c0</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>fma.rn.ftz.f32x2 l10, l9, l6, l5</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>fma.rn.ftz.f32x2 l10, l10, l9, l4</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>fma.rn.ftz.f32x2 l10, l10, l9, l3</span></code></pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>
+Note that <code>f32x2</code> means that we operate on a vector (as in
+<a class="link inheritColor svelte-18aoyuv" href="https://people.eecs.berkeley.edu/~pattrsn/252S98/Lec06-vector.pdf" rel="noreferrer external" target="_blank">
+vector lanes
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>) of two 32 bit values. You can read about a similar implementation
+for CPU vector instructions on Stack Overflow
+<a class="link inheritColor svelte-18aoyuv" href="https://stackoverflow.com/questions/47025373/fastest-implementation-of-the-natural-exponential-function-using-sse" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+In addition to only applying this method on some iterations, it
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/0165c96fff7a7cd2e152aa9659f75c972a702f5d/flash_attn/cute/softmax.py#L234-L238" rel="noreferrer external" target="_blank">
+stops applying it on a configurable number of the last S tiles
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. Together, these suggest that the reason for applying it is to
+avoid a bottleneck on the SFUs (which, due to
+<a class="link inheritColor svelte-18aoyuv" href="https://www.thonking.ai/p/what-shapes-do-matrix-multiplications" rel="noreferrer external" target="_blank">
+wave quantization effects
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, is less relevant for the final tiles).
+</p>
+<p>
+The Softmax warps also
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1282" rel="noreferrer external" target="_blank">
+track the running statistics for rescaling and normalizing attention
+scores
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> used by the Correction warps, as discussed below.
+</p>
+<p>
+There’s another important change here. All softmax algorithms need to
+handle
+<a class="link inheritColor svelte-18aoyuv" href="https://en.wikipedia.org/wiki/Softmax_function#Numerical_algorithms" rel="noreferrer external" target="_blank">
+numerical instability caused by exponentiation of large values
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. Before Flash Attention, this was usually done by finding the
+largest value in each row and subtracting it from the value before
+exponentiating. All Flash Attention kernels use a streaming or online
+softmax algorithm, and the largest value is not known in advance —
+searching through the scores to find it would defeat the purpose of
+using a streaming algorithm! Instead, they use a running maximum for
+numerical stability and update the scaling factor whenever a new maximum
+is encountered. This ensures continued numerical stability and avoids an
+extra scan, but requires a costly correction of previous values (handled
+by the Correction warps) every time a new maximum is observed.
+</p>
+<p>
+This is inefficient. We only need to update the scaling factor <em>when
+the new maximum changes enough to threaten numerical stability</em>, not
+every time a new maximum appears. That logic is implemented
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/0165c96fff7a7cd2e152aa9659f75c972a702f5d/flash_attn/cute/softmax.py#L176-L179" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. In the Hot Chips talk, Dao indicated that this reduced the number
+of corrections by a factor of 10.
+</p>
+<p>
+There is additional support for
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1153" rel="noreferrer external" target="_blank">
+attention sinks
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and storing
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1152" rel="noreferrer external" target="_blank">
+the log-sum-exp tensor
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> used in the backwards pass. At time of writing in late September
+2025, a backwards version of this kernel is not available, but is
+expected imminently.
+</p>
+<h3
+id="four-correction-warps-rescale-previous-outputs-as-the-normalization-changes">Four
+Correction warps rescale previous outputs as the normalization
+changes.</h3>
+<p>
+The
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1413" rel="noreferrer external" target="_blank">
+Correction warps
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> update
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1418" rel="noreferrer external" target="_blank">
+past output results
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> from the MMA warps
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1476-L1477" rel="noreferrer external" target="_blank">
+as the numerical stability scaling factor changes
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. The Correction warps need to coordinate their access to the O
+values in Tensor Memory with the MMA warps (eg
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1533" rel="noreferrer external" target="_blank">
+here
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, indicating that those values are consumed and the memory can be
+reclaimed).
+</p>
+<p>
+Like the Softmax warps, the four Correction warps form a warpgroup. Also
+like the Softmax warps, they need to load from Tensor Memory to
+registers to apply their
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1588" rel="noreferrer external" target="_blank">
+non-matmul rescaling operation
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+The Correction warps are also responsible for writing the output from
+Tensor Memory to shared memory and applying the final scaling by the row
+sum. This is
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1527-L1529" rel="noreferrer external" target="_blank">
+called the <code>correction_epilogue</code>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. “Epilogue” here means the same thing as in the name of the
+“Epilogue” warps — an operation that occurs at the end of a sequence of
+operations on values stored in one memory and before the results are
+written to another memory. But in this case, it refers to operations on
+data in Tensor Memory before they are stored to shared memory, whereas
+the Epilogue warps take data from shared memory and store it in global
+memory.
+</p>
+<p>This is especially confusing because the completion of this epilogue
+is the signal for the Epilogue warps to start their work.</p>
+<p>
+The Correction warps have the
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1420" rel="noreferrer external" target="_blank">
+global memory output tensor among their arguments
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, but only use it in commented-out code.
+</p>
+<h3
+id="the-epilogue-warps-store-complete-output-tiles-back-into-global-memory">The
+Epilogue Warp(s) store complete output tiles back into global
+memory.</h3>
+<p>
+There are either one or two
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1737" rel="noreferrer external" target="_blank">
+Epilogue warps
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> depending on
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L367" rel="noreferrer external" target="_blank">
+whether the TMA is enabled
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<p>
+In
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1759" rel="noreferrer external" target="_blank">
+the case that the Epilogue warps can use the TMA
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, there’s only one and its work is simple. It
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1770" rel="noreferrer external" target="_blank">
+waits on the correction loop to finish for an output tile
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, then
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1772-L1773" rel="noreferrer external" target="_blank">
+runs a TMA copy
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, then
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1777" rel="noreferrer external" target="_blank">
+signals that it has finished reading the O tensor in shared memory
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and the buffer can be reused.
+</p>
+<p>
+If
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1778" rel="noreferrer external" target="_blank">
+they can’t use the TMA
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, their work is more complicated — they need to handle
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1780" rel="noreferrer external" target="_blank">
+slicing
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a> and
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1789" rel="noreferrer external" target="_blank">
+packing
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>, which is
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1787" rel="noreferrer external" target="_blank">
+pretty hard
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>. It also consumes
+<a class="link inheritColor svelte-18aoyuv" href="https://github.com/Dao-AILab/flash-attention/blob/5c1627a7a1cda9c32cb9b937a053564e663f81bc/flash_attn/cute/flash_fwd_sm100.py#L1795" rel="noreferrer external" target="_blank">
+quite a few more registers
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-right lucide-icon external-icon" aria-hidden="true">
+<path d="M7 7h10v10"></path><path d="M7 17 17 7"></path>
+</svg>
+</a>.
+</p>
+<h2 id="if-you-made-it-this-far-you-might-enjoy-working-at-modal">If you
+made it this far, you might enjoy working at Modal.</h2>
+<p>At Modal, we’re building the cloud infrastructure that
+compute-intensive workloads like giant Transformers need. Our platform
+is used by companies like <a
+href="https://modal.com/blog/suno-case-study"
+class="link inheritColor svelte-18aoyuv">Suno</a>, <a
+href="https://modal.com/blog/lovable-case-study"
+class="link inheritColor svelte-18aoyuv">Lovable</a>, <a
+href="https://modal.com/blog/ramp-case-study"
+class="link inheritColor svelte-18aoyuv">Ramp</a>, and <a
+href="https://modal.com/blog/substack-case-study"
+class="link inheritColor svelte-18aoyuv">Substack</a>. We’re <a
+href="https://modal.com/careers"
+class="link inheritColor svelte-18aoyuv">hiring</a>.</p>
+<p><em>The authors would like to thank Simon Mo of vLLM, Michael Goin of
+RedHat AI, and Kimbo Chen of SemiAnalysis for their comments on drafts
+of this article. We’d also like to thank Tri Dao for writing another
+banger of a kernel.</em></p>
+</article>
+</div>
+</body>
+</html>

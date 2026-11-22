@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FlexAttention: The Flexibility of PyTorch with the Performance of FlashAttention</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FlexAttention: The Flexibility of PyTorch with the
+Performance of FlashAttention</h1>
+</header>
+<section
+id="flexattention-the-flexibility-of-pytorch-with-the-performance-of-flashattention"
+class="header">
+<h1>FlexAttention: The Flexibility of PyTorch with the Performance of
+FlashAttention</h1>
+<p>来源：<a
+href="https://pytorch.org/blog/flexattention/">https://pytorch.org/blog/flexattention/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content" data-hide-featured-media="1">
+<div class="content-inner">
+<figure class="wp-block-image">
+<img src="assets/d09580888932cbee1639c76b45814d9f5cb1fefd55fbea4284fa56f09b39cd20.jpg"
+class="wp-image-496" width="1600" height="998"
+alt="a cartoon chart flexing his muscles" />
+</figure>
+<p>In theory, Attention is All You Need. In practice, however, we also
+need optimized attention implementations like FlashAttention.</p>
+<p>Although these fused attention implementations have substantially
+improved performance and enabled long contexts, this efficiency has come
+with a loss of flexibility. You can no longer try out a new attention
+variant by writing a few PyTorch operators – you often need to write a
+new custom kernel! This operates as a sort of “software lottery” for ML
+researchers – if your attention variant doesn’t fit into one of the
+existing optimized kernels, you’re doomed to slow runtime and CUDA
+OOMs.</p>
+<p>For some examples of attention variants, we have Causal, <a
+href="https://paperswithcode.com/method/relative-position-encodings"
+target="_blank" rel="noreferrer noopener">Relative Positional
+Embeddings</a>, <a href="https://paperswithcode.com/method/alibi"
+target="_blank" rel="noreferrer noopener">Alibi</a>, <a
+href="https://mistral.ai/news/announcing-mistral-7b/" target="_blank"
+rel="noreferrer noopener">Sliding Window Attention</a>, <a
+href="https://twitter.com/andersonbcdefg/status/1800907703688339569"
+target="_blank" rel="noreferrer noopener">PrefixLM</a>, <a
+href="https://github.com/pytorch/torchtune/pull/875" target="_blank"
+rel="noreferrer noopener">Document Masking/Sample Packing/Jagged
+Tensors</a>, <a
+href="https://twitter.com/LysandreJik/status/1807779471891538199"
+target="_blank" rel="noreferrer noopener">Tanh Soft-Capping</a>, <a
+href="../../../../LLM-Systems/Serving-and-KV-Cache/2309.06180v1.pdf" target="_blank"
+rel="noreferrer noopener">PagedAttention</a>, etc. Even worse, folks
+often want combinations of these! Sliding Window Attention + Document
+Masking + Causal + Context Parallelism? Or what about PagedAttention +
+Sliding Window + Tanh Soft-Capping?</p>
+<p>The left picture below represents the state of the world today – some
+combinations of masking + biases + setting have existing kernels
+implemented. But the various options lead to an exponential number of
+settings, and so overall we end up with fairly spotty support. Even
+worse, new attention variants researchers come up with will
+have <em>zero</em> support.</p>
+<figure class="wp-block-image aligncenter is-resized">
+<img src="assets/30be49e6b0ff02f22509aff675739ac1972d2544d69d121a8717bd5ed7526bca.jpg"
+class="wp-image-506" width="1600" height="1459"
+alt="Attention variant support diagram" />
+</figure>
+<p>To solve this hypercube problem once and for all, we
+introduce <strong>FlexAttention</strong>, a new PyTorch API.</p>
+<ol>
+<li>We provide a flexible API that allows implementing many attention
+variants (including all the ones mentioned in the blog post so far) in a
+few lines of idiomatic PyTorch code.</li>
+<li>We lower this into a fused FlashAttention kernel
+through <code>torch.compile</code>, generating a FlashAttention kernel
+that doesn’t materialize any extra memory and has performance
+competitive with handwritten ones.</li>
+<li>We also automatically generate the backwards pass, leveraging
+PyTorch’s autograd machinery.</li>
+<li>Finally, we can also take advantage of sparsity in the attention
+mask, resulting in significant improvements over standard attention
+implementations.</li>
+</ol>
+<p>With FlexAttention, we hope that trying new attention variants will
+only be limited by your imagination.</p>
+<p>You can find many FlexAttention examples at the Attention Gym: <a
+href="https://github.com/pytorch-labs/attention-gym" target="_blank"
+rel="noreferrer noopener">https://github.com/pytorch-labs/attention-gym</a>.
+If you have any cool applications, feel free to submit an example!</p>
+<p>PS: We also find this API very exciting since it leverages a lot of
+existing PyTorch infra in a fun way – more on that in the end.</p>
+<h2 class="wp-block-heading" id="flexattention">FlexAttention</h2>
+<p>Here is the classic attention equation:</p>
+<figure class="wp-block-image size-full is-resized">
+<img src="assets/990485569ae6cdd6e9a8a74540941353097f1ccda9fbf6188df5dd6202d86b1f.png"
+class="wp-image-514" width="894" height="156" />
+</figure>
+<p>In code form:</p>
+<pre class="wp-block-code"><code>Q, K, V: Tensor[batch_size, num_heads, sequence_length, head_dim]
+score: Tensor[batch_size, num_heads, sequence_length, sequence_length] = (Q @ K) / sqrt(head_dim)
+probabilities = softmax(score, dim=-1)
+output: Tensor[batch_size, num_heads, sequence_length, head_dim] = probabilities @ V</code></pre>
+<p>FlexAttention allows for an user-defined
+function <code>score_mod:</code></p>
+<figure class="wp-block-image">
+<img src="assets/c951e80b50c67f959b9fd43deff915f2d13c641f98212f1a058c75d90fc87bd0.png"
+class="wp-image-499" width="1284" height="156" alt="math equation" />
+</figure>
+<p>In code form:</p>
+<pre class="wp-block-code"><code>Q, K, V: Tensor[batch_size, num_heads, sequence_length, head_dim]
+score: Tensor[batch_size, num_heads, sequence_length, sequence_length] = (Q @ K) / sqrt(head_dim)
+modified_scores: Tensor[batch_size, num_heads, sequence_length, sequence_length] = score_mod(score)
+probabilities = softmax(modified_scores, dim=-1)
+output: Tensor[batch_size, num_heads, sequence_length, head_dim] = probabilities @ V</code></pre>
+<p>This function allows you to <em>modify</em> the attention scores
+prior to softmax. Surprisingly, this ends up being sufficient for the
+vast majority of attention variants (examples below)!</p>
+<p>Concretely, the expected signature for <code>score_mod</code> is
+somewhat unique.</p>
+<pre class="wp-block-code"><code>def score_mod(score: f32[], b: i32[], h: i32[], q_idx: i32[], kv_idx: i32[])
+    return score # noop - standard attention</code></pre>
+<p>In other words, <code>score</code> is a scalar pytorch tensor that
+represents the dot product of a query token and a key token. The rest of
+the arguments tell you <em>which</em> dot product you’re currently
+computing – <code>b</code> (current element in
+batch), <code>h</code> (current head), <code>q_idx</code> (position in
+query), <code>kv_idx</code> (position in key/value tensors).</p>
+<p>To apply this function, we could implement it as</p>
+<pre class="wp-block-code"><code>for b in range(batch_size):
+    for h in range(num_heads):
+        for q_idx in range(sequence_length):
+            for kv_idx in range(sequence_length):
+                modified_scores[b, h, q_idx, kv_idx] = score_mod(scores[b, h, q_idx, kv_idx], b, h, q_idx, kv_idx)</code></pre>
+<p>Of course, this is not how FlexAttention is implemented under the
+hood. Leveraging <code>torch.compile</code>, we automatically lower your
+function into a single <em>fused</em> FlexAttention kernel – guaranteed
+or your money back!</p>
+<p>This API ends up being surprisingly expressive. Let’s look at some
+examples.</p>
+<h2 class="wp-block-heading" id="score-mod-examples">Score Mod
+Examples</h2>
+<h3 class="wp-block-heading" id="full-attention">Full Attention</h3>
+<p>Let’s first do “full attention”, or standard bidirectional attention.
+In this case, <code>score_mod</code> is a no-op – it takes as input the
+scores and then returns them as is..</p>
+<pre class="wp-block-code"><code>def noop(score, b, h, q_idx, kv_idx):
+    return score</code></pre>
+<p>And to use it end to end (including both
+forwards <em>and</em> backwards):</p>
+<pre class="wp-block-code"><code>from torch.nn.attention.flex_attention import flex_attention
+
+flex_attention(query, key, value, score_mod=noop).sum().backward()</code></pre>
+<h3 class="wp-block-heading" id="relative-position-encodings">Relative
+Position Encodings</h3>
+<p>One common attention variant is the <a
+href="https://paperswithcode.com/method/relative-position-encodings"
+target="_blank" rel="noreferrer noopener">“relative position
+encoding</a>”. Instead of encoding the absolute distance in the queries
+and keys, relative position encoding adjusts scores based on the
+“distance” between the queries and keys.</p>
+<pre class="wp-block-code"><code>def relative_positional(score, b, h, q_idx, kv_idx):
+    return score + (q_idx - kv_idx)</code></pre>
+<p>Note that unlike typical implementations, this does <em>not</em> need
+to materialize a SxS tensor. Instead, FlexAttention computes the bias
+values “on the fly” within the kernel, leading to significant memory and
+performance improvements.</p>
+<figure class="wp-block-image size-large">
+<img
+src="assets/b3b01d047d475d9c81a380729b733d549e809837943ef5232a37e5cc30f408f4.png"
+class="wp-image-516" width="1024" height="507" />
+</figure>
+<h3 class="wp-block-heading" id="alibi-bias">ALiBi Bias</h3>
+<figure class="wp-block-image">
+<img src="assets/445188519ea8214e42d113f139ab0e34528cea4e912fca2889802c2d2e68f8d7.png"
+class="wp-image-500" width="815" height="361" alt="alibi bias" />
+</figure>
+<p><em>Source: <a href="https://arxiv.org/abs/2108.12409"
+target="_blank" rel="noreferrer noopener">Train Short, Test Long:
+Attention with Linear Biases Enables Input Length
+Extrapolation</a></em></p>
+<p>ALiBi was introduced in <a href="https://arxiv.org/abs/2108.12409"
+target="_blank" rel="noreferrer noopener">Train Short, Test Long:
+Attention with Linear Biases Enables Input Length Extrapolation</a>, and
+claims to have beneficial properties for length extrapolation at
+inference. Notably, MosaicML has pointed to <a
+href="https://twitter.com/jefrankle/status/1804567458092605736"
+target="_blank" rel="noreferrer noopener">“lack of kernel
+support”</a> as the main reason why they eventually switched from ALiBi
+to rotary embeddings.</p>
+<p>Alibi is similar to relative positional encodings with one exception
+– it has a per-head factor that is typically precomputed.</p>
+<pre class="wp-block-code"><code>alibi_bias = generate_alibi_bias() # [num_heads]
+
+def alibi(score, b, h, q_idx, kv_idx):
+    bias = alibi_bias[h] * (kv_idx - q_idx)
+    return score + bias</code></pre>
+<p>This demonstrates one interesting piece of
+flexibility <code>torch.compile</code> provides – we can load
+from <code>alibi_bias</code> even though it <em>wasn’t explicitly passed
+in as an input</em>! The generated Triton kernel will calculate the
+correct loads from the <code>alibi_bias</code> tensor and fuse it. Note
+that you could regenerate <code>alibi_bias</code> and we still wouldn’t
+need to recompile.</p>
+<h3 class="wp-block-heading" id="soft-capping">Soft-capping</h3>
+<p>Soft-capping is a technique used in <a
+href="https://huggingface.co/blog/gemma2#soft-capping-and-attention-implementations"
+target="_blank" rel="noreferrer noopener">Gemma2</a> and Grok-1 that
+prevents logits from growing excessively large. In FlexAttention, it
+looks like:</p>
+<pre class="wp-block-code"><code>softcap = 20
+def soft_cap(score, b, h, q_idx, kv_idx):
+    score = score / softcap
+    score = torch.tanh(score)
+    score = score * softcap
+    return score</code></pre>
+<p>Note that we also automatically generate the backwards pass from the
+forwards pass here. Also, although this implementation is semantically
+correct, we likely want to use a tanh approximation in this case for
+performance reasons. See <a
+href="https://github.com/pytorch-labs/attention-gym/blob/main/attn_gym/mods/softcapping.py"
+target="_blank" rel="noreferrer noopener">attention-gym</a> for more
+details.</p>
+<h3 class="wp-block-heading" id="causal-mask">Causal Mask</h3>
+<p>Although bidirectional attention is the simplest, the
+original <em>Attention is All You Need</em> paper and the vast majority
+of LLMs use attention in a decoder-only setting where each token can
+only attend to the tokens prior to it. Folks often think of this as a
+lower-triangular mask, but with the <code>score_mod</code> API it can be
+expressed as:</p>
+<pre class="wp-block-code"><code>def causal_mask(score, b, h, q_idx, kv_idx):
+    return torch.where(q_idx &gt;= kv_idx, score, -float(&quot;inf&quot;))</code></pre>
+<p>Basically, if the query token is “after” the key token, we keep the
+score. Otherwise, we mask it out by setting it to -inf, thus ensuring it
+won’t participate in the softmax calculation.</p>
+<p>However, masking is special compared to other modifications – if
+something is masked out, we can completely skip its computation! In this
+case, a causal mask has about 50% sparsity, so not taking advantage of
+the sparsity would result in a 2x slowdown. Although
+this <code>score_mod</code> is sufficient to implement causal
+masking <em>correctly</em>, getting the performance benefits of sparsity
+requires another concept – <code>mask_mod</code>.</p>
+<h2 class="wp-block-heading" id="mask-mods">Mask Mods</h2>
+<p>To take advantage of sparsity from masking, we need to do some more
+work. Specifically, by passing a <code>mask_mod</code> to <a
+href="https://github.com/pytorch/pytorch/blob/e49c0acc396e89baf8c6450e1fa0571d4ce2d4ed/torch/nn/attention/flex_attention.py#L594"
+target="_blank"
+rel="noreferrer noopener"><code>create_block_mask</code></a>, we can
+create a <code>BlockMask</code>. FlexAttention can then
+use <code>BlockMask</code> to take advantage of the sparsity!</p>
+<p>The signature of <code>mask_mod</code> is very similar
+to <code>score_mod</code> – just without the <code>score</code>. In
+particular</p>
+<pre class="wp-block-code"><code># returns True if this position should participate in the computation
+mask_mod(b, h, q_idx, kv_idx) =&gt; bool</code></pre>
+<p>Note that <code>score_mod</code> is strictly <em>more</em> expressive
+than <code>mask_mod</code>. However, for masking, it’s recommended to
+use <code>mask_mod</code> and <code>create_block_mask</code>, as it’s
+more performant. See the FAQ on
+why <code>score_mod</code> and <code>mask_mod</code> are separate.</p>
+<p>Now, let’s take a look at how we might implement causal mask
+with <code>mask_mod</code>.</p>
+<h3 class="wp-block-heading" id="causal-mask-1">Causal Mask</h3>
+<pre class="wp-block-code"><code>from torch.nn.attention.flex_attention import create_block_mask
+
+def causal(b, h, q_idx, kv_idx):
+    return q_idx &gt;= kv_idx
+
+# Because the sparsity pattern is independent of batch and heads, we&#39;ll set them to None (which broadcasts them) 
+block_mask = create_block_mask(causal, B=None, H=None, Q_LEN=1024, KV_LEN=1024)
+# In this case, we don&#39;t need a score_mod, so we won&#39;t pass any in.
+# However, score_mod can still be combined with block_mask if you need the additional flexibility.
+flex_attention(query, key, value, block_mask=block_mask)</code></pre>
+<p>Note that <code>create_block_mask</code> is a <strong>relatively
+expensive operation!</strong> Although FlexAttention will not need to
+recompile when it changes, if you aren’t careful about caching it, it
+can lead to significant slowdowns (check out the FAQ for suggestions on
+best practices).</p>
+<figure class="wp-block-image size-large">
+<img
+src="assets/4f401bf623c22361f2a95e7548b30fb531d7e6a07843665f5dafef091e62ad89.png"
+class="wp-image-518" width="1024" height="405" />
+</figure>
+<p>While the TFlops are roughly the same, the execution time is 2x
+faster for the mask_mod version! This demonstrates that we can leverage
+the sparsity that BlockMask provides us <em>without</em> losing hardware
+efficiency.</p>
+<h3 class="wp-block-heading" id="sliding-window--causal">Sliding Window
++ Causal</h3>
+<figure class="wp-block-image">
+<img src="assets/fe4cd899bb72c72a68437ed9b4b2f40e1a80ae83ef2f5202696c37cd61957306.png"
+class="wp-image-502" width="1106" height="432"
+alt="Sliding Window Causal diagrams" />
+</figure>
+<p><em>Source: <a href="https://arxiv.org/abs/2310.06825"
+target="_blank" rel="noreferrer noopener">Mistral 7B</a></em></p>
+<p>Popularized by <a href="https://arxiv.org/abs/2310.06825"
+target="_blank" rel="noreferrer noopener">Mistral</a>, sliding window
+attention (also known as local attention) takes advantage of the
+intuition that the most recent tokens are the most useful. In
+particular, it allows the query token to only attend to, say, the 1024
+most recent tokens. This is often used together with causal
+attention.</p>
+<pre class="wp-block-code"><code>SLIDING_WINDOW = 1024
+
+def sliding_window_causal(b, h, q_idx, kv_idx):
+    causal_mask = q_idx &gt;= kv_idx
+    window_mask = q_idx - kv_idx &lt;= SLIDING_WINDOW 
+    return causal_mask &amp; window_mask
+
+# If you want to be cute...
+from torch.nn.attention import and_masks
+
+def sliding_window(b, h, q_idx, kv_idx)
+    return q_idx - kv_idx &lt;= SLIDING_WINDOW
+
+sliding_window_causal = and_masks(causal_mask, sliding_window)</code></pre>
+<p>We benchmark it
+against <code>F.scaled_dot_product_attention</code> with a sliding
+window mask as well as FA2 with a causal mask (as a reference point for
+performance). Not only are we significantly faster
+than <code>F.scaled_dot_product_attention</code>,
+we’re <em>also</em> significantly faster than FA2 with a causal mask as
+this mask has significantly more sparsity.</p>
+<figure class="wp-block-image aligncenter is-resized">
+<img src="assets/ef051e397cc5fdc7b6ece30237d48e0e69dc396133a57261929a7f9d0721db1c.png"
+class="wp-image-507" width="2996" height="2345"
+alt="execution time charts" />
+</figure>
+<h3 class="wp-block-heading" id="prefixlm">PrefixLM</h3>
+<figure class="wp-block-image aligncenter is-resized">
+<img src="assets/139abb25e4cd7bcca82c3c63556c80db5245c89ea64be45e9b25150d2c4fbac9.png"
+class="wp-image-503" width="736" height="606" alt="PrefixLM diagram" />
+</figure>
+<p><em>Source: <a href="https://arxiv.org/abs/2407.07726"
+target="_blank" rel="noreferrer noopener">PaliGemma: A versatile 3B VLM
+for transfer</a></em></p>
+<p>The T5 architecture, proposed in <a
+href="https://arxiv.org/abs/1910.10683" target="_blank"
+rel="noreferrer noopener">Exploring the Limits of Transfer Learning with
+a Unified Text-to-Text Transformer</a>, describes an attention variant
+that performs full bidirectional attention on a “prefix”, and causal
+attention on the rest. We again compose two mask functions to accomplish
+this, one for causal masking and one that is based off of the prefix
+length.</p>
+<pre class="wp-block-code"><code>prefix_length: [B]
+def prefix_mask(b, h, q_idx, kv_idx):
+    return kv_idx &lt;= prefix_length[b]
+
+prefix_lm_causal = or_masks(prefix_mask, causal_mask)
+# In this case, our mask is different per sequence so we set B equal to our batch size
+block_mask = create_block_mask(prefix_lm_causal, B=B, H=None, S, S)</code></pre>
+<p>Just like with <code>score_mod</code>, <code>mask_mod</code> allows
+us to refer to additional tensors that aren’t explicitly an input to the
+function! However, with prefixLM, the sparsity pattern
+changes <em>per</em> <em>input</em>. This means that for each new input
+batch, we’ll need to recompute the <code>BlockMask</code>. One common
+pattern is to call <code>create_block_mask</code> at the beginning of
+your model and reuse that <code>block_mask</code> for all attention
+calls in your model. See <em>Recomputing Block Masks vs.
+Recompilation.</em></p>
+<p>However, in exchange for that, we’re not only able to have an
+efficient attention kernel for prefixLM, we’re <em>also</em> able to
+take advantage of however much sparsity exists in the input!
+FlexAttention will dynamically adjust its performance based off of the
+BlockMask data, <em>without</em> needing to recompile the kernel.</p>
+<h3 class="wp-block-heading"
+id="document-maskingjagged-sequences">Document Masking/Jagged
+Sequences</h3>
+<p>Another common attention variant is document masking/jagged
+sequences. Imagine that you have a number of sequences of varying
+length. You want to train on all of them together, but unfortunately,
+most operators only accept rectangular tensors.</p>
+<p>Through <code>BlockMask</code>, we can support this efficiently in
+FlexAttention as well!</p>
+<ol>
+<li>First, we flatten all sequences into a single sequence with
+sum(sequence lengths) tokens.</li>
+<li>Then, we compute the document_id that each token belongs to.</li>
+<li>Finally, in our <code>mask_mod</code>, we simply whether the query
+and kv token belong to the same document!</li>
+</ol>
+<pre class="wp-block-code"><code># The document that each token belongs to.
+# e.g. [0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2] corresponds to sequence lengths 3, 2, and 6.
+document_id: [SEQ_LEN]
+
+def document_masking(b, h, q_idx, kv_idx):
+    return document_id[q_idx] == document_id[kv_idx]</code></pre>
+<p>And that’s it! In this case, we see that we end up with a
+blockdiagonal mask.</p>
+<figure class="wp-block-image aligncenter is-resized">
+<img src="assets/7d3b94441a799ccd96a14227fda18786c830394c788d49666d56ce67be25c0e0.png"
+class="wp-image-504" width="1600" height="1439"
+alt="blockdiagonal mask" />
+</figure>
+<p>One interesting aspect about document masking is that it’s easy to
+see how it might combine with an arbitrary combination of other masks .
+For example, we already defined <code>prefixlm_mask</code> in the
+previous section. Do we now need to define
+a <code>prefixlm_document_mask</code> function as well?</p>
+<p>In these cases, one pattern we’ve found quite useful is what we call
+a “higher level modification”. In this case, we can take an
+existing <code>mask_mod</code> and automatically transform it into one
+that works with jagged sequences!</p>
+<pre class="wp-block-code"><code>def generate_doc_mask_mod(mask_mod, document_id):
+    # Get unique document IDs and their counts
+    _, counts = torch.unique_consecutive(document_id, return_counts=True)
+    # Create cumulative counts (offsets)
+    offsets = torch.cat([torch.tensor([0], device=document_id.device), counts.cumsum(0)[:-1]])
+    def doc_mask_wrapper(b, h, q_idx, kv_idx):
+        same_doc = document_id[q_idx] == document_id[kv_idx]
+        q_logical = q_idx - offsets[document_id[q_idx]]
+        kv_logical = kv_idx - offsets[document_id[kv_idx]]
+        inner_mask = mask_mod(b, h, q_logical, kv_logical)
+        return same_doc &amp; inner_mask
+    return doc_mask_wrapper</code></pre>
+<p>For example, given the <code>prefix_lm_causal</code> mask from above,
+we can transform it into one that works on on packed documents like
+so:</p>
+<pre class="wp-block-code"><code>prefix_length = torch.tensor(2, dtype=torch.int32, device=&quot;cuda&quot;)
+def prefix_mask(b, h, q_idx, kv_idx):
+    return kv_idx &lt; prefix_length
+prefix_lm_causal = or_masks(prefix_mask, causal_mask)
+doc_prefix_lm_causal_mask = generate_doc_mask_mod(prefix_lm_causal, document_id)</code></pre>
+<figure class="wp-block-image aligncenter size-large is-resized">
+<img
+src="assets/d30cadd7fc690bf7b7ef508e363435341f5d7a584f0b600c2dfb1dcc1cd2b6c3.png"
+class="wp-image-523" width="1024" height="921" />
+</figure>
+<p>Now, this mask is “block-prefixLM-diagonal” shaped. 🙂</p>
+<p>That’s all of our examples! There are far more attention variants
+than we have space to list, so check out <a
+href="https://github.com/pytorch-labs/attention-gym" target="_blank"
+rel="noreferrer noopener">Attention Gym</a> for more examples. We hope
+that the community will contribute some of their favorite applications
+of FlexAttention as well.</p>
+<h3 class="wp-block-heading" id="faq">FAQ</h3>
+<h5 class="wp-block-heading"
+id="q-when-does-flexattention-need-to-recompile"><strong>Q: When does
+FlexAttention need to recompile?</strong></h5>
+<p>As FlexAttention leverages <code>torch.compile</code> for graph
+capture, it can actually avoid recompilation in a broad spectrum of
+cases. Notably, it does <em>not</em> need to recompile even if captured
+tensors change values!</p>
+<pre class="wp-block-code"><code>flex_attention = torch.compile(flex_attention)
+def create_bias_mod(bias)
+    def bias_mod(score, b, h, q_idx, kv_idx):
+        return score + bias
+    return bias_mod
+bias_mod1 = create_bias_mod(torch.tensor(0))
+flex_attention(..., score_mod=bias_mod1) # Compiles the kernel here 
+
+bias_mod2 = create_bias_mod(torch.tensor(2))
+flex_attention(..., score_mod=bias_mod2) # Doesn&#39;t need to recompile! </code></pre>
+<p>Even changing the block-sparsity doesn’t require a recompile.
+However, if the block-sparsity changes, we do need
+to <em>recompute</em> the BlockMask.</p>
+<h5 class="wp-block-heading"
+id="q-when-should-we-recompute-the-blockmask"><strong>Q: When should we
+recompute the BlockMask?</strong></h5>
+<p>We need to recompute the BlockMask whenever the block-sparsity
+changes. Although computing the BlockMask is much cheaper than
+recompilation (on the order of hundreds of microseconds as opposed to
+seconds), you should still take care to not excessively recompute the
+BlockMask.</p>
+<p>Here are some common patterns and some recommendations on how you
+might approach them.</p>
+<p><strong>Mask never changes (e.g. causal mask)</strong><br />
+In this case, you can simply precompute the block mask and cache it
+globally, reusing it for all attention calls.</p>
+<pre class="wp-block-code"><code>block_mask = create_block_mask(causal_mask, 1, 1, S,S)
+causal_attention = functools.partial(flex_attention, block_mask=block_mask)</code></pre>
+<p><strong>Mask changes every batch (e.g. document
+masking)</strong><br />
+In this case, we would suggest computing the BlockMask at the beginning
+of the model and threading it through the model – reusing the BlockMask
+for all layers.</p>
+<pre class="wp-block-code"><code>def forward(self, x, doc_mask):
+    # Compute block mask at beginning of forwards
+    block_mask = create_block_mask(doc_mask, None, None, S, S)    
+    x = self.layer1(x, block_mask)
+    x = self.layer2(x, block_mask)
+    ...
+    # amortize block mask construction cost across all layers
+    x = self.layer3(x, block_mask) 
+    return x</code></pre>
+<p><strong>Mask changes every layer (e.g. data-dependent
+sparsity)</strong><br />
+This is the hardest setting, since we’re unable to amortize the block
+mask computation across multiple FlexAttention invocations. Although
+FlexAttention can certainly still benefit this case, the actual benefits
+from BlockMask depend on how sparse your attention mask is and how fast
+we can construct the BlockMask. That leads us to…</p>
+<h5 class="wp-block-heading"
+id="q-how-can-we-compute-blockmask-quicker"><strong>Q: How can we
+compute BlockMask quicker?</strong></h5>
+<p><code>create_block_mask</code> is unfortunately fairly expensive,
+both from a memory and compute perspective, as determining whether a
+block is completely sparse requires evaluating <code>mask_mod</code> at
+every single point in the block. There are a couple ways to address
+this:</p>
+<ol>
+<li>If your mask is the same across batch size or heads, make sure that
+you’re broadcasting over those (i.e. set them
+to <code>None</code> in <code>create_block_mask</code>).</li>
+<li>Compile <code>create_block_mask</code>. Unfortunately,
+today, <code>torch.compile</code> does not work directly
+on <code>create_block_mask</code> due to some unfortunate limitations.
+However, you can set <code>_compile=True</code>, which will
+significantly reduce the peak memory and runtime (often an order of
+magnitude in our testing).</li>
+<li>Write a custom constructor for BlockMask. The metadata for BlockMask
+is quite simple (see the <a
+href="https://pytorch.org/docs/main/nn.attention.flex_attention.html#blockmask">documentation</a>).
+It’s essentially two tensors. a. <code>num_blocks</code>: The number of
+KV blocks computed for each query block.<br />
+b. <code>indices</code>: The positions of the KV blocks computed for
+each query block.For example, here’s a custom BlockMask constructor
+for <code>causal_mask</code>.</li>
+</ol>
+<pre class="wp-block-code"><code>def create_causal_mask(S):
+    BLOCK_SIZE = 128
+    # The first query block computes one block, the second query block computes 2 blocks, etc.
+    num_blocks = torch.arange(S // BLOCK_SIZE, device=&quot;cuda&quot;) + 1
+    # Since we&#39;re always computing from the left to the right,
+    # we can use the indices [0, 1, 2, ...] for every query block.
+    indices = torch.arange(S // BLOCK_SIZE, device=&quot;cuda&quot;).expand(
+        S // BLOCK_SIZE, S // BLOCK_SIZE
+    )
+    num_blocks = num_blocks[None, None, :]
+    indices = indices[None, None, :]
+    return BlockMask(num_blocks, indices, BLOCK_SIZE=BLOCK_SIZE, mask_mod=causal_mask)</code></pre>
+<h5 class="wp-block-heading"
+id="q-why-are-score_mod-and-mask_mod-different-isnt-mask_mod-just-a-special-case-of-score_mod"><strong>Q:
+Why are <code>score_mod</code> and <code>mask_mod</code> different?
+Isn’t <code>mask_mod</code> just a special case
+of <code>score_mod</code>?</strong></h5>
+<p>Very astute question, hypothetical audience member! In fact,
+any <code>mask_mod</code> can be easily converted to
+a <code>score_mod</code> (we do not recommend using this function in
+practice!)</p>
+<pre class="wp-block-code"><code>def mask_mod_as_score_mod(b, h, q_idx, kv_idx):
+    return torch.where(mask_mod(b, h, q_idx, kv_idx), score, -float(&quot;inf&quot;))</code></pre>
+<p>So, if <code>score_mod</code> can implement
+everything <code>mask_mod</code> can, what’s the point of
+having <code>mask_mod</code>?</p>
+<p>One immediate challenge: a <code>score_mod</code> requires the
+actual <code>score</code> value as an input, but when we’re precomputing
+the BlockMask, we don’t have the actual <code>score</code> value. We can
+perhaps fake the values by passing in all zeros, and if
+the <code>score_mod</code> returns <code>-inf</code>, then we consider
+it to be masked (in fact, we originally did this!).</p>
+<p>However, there are two issues. The first is that this is hacky – what
+if the user’s <code>score_mod</code> returned <code>-inf</code> when the
+input is 0? Or what if the user’s <code>score_mod</code> masked out with
+a large negative value instead of <code>-inf</code>? It seems we’re
+trying to cram a round peg into a square hole. However, there’s a more
+important reason to separate
+out <code>mask_mod</code> from <code>score_mod</code> – it’s
+fundamentally more efficient!.</p>
+<p>As it turns out, applying masking to every single computed element is
+actually quite expensive – our benchmarks see about a 15-20% degradation
+in performance! So, although we can get significant speedups by skipping
+half the computation, we lose a meaningful part of that speedup from
+needing to mask out every element!</p>
+<p>Luckily, if we visualize the causal mask, we notice that the vast
+majority of blocks do not require a “causal mask” at all – they’re fully
+computed! It is only the blocks on the diagonal, partially computed and
+partially masked, that require masking to be applied.</p>
+<figure class="wp-block-image">
+<img src="assets/309380f0173de1b4f77e4c5a9abf5a82f546c15a9b74dbc3389d20b7c75f895e.png"
+class="wp-image-511" width="1600" height="981"
+alt="blockdiagonal mask" />
+</figure>
+<p>The BlockMask previously told us which blocks we need to compute and
+which blocks we can skip. Now, we further augment this data structure to
+also tell us which blocks are “fully computed” (i.e. masking can be
+skipped) vs. “partially computed” (i.e. a mask needs to be applied).
+Note, however, that although masks can be skipped on “fully computed”
+blocks, other <code>score_mod</code>s like relative positional
+embeddings still need to be applied.</p>
+<p>Given just a <code>score_mod</code>, there’s no sound way for us to
+tell which parts of it are “masking”. Hence, the user must separate
+these out themselves into <code>mask_mod</code>.</p>
+<h5 class="wp-block-heading"
+id="q-how-much-additional-memory-does-the-blockmask-need"><strong>Q: How
+much additional memory does the BlockMask need?</strong></h5>
+<p>The BlockMask metadata is of
+size <code>[BATCH_SIZE, NUM_HEADS, QUERY_LEN//BLOCK_SIZE, KV_LEN//BLOCK_SIZE].</code> If
+the mask is the same across the batch or heads dimension it can be
+broadcasted over that dimension to save memory.</p>
+<p>At the default <code>BLOCK_SIZE</code> of 128, we expect that the
+memory usage will be fairly negligible for most use cases. For example,
+for a sequence length of 1 million, the BlockMask would only use 60MB of
+additional memory. If this is a problem, you can increase the block
+size: <code>create_block_mask(..., BLOCK_SIZE=1024).</code> For example,
+increasing <code>BLOCK_SIZE</code> to 1024 would result in this metadata
+dropping to under a megabyte.</p>
+<h5 class="wp-block-heading"
+id="q-how-do-the-numerics-compare"><strong>Q: How do the numerics
+compare?</strong></h5>
+<p>Although the results are not bitwise identical, we are confident that
+FlexAttention is as numerically accurate as FlashAttention. We generate
+the following distribution of differences comparing FlashAttention
+versus FlexAttention over a large range of inputs on both causal and non
+causal attention variants. The errors are nearly identical.</p>
+<figure class="wp-block-image">
+<img src="assets/1f451117b85415efc080c16da96b8ac0748d102b087118cd1f32a603bf0ee93b.png"
+class="wp-image-510" width="1600" height="854"
+alt="distribution chart" />
+</figure>
+<h3 class="wp-block-heading" id="performance">Performance</h3>
+<p>Generally speaking, FlexAttention is nearly as performant as a
+handwritten Triton kernel, which is unsurprising, as we heavily leverage
+a handwritten Triton kernel. However, due to its generality, we do incur
+a small performance penalty. For example, we must incur some additional
+latency to determine which block to compute next. In some cases, we
+provide some kernel options that can affect the performance of the
+kernel while changing its behavior. They can be found here: <a
+href="https://github.com/pytorch/pytorch/blob/ee09d066d35d7e17cf7e9479c0b8bfc70cffc264/torch/_inductor/kernel/flex_attention.py#L146-L155"
+target="_blank" rel="noreferrer noopener">performance knobs</a></p>
+<p>As a case study, let’s explore how the knobs affect the performance
+of causal attention. We will compare performance of the triton kernel
+versus FlashAttentionv2 on A100. The script can be found <a
+href="https://github.com/pytorch/pytorch/blob/main/benchmarks/transformer/score_mod.py"
+target="_blank" rel="noreferrer noopener">here</a>.</p>
+<p>FlexAttention achieves 90% of FlashAttention2’s performance in the
+forward pass and 85% in the backward pass. FlexAttention is currently
+utilizing a deterministic algorithm that recomputes more intermediates
+than FAv2, but we have plans to improve FlexAttention’s backward
+algorithm and hope to close this gap!</p>
+<figure class="wp-block-image">
+<img src="assets/e868d12c30e7f7b3b51872b28a25006b743d645b3533e92b0b56aa79197246b2.png"
+class="wp-image-508" width="1600" height="848"
+alt="flexattention speed chart" />
+</figure>
+<figure class="wp-block-image">
+<img src="assets/213aa1939c525eb21364f541186e82993ed446f161fbe97c2f0984532a95df96.png"
+class="wp-image-509" width="1600" height="848"
+alt="flexattention speed chart" />
+</figure>
+<h2 class="wp-block-heading" id="conclusion">Conclusion</h2>
+<p>We hope you have as much fun using FlexAttention as we did developing
+it! While working on this, we ended up finding way more applications of
+this API than we could have expected. We’ve already seen it accelerate
+torchtune’s <a href="https://github.com/pytorch/torchtune/pull/1193"
+target="_blank" rel="noreferrer noopener">sample packing throughput by
+71%</a>, replace the need for a researcher to spend over a week writing
+their own custom Triton kernel, and deliver competitive performance with
+custom handwritten attention variants.</p>
+<p>One final thing that made implementing FlexAttention quite fun is
+that we were able to leverage a lot of existing PyTorch infra in an
+interesting way. For example, one of the unique aspects about
+TorchDynamo (torch.compile’s frontend) is that it
+does <em>not</em> require tensors used in the compiled function to be
+explicitly passed in as inputs. This allows us to compile mods like
+document masking, which require accessing <em>global</em> variables
+where the global variables need to change!</p>
+<pre class="wp-block-code"><code>bias = torch.randn(1024, 1024)
+def score_mod(score, b, h, q_idx, kv_idx):
+    return score + bias[q_idx][kv_idx] # The bias tensor can change!</code></pre>
+<p>Furthermore, the fact that <code>torch.compile</code> is a generic
+graph-capture mechanism also allows it to support more “advanced”
+transformations, such as the higher order transform that transforms
+any <code>mask_mod</code> into one that works with jagged tensors.</p>
+<p>We also leverage TorchInductor (torch.compile’s backend)
+infrastructure for Triton templates. Not only did this make it easy to
+support codegening FlexAttention – it also automatically gave us support
+for dynamic shapes as well as epilogue fusion (i.e. fusing an operator
+onto the end of attention)! In the future, we plan on extending this
+support to allow for quantized versions of attention or things like <a
+href="../../../../LLM-Systems/Serving-and-KV-Cache/Community-Articles-20261122/lmsys/2024-01-17-sglang.html" target="_blank"
+rel="noreferrer noopener">RadixAttention</a> as well.</p>
+<p>In addition, we also leveraged higher order ops, PyTorch’s autograd
+to automatically generate the backwards pass, as well as vmap to
+automatically apply <code>score_mod</code> for creating the
+BlockMask.</p>
+<p>And, of course, this project wouldn’t have been possible without
+Triton and TorchInductor’s ability to generate Triton code.</p>
+<p>We look forward to leveraging the approach we used here to more
+applications in the future!</p>
+<h3 class="wp-block-heading"
+id="limitations-and-future-work">Limitations and Future Work</h3>
+<ul>
+<li>FlexAttention is currently available in PyTorch nightly releases, we
+plan to release it as a prototype feature in 2.5.0</li>
+<li>We did not cover how to use FlexAttention for inference here (or how
+to implement PagedAttention) – we will cover those in a later post.</li>
+<li>We are working to improve the performance of FlexAttention to match
+FlashAttention3 on H100 GPUs.</li>
+<li>FlexAttention requires that all sequence lengths be a multiple of
+128 – this will be addressed soon.</li>
+<li>We plan on adding GQA support soon – for now, you can just replicate
+the kv heads.</li>
+</ul>
+<h3 class="wp-block-heading" id="acknowledgements">Acknowledgements</h3>
+<p>We want to highlight some prior work (and people) that have inspired
+FlexAttention.</p>
+<ul>
+<li>Tri Dao’s work on FlashAttention</li>
+<li>Francisco Massa and the Xformers team for BlockSparseAttention in
+Triton</li>
+<li>The Jax team’s work on SplashAttention</li>
+<li>Philippe Tillet and Keren Zhou for helping us with Triton</li>
+<li>Ali Hassani for discussions on neighborhood attention</li>
+<li>Everybody who’s complained about attention kernels not supporting
+their favorite attention variant 🙂</li>
+</ul>
+</div>
+</div>
+</body>
+</html>

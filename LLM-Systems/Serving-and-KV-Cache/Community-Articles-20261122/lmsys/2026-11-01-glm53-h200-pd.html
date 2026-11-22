@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Accelerating GLM-5.3-Flash on H200: High-Throughput Disaggregated Serving</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Accelerating GLM-5.3-Flash on H200: High-Throughput
+Disaggregated Serving</h1>
+</header>
+<section
+id="accelerating-glm-5.3-flash-on-h200-high-throughput-disaggregated-serving"
+class="header">
+<h1>Accelerating GLM-5.3-Flash on H200: High-Throughput Disaggregated
+Serving</h1>
+<p>来源：<a
+href="https://www.lmsys.org/blog/2026-11-01-glm53-h200-pd">https://www.lmsys.org/blog/2026-11-01-glm53-h200-pd</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="blog-post-content">
+<section
+id="accelerating-glm5.3flash-on-h200-highthroughput-disaggregated-serving"
+class="blog-post-title header post-header">
+<h1 class="blog-post-title">Accelerating GLM‑5.3‑Flash on H200:
+High‑Throughput Disaggregated Serving</h1>
+<div class="blog-post-meta">
+<span class="post-author">Zhongze Jiang, Zhenkun Yang, Yongxu Ai, and
+Kaixin Shen — Ant International AI Infra</span><span
+class="post-meta-item">November 1, 2026</span>
+</div>
+</section>
+<details class="toc-mobile">
+<summary>
+<p><span>On this page</span></p>
+<svg width="14" height="14" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<p><path d="m6 9 6 6 6-6"></path></p>
+</svg>
+</summary>
+<ul>
+<li><a href="#1-architecture-and-workloads">1. Architecture and
+workloads</a></li>
+<li><a href="#2-turning-cache-capacity-into-concurrency">2. Turning
+cache capacity into concurrency</a></li>
+<li><a href="#budgeting-kv-and-recurrent-state">Budgeting KV and
+recurrent state</a></li>
+<li><a href="#kv-only-decode-radixcache">KV-only decode
+RadixCache</a></li>
+<li><a href="#3-lowering-the-cost-of-useful-output">3. Lowering the cost
+of useful output</a></li>
+<li><a href="#dflash2-and-speculative-cycle-time">DFlash2 and
+speculative cycle time</a></li>
+<li><a href="#tuning-moe-against-real-routing">Tuning MoE against real
+routing</a></li>
+<li><a href="#larger-kv-tiles-for-dsa-partial">Larger KV tiles for DSA
+Partial</a></li>
+<li><a href="#combined-decode-results">Combined decode results</a></li>
+<li><a href="#4-prefill-dataflow-optimization">4. Prefill dataflow
+optimization</a></li>
+<li><a href="#communicate-and-reuse-fp8-activations">Communicate and
+reuse FP8 activations</a></li>
+<li><a href="#fuse-computation-and-overlap-dependencies">Fuse
+computation and overlap dependencies</a></li>
+<li><a href="#combined-prefill-results">Combined prefill
+results</a></li>
+<li><a href="#5-end-to-end-3p1d-performance">5. End-to-end 3P1D
+performance</a></li>
+<li><a href="#6-future-directions">6. Future directions</a></li>
+<li><a href="#7-takeaways">7. Takeaways</a></li>
+<li><a href="#configurations-and-launch-commands">Configurations and
+launch commands</a></li>
+<li><a href="#acknowledgments">Acknowledgments</a></li>
+</ul>
+</details>
+<div class="post-prose">
+<p>GLM-5.3-Flash combines sparse attention, recurrent linear attention,
+and MoE. Serving it efficiently at long context lengths requires
+sufficient memory to sustain high concurrency, low execution cost per
+output token, and sufficient prefill throughput to keep decode busy.</p>
+<p>We address these constraints in SGLang on NVIDIA H200 through
+hybrid-cache reuse, faster speculative execution, targeted kernel
+tuning, and FP8 prefill communication. Our results include:</p>
+<ul>
+<li><strong>2.06× prefill input throughput:</strong> 48,064 tokens/s on
+four H200s with 64K input, 10-token output, and no shared prefix.</li>
+<li><strong>4.32× decode output throughput:</strong> 12,027 tokens/s on
+four H200s with 64K/1K requests and a 99.9% shared prefix, relative to a
+baseline already configured for long-context cache capacity.</li>
+<li><strong>2.11×–4.28× end-to-end output throughput</strong> across
+three shared-prefix ratios with three prefill instances and one decode
+instance (3P1D).</li>
+</ul>
+<p>Our approach separates shared KV storage from request-local recurrent
+state, then reduces execution cost in speculative decoding and prefill.
+The integrated results also show the remaining constraint:
+low-prefix-reuse workloads are still prefill-bound, even with three
+prefill instances.</p>
+<h2 id="1-architecture-and-workloads">1. Architecture and workloads</h2>
+<p>GLM-5.3-Flash has two attention-state representations. Sparse
+attention (DSA) stores historical KV and uses an indexer to select
+relevant positions. Linear attention (KDA) maintains recurrent state
+that advances with the sequence. Both consume memory, but their reuse
+semantics differ: KV belongs to historical positions; recurrent state
+represents the sequence at a particular boundary.</p>
+<p>Prefill–decode (PD) disaggregation lets each side choose its tensor
+(TP), expert (EP), and context (CP) parallelism and execution backends.
+Each instance uses four H200s, with NIXL transferring cache and state
+from prefill to decode.</p>
+<p><img
+src="assets/46bbe75f4424b6e16b1d02121bc0f1bcd3bc0dfd8b7328c76db9887a04780f5c.svg"
+class="fig-full" width="1100" height="465"
+alt="Text-only 3P1D architecture" /></p>
+<p><em><strong>Figure 1.</strong> Three prefill instances use 12 GPUs;
+one decode instance uses four. This work covers text inputs. The image
+encoder is outside its scope.</em></p>
+<p>We use <strong>64K input / 10-token output with no shared
+prefix</strong> to measure prefill throughput while keeping the output
+phase short. For decode capacity, <strong>64K/1K with a 99.9% shared
+prefix</strong> reduces the prefill supply constraint. Integrated 3P1D
+tests use 64K/1K at 0%, 50%, and 93.75% shared prefix to measure how the
+role-specific gains translate into system throughput. Latency metrics
+are time to first token (TTFT) and time per output token excluding the
+first token (TPOT).</p>
+<h2 id="2-turning-cache-capacity-into-concurrency">2. Turning cache
+capacity into concurrency</h2>
+<h3 id="budgeting-kv-and-recurrent-state">Budgeting KV and recurrent
+state</h3>
+<p>Both KV and recurrent-state pools constrain concurrency. In the
+initial long-context configuration, KV was nearly full while only about
+5% of SGLang’s recurrent-state (Mamba) pool was occupied. Raising the
+request limit alone could reserve more state memory and further squeeze
+KV.</p>
+<p>We rebalanced the pools for the context length and combined FP8 KV,
+BF16 recurrent state, and ReplaySSM speculative-state management. <a
+href="https://github.com/sgl-project/sglang/pull/42957">TileLang FP8 KV
+support on CUDA</a> reduces historical-cache storage. ReplaySSM keeps
+compact replay information and advances state after acceptance, avoiding
+full state-matrix snapshots for speculative steps. This frees capacity
+for active requests while retaining headroom for CUDA Graphs and dynamic
+workspaces.</p>
+<h3 id="kv-only-decode-radixcache">KV-only decode RadixCache</h3>
+<p>Cross-request reuse provides another source of capacity. Consider
+requests A and B with the same prefix and different suffixes. Their
+prefix KV can be shared, but their recurrent states at the end of the
+full prompt differ. Reusing prefix KV must therefore preserve each
+request’s recurrent state.</p>
+<p>Our decode cache matches and references existing target-model prefix
+KV, allocating space and receiving transfers only for missing KV.
+Prefill independently supplies <strong>each request’s recurrent state at
+the end of its full input</strong>. Decode continues from that state
+without replaying the cached prefix through KDA.</p>
+<p><img
+src="assets/035e12eec99b0d1d39373287d3579ffbafa05ae9a07f950bf1d8c11596dd30e1.svg"
+class="fig-full" width="1100" height="520"
+alt="KV prefix sharing and request-local recurrent state" /></p>
+<p><em><strong>Figure 2.</strong> Decode requests share prefix KV and
+retain separate suffix KV. Prefill supplies a distinct full-prompt KDA
+state for each request.</em></p>
+<p>For N requests sharing a prefix of length Lp, each with a suffix of
+length Ls, target-model KV storage measured in token slots falls from
+<strong>N × (Lp + Ls)</strong> to <strong>Lp + N × Ls</strong>, ignoring
+page alignment and similar overheads. Recurrent state remains
+request-local. Savings grow with prefix length and concurrency; requests
+without a shared prefix retain their full KV footprint.</p>
+<p>Speculative execution adds requirements around draft-cache
+boundaries, accepted-state commits, and request cleanup. We reuse
+upstream KV ownership and transfer logic, support single-chain EAGLE/MTP
+(top-k=1) and DFlash2, and budget state slots for both running and
+in-flight requests. See <a
+href="https://github.com/sgl-project/sglang/pull/44889">KV-only hybrid
+decode RadixCache</a>.</p>
+<h2 id="3-lowering-the-cost-of-useful-output">3. Lowering the cost of
+useful output</h2>
+<p>Once requests fit, throughput depends on what each cycle
+accomplishes. Near saturation:</p>
+<span class="katex-display"><span class="katex"><span
+class="katex-mathml"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">Output throughput</mtext><mo>≈</mo><mfrac><mrow><mtext mathvariant="normal">Active requests</mtext><mo>×</mo><mtext mathvariant="normal">Useful output tokens per request per cycle</mtext></mrow><mtext mathvariant="normal">Full cycle time</mtext></mfrac></mrow><annotation encoding="application/x-tex">\text{Output throughput} \approx
+\frac{\text{Active requests}\times\text{Useful output tokens per request per cycle}}
+{\text{Full cycle time}}</annotation></semantics></math></span></span></span>
+<p>We optimize both drafting overhead and target verification,
+evaluating acceptance length together with cycle time.</p>
+<h3 id="dflash2-and-speculative-cycle-time">DFlash2 and speculative
+cycle time</h3>
+<p>MTP extends a candidate chain through serial drafting. A longer chain
+can increase acceptance, but also adds work. We use <a
+href="https://huggingface.co/incoai/GLM-5.3-Flash-DFlash2">Inco’s
+DFlash2 checkpoint</a>, reuse SGLang’s block-drafting and verification
+paths, and integrate them with hybrid-cache PD serving.</p>
+<p>To compare execution costs at the same verification width, we
+configure MTP with seven serial draft steps, top-k=1, and eight
+verification tokens—MTP718—and compare it with DFlash2 block8. Each
+request verifies one anchor token plus seven candidates. Both
+configurations run close to 128 active requests and use the same M1024
+MoE configuration.</p>
+<div class="table-wrap is-compact">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">MTP718</th>
+<th style="text-align: center;">DFlash2 block8</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><a
+href="assets/eee811573a2f645474d2a40a34845510b0de0464a38f17eee067bf3cd234f599.png"><img
+src="assets/eee811573a2f645474d2a40a34845510b0de0464a38f17eee067bf3cd234f599.png"
+width="822" height="590" alt="MTP718 execution trace" /></a></td>
+<td style="text-align: center;"><a
+href="assets/e6220815c07d6e2a9ffe6494ff64e4e7536c01c80d8e5cf73f428244bb1bc147.png"><img
+src="assets/e6220815c07d6e2a9ffe6494ff64e4e7536c01c80d8e5cf73f428244bb1bc147.png"
+width="1000" height="600" alt="DFlash2 execution trace" /></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><em>Figure 3. Execution traces at the same verification width (click
+to enlarge). The screenshots use independent zoom levels; phase times
+below are wall-clock means across cycles and ranks.</em></p>
+<p>Target verification costs are similar: <strong>65.16 ms for MTP718
+and 66.30 ms for DFlash2</strong>. The larger difference is drafting.
+DFlash2 generates its block in one forward pass, taking <strong>3.15 ms
+versus MTP718’s 9.13 ms—a 65.5% reduction</strong>. After verification,
+DFlash2 projects target context features into draft KV instead of
+running MTP’s separate full draft-extend forward. Including cache
+updates, state commits, and stage gaps, the full cycle falls from
+<strong>86.94 ms to 74.14 ms, down 14.7%</strong>.</p>
+<p>Acceptance lengths are approximately <strong>7.37 for MTP718 and 7.03
+for DFlash2</strong>. Dividing cycle time by acceptance length gives an
+estimated amortized cost of <strong>11.80 versus 10.55 ms per accepted
+token</strong>, a 10.6% reduction. DFlash2 accepts slightly fewer tokens
+per cycle, but completes cycles faster.</p>
+<p>Output throughput increases from <strong>10,570 to 11,459 tokens/s,
+up 8.4%</strong>. The shorter execution cycle outweighs the slightly
+lower acceptance length.</p>
+<h3 id="tuning-moe-against-real-routing">Tuning MoE against real
+routing</h3>
+<p>MoE is a major target-verification hotspot. With MTP516—five draft
+steps, top-k=1, and six verification tokens—128 requests produce
+M=128×6=768 input rows. MoE accounts for approximately <strong>43% of
+verification’s cumulative GPU kernel time</strong> at this shape. Within
+MoE, routed-expert Up/Down GEMMs account for nearly 80% of cumulative
+kernel time.</p>
+<p>The right GEMM configuration depends on expert routing as well as
+total token count. For DFlash2 block8, a CUDA Graph batch of 128
+produces <strong>M=128×8=1024</strong> MoE input rows. Those rows are
+routed unevenly across experts, and tile alignment introduces padding.
+Different routing distributions therefore change the effective GEMM
+shapes even at the same M.</p>
+<p>We jointly tune Up/Down GEMM tile sizes, warp counts, and pipeline
+settings using real routing samples from multiple layers, ranks, and
+execution points, then check the selected configurations on held-out
+routes. Nonuniform-scale numerical checks ensure compatibility with
+block quantization.</p>
+<p>With the rest of the DFlash2 service configuration unchanged, M1024
+tuning raises output throughput from <strong>11,112 to 11,459 tokens/s,
+up 3.12%</strong>. Reusable settings for standard token counts are
+available in the <a
+href="https://github.com/sgl-project/sglang/pull/45591">H200 block-FP8
+Triton configurations</a>.</p>
+<h3 id="larger-kv-tiles-for-dsa-partial">Larger KV tiles for DSA
+Partial</h3>
+<p>After the indexer selects KV positions, the Partial kernel loads them
+and computes QKᵀ, online softmax, and the weighted value sum. In the
+M768 profile, Partial accounts for <strong>58.6% of cumulative DSA
+verification kernel time</strong>.</p>
+<p>For SM90 FP8 workloads with sufficient query parallelism, we increase
+the KV tile from 32 to 128 entries, retaining one KV split and 128
+threads per CUDA block.</p>
+<p><img
+src="assets/8f3d8580131688c2fe3158fb48758f5744d7d2d40ea4ae273009d6a0940b72d9.svg"
+class="fig-full" width="1100" height="500"
+alt="Larger KV tiles and virtual padding" /></p>
+<p><em><strong>Figure 4.</strong> An index width of 2112 requires 66
+block32 iterations or 17 block128 iterations. The block128 path
+virtually covers 2176 columns; its final 64 are padding, shown in gray.
+The physical index tensor is unchanged.</em></p>
+<p>Larger tiles reduce loop iterations, online-softmax updates, and
+accumulator rescaling. They still process the same effective KV
+positions. Query rows already supply sufficient parallelism; adding KV
+splits would introduce more intermediate writes and Combine work. The
+dispatch rule uses architecture, layout, and available query
+parallelism, so neighboring query counts can use the same
+optimization.</p>
+<p>At M1024, shape-matched Partial + Combine microbenchmarks achieve
+approximately <strong>1.12× speedup</strong> with both shared-prefix and
+independent-KV layouts. See <a
+href="https://github.com/sgl-project/sglang/pull/47761">the FP8 KV
+tiling optimization</a>.</p>
+<h3 id="combined-decode-results">Combined decode results</h3>
+<p>Hybrid-cache management, speculation, and kernel optimization
+together raise four-GPU output throughput from <strong>2,782 to 12,027
+tokens/s (4.32×)</strong>, while mean TPOT falls from <strong>16.28 to
+10.07 ms</strong>. The baseline already has static memory and cache-pool
+budgets adjusted for long contexts. The optimized configuration raises
+the running-request limit from 56 to 132.</p>
+<p>We use 64K/1K requests with a 99.9% shared prefix to minimize prefill
+supply constraints and measure decode throughput near saturation.</p>
+<p>Client concurrency is set slightly above the decode running-request
+limit to keep decode busy while other requests are in prefill, cache
+transfer, or waiting for admission. Rank-0 scheduler samples show median
+active request counts of <strong>54 and 129</strong> for the baseline
+and final configuration, against limits of <strong>56 and 132</strong>,
+respectively.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th style="text-align: center;">Max running requests</th>
+<th style="text-align: center;">Output throughput (tokens/s)</th>
+<th style="text-align: center;">Mean TPOT (ms)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Capacity-adjusted baseline</td>
+<td style="text-align: center;">56</td>
+<td style="text-align: center;">2,781.88</td>
+<td style="text-align: center;">16.28</td>
+<td>KV and state pools sized for long contexts.</td>
+</tr>
+<tr>
+<td>FP8 KV cache</td>
+<td style="text-align: center;">96</td>
+<td style="text-align: center;">3,881.60</td>
+<td style="text-align: center;">22.98</td>
+<td>Smaller KV footprint increases capacity.</td>
+</tr>
+<tr>
+<td>FP8 KV + MTP516</td>
+<td style="text-align: center;">56</td>
+<td style="text-align: center;">5,625.32</td>
+<td style="text-align: center;">8.91</td>
+<td>Draft KV and verification states consume memory, reducing
+concurrency.</td>
+</tr>
+<tr>
+<td>+ ReplaySSM and BF16 recurrent state</td>
+<td style="text-align: center;">88</td>
+<td style="text-align: center;">7,721.79</td>
+<td style="text-align: center;">10.49</td>
+<td>ReplaySSM trims speculative buffers; BF16 halves SSM storage per
+slot.</td>
+</tr>
+<tr>
+<td>+ KV-only decode RadixCache</td>
+<td style="text-align: center;">128</td>
+<td style="text-align: center;">9,529.15</td>
+<td style="text-align: center;">12.47</td>
+<td>Prefix KV reuse is combined with retuned memory and concurrency
+budgets.</td>
+</tr>
+<tr>
+<td><strong>DFlash2 + tuned MoE + DSA Partial</strong></td>
+<td style="text-align: center;"><strong>132</strong></td>
+<td style="text-align: center;"><strong>12,026.62</strong></td>
+<td style="text-align: center;"><strong>10.07</strong></td>
+<td>Block drafting and tuned kernels reduce output-token cost.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The memory change is a shift in reuse and budgeting, rather than a
+larger KV pool alone. Per GPU, the baseline allocates <strong>46.72 GB
+of target KV</strong> and <strong>1.96 GB of recurrent/conv state across
+56 slots</strong>. The final configuration allocates <strong>14.00 GB of
+target KV</strong>, <strong>11.96 GB of draft KV</strong>, and
+<strong>7.37 GB of recurrent/conv state across 414 slots</strong>, plus
+speculative workspaces. Despite the smaller target KV pool, sharing the
+long prefix allows more requests to fit. At the selected operating
+points, scheduler samples report median KV occupancy of approximately
+<strong>98% versus 7%</strong>.</p>
+<p><img
+src="assets/23337680c38fe347e70928344dc3d3acbdd6c99b98ead7b5877653477e24aa9b.svg"
+class="fig-full" width="1100" height="490"
+alt="Decode throughput and latency" /></p>
+<p><em><strong>Figure 5.</strong> Four-GPU decode throughput and TPOT at
+64K/1K and 99.9% shared prefix.</em></p>
+<h2 id="4-prefill-dataflow-optimization">4. Prefill dataflow
+optimization</h2>
+<p>Long-input prefill depends on data movement and synchronization as
+well as GEMM efficiency. We use <strong>TP4/EP1/CP4</strong>, <a
+href="https://github.com/sgl-project/sglang/pull/44217">Q8 sparse
+attention</a>, and DeepGEMM, with <a
+href="https://github.com/sgl-project/sglang/pull/44293">CP/NIXL PD
+integration</a> supporting the combined DFlash2 deployment. Large
+prefill chunks and speculative verification have different shapes, so P
+and D use backends suited to their respective workloads.</p>
+<h3 id="communicate-and-reuse-fp8-activations">Communicate and reuse FP8
+activations</h3>
+<p>CP distributes token shards across ranks. The original MoE path
+gathers BF16 activations with AllGather, then routes and quantizes them
+on each rank. This transfers a larger tensor and duplicates input
+preparation.</p>
+<p>We move routing and quantization to the local token shards.
+<strong>Routing uses the original BF16 input; activations are quantized
+to FP8.</strong> We pack the FP8 values with scales, routing weights,
+and expert IDs for AllGather, then reuse the quantized values directly
+in expert GEMMs.</p>
+<p><img
+src="assets/e2f676129f27d9962c1bb5bffbcda4f84fbdce9bbd8edbad7b60644aafbfc202.svg"
+class="fig-full" width="1100" height="510"
+alt="CP MoE communication before and after FP8 transport" /></p>
+<p><em><strong>Figure 6.</strong> FP8 activation packets move between CP
+ranks. P-to-D cache transfer remains on NIXL.</em></p>
+<p>For hidden dimension H, activation storage per token falls from 2H to
+H bytes, plus scale and routing metadata. In the measured configuration,
+<strong>this AllGather’s payload falls by approximately 47.5%</strong>.
+Fused packing and unpacking further reduce copies and produce the layout
+consumed by expert computation. See <a
+href="https://github.com/sgl-project/sglang/pull/46813">CP MoE FP8
+transport and fused packing</a>.</p>
+<h3 id="fuse-computation-and-overlap-dependencies">Fuse computation and
+overlap dependencies</h3>
+<p>The DeepGEMM path fuses GLM clamp/SwiGLU activation with FP8
+quantization. It preserves BF16 rounding semantics and directly produces
+quantized values and the scale layout needed by the down projection,
+avoiding an intermediate BF16 write, reread, and extra kernel launch.
+For forward passes processing 8192 tokens, this
+activation-and-quantization region drops from <strong>6.76 to 3.19
+ms</strong> in mean cumulative kernel time. See <a
+href="https://github.com/sgl-project/sglang/pull/46776">SwiGLU and FP8
+quantization fusion</a>.</p>
+<p>KDA preparation follows the same principle: <a
+href="https://github.com/sgl-project/sglang/pull/45992">fuse Q/K L2
+normalization with QKV layout preparation</a>, reducing temporary copies
+and launches while preserving FP32 normalization and BF16 writeback.</p>
+<p>We increase the prefill chunk size and
+<code>--max-prefill-tokens</code> to <strong>32K</strong>. On supported
+large-chunk paths, <a
+href="https://github.com/sgl-project/sglang/pull/46842">KDA input
+Async-TP</a> starts projection as communication tiles arrive,
+overlapping AllGather and GEMM. Reusing logical token metadata on the
+CPU removes per-layer GPU-scalar reads. <a
+href="https://github.com/sgl-project/sglang/pull/46220">PD scheduling
+changes</a> delay the write-after-read (WAR) barrier protecting buffer
+reuse, overlapping previous-batch result processing with current GPU
+computation while preserving the synchronization needed before
+scheduling the next batch.</p>
+<h3 id="combined-prefill-results">Combined prefill results</h3>
+<p>Parallelism, low-precision communication, fusion, and scheduling
+together raise four-GPU input throughput from <strong>23,305 to 48,064
+tokens/s (2.06×)</strong> at 64K input, 10-token output, and no shared
+prefix. Mean TTFT falls from <strong>5.61 to 2.72 seconds</strong>.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th style="text-align: center;">Input throughput (tokens/s)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline</td>
+<td style="text-align: center;">23,304.96</td>
+<td>No CP; prefill BCG disabled.</td>
+</tr>
+<tr>
+<td>CP + BCG</td>
+<td style="text-align: center;">31,661.00</td>
+<td>Parallel input processing and CUDA Graph execution.</td>
+</tr>
+<tr>
+<td>Execution preparation and MoE optimizations</td>
+<td style="text-align: center;">35,661.29</td>
+<td>Fewer synchronizations and KV copies; MoE tuning and
+activation/quantization fusion.</td>
+</tr>
+<tr>
+<td>32K prefill chunks + Async-TP</td>
+<td style="text-align: center;">43,575.32</td>
+<td>Larger prefill batches with communication/projection overlap.</td>
+</tr>
+<tr>
+<td>DeepGEMM + fused KDA QKV preparation</td>
+<td style="text-align: center;">45,913.28</td>
+<td>Faster expert computation and input preparation.</td>
+</tr>
+<tr>
+<td><strong>FP8 communication, fusion, and scheduling
+optimizations</strong></td>
+<td style="text-align: center;"><strong>48,064.24</strong></td>
+<td><strong>Reuse quantized activations and reduce
+synchronization.</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><img
+src="assets/0839de907f8fe97036d037ff4a9377ec3bf6c5de4ffa3ee8dffca85291f44986.svg"
+class="fig-full" width="1100" height="490"
+alt="Prefill throughput and latency" /></p>
+<p><em><strong>Figure 7.</strong> Four-GPU prefill throughput and TTFT
+at client concurrency 2. Prefill BCG is disabled in both the baseline
+and the final optimized configuration.</em></p>
+<h2 id="5-end-to-end-3p1d-performance">5. End-to-end 3P1D
+performance</h2>
+<p>We evaluate the integrated service with three prefill instances and
+one decode instance on 16 H200s, using 64K/1K requests at three
+shared-prefix ratios. Each configuration uses a measured high-throughput
+operating point satisfying mean <strong>TTFT &lt; 6 seconds and TPOT
+&lt; 25 ms</strong>.</p>
+<p><img
+src="assets/5d128619cb63dd488674269890ddb1ae94c54e0ecd7bec676ba00c591265fa83.svg"
+class="fig-full" width="1100" height="830"
+alt="End-to-end 3P1D throughput and latency" /></p>
+<p><em><strong>Figure 8.</strong> End-to-end 3P1D throughput and
+latency. Dashed lines indicate the latency targets.</em></p>
+<p>Baseline and optimized configurations use different client loads. At
+0% and 50% shared prefix, higher throughput comes with mean TTFT
+increases from <strong>3.58 to 4.00 seconds</strong> and <strong>2.59 to
+4.72 seconds</strong>, respectively.</p>
+<p>P95/P99 latencies are:</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Shared prefix</th>
+<th>Configuration</th>
+<th style="text-align: center;">TTFT P95 / P99 (s)</th>
+<th style="text-align: center;">TPOT P95 / P99 (ms)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0%</td>
+<td>Baseline</td>
+<td style="text-align: center;">5.65 / 6.06</td>
+<td style="text-align: center;">16.36 / 16.46</td>
+</tr>
+<tr>
+<td>0%</td>
+<td>Optimized</td>
+<td style="text-align: center;">4.54 / 5.45</td>
+<td style="text-align: center;">1.90 / 3.45</td>
+</tr>
+<tr>
+<td>50%</td>
+<td>Baseline</td>
+<td style="text-align: center;">2.98 / 3.20</td>
+<td style="text-align: center;">17.94 / 18.02</td>
+</tr>
+<tr>
+<td>50%</td>
+<td>Optimized</td>
+<td style="text-align: center;">6.24 / 7.56</td>
+<td style="text-align: center;">4.42 / 8.56</td>
+</tr>
+<tr>
+<td>93.75%</td>
+<td>Baseline</td>
+<td style="text-align: center;">5.13 / 5.67</td>
+<td style="text-align: center;">19.70 / 20.06</td>
+</tr>
+<tr>
+<td>93.75%</td>
+<td>Optimized</td>
+<td style="text-align: center;">1.71 / 5.13</td>
+<td style="text-align: center;">12.56 / 20.13</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>At 0% and 50% shared prefix, prefill remains the
+bottleneck.</strong> Output reaches <strong>2.20K and 4.19K
+tokens/s</strong>, respectively—<strong>2.30× and 2.11× the
+baseline</strong>—but three prefill instances still cannot saturate
+decode. Faster input processing and request delivery remain the primary
+ways to increase system throughput.</p>
+<p><strong>At 93.75% shared prefix, the bottleneck shifts toward
+decode.</strong> With less uncached prefill work and sufficient supply,
+the final decode configuration, capped at 132 running requests, reaches
+<strong>12.05K tokens/s, 4.28× the baseline</strong>, with lower mean
+TTFT and TPOT. More decode concurrency and lower output cost now
+translate more fully into end-to-end gains.</p>
+<p>Throughput uses actual token counts; 64K is the configured input
+length. Input throughput includes cache hits, so <strong>803.55K input
+tokens/s</strong> at high prefix reuse is a logical input-processing
+rate. Integrated throughput covers all 16 GPUs; the isolated P and D
+results each use four. The optimized 3P1D stack achieves <strong>95.7%
+and 95.4% accuracy</strong> on two GSM8K runs, each with 1,314 examples
+and 5-shot prompting.</p>
+<p>The integrated baseline uses SGLang v0.5.20 with TP4/EP4 decode. The
+optimized deployment uses custom build
+<code>0.5.22.dev1872+g3cb45d3dc</code>, pinned to commit <a
+href="https://github.com/Jzz1943/sglang/commit/3cb45d3dc4e9a0d6aae90c4efc0e87aa9db75f2e"><code>3cb45d3dc</code></a>.
+The implementation is available on the <a
+href="https://github.com/Jzz1943/sglang/tree/glm-np1d"><code>glm-np1d</code>
+branch</a>.</p>
+<h2 id="6-future-directions">6. Future directions</h2>
+<ul>
+<li><strong>HiSparse efficiency.</strong> Our <a
+href="https://github.com/sgl-project/sglang/pull/43533">hybrid PD
+support</a> and <a
+href="https://github.com/sgl-project/sglang/pull/44488">MTP
+integration</a> provide the basis for capacity expansion. Next, measure
+PD handoff, decode-time KV-miss fetches, and cache-management costs
+separately, then improve residency, candidate-level KV reuse, and
+asynchronous prefetch. DFlash2 integration could extend these benefits
+to the current decode path.</li>
+<li><strong>FP8 draft KV cache.</strong> Draft KV occupies 11.96 GB per
+GPU, close to the target KV footprint of 14.00 GB. Evaluate FP8 storage
+for DFlash2’s currently BF16 draft KV, checking attention-backend
+compatibility, accuracy, and acceptance length, and whether the memory
+savings enable higher concurrency and output throughput.</li>
+<li><strong>mHC kernels.</strong> Reduce normalization, residual mixing,
+and layout-conversion costs through further fusion and tuning for
+verification shapes, while preserving numerical stability.</li>
+<li><strong>Scheduling and synchronization.</strong> Trace dependencies
+across host submission, metadata preparation, and state commits, and
+remove or hide waits that stall the full speculative cycle.</li>
+<li><strong>Workload-aware P/D allocation.</strong> Adapt routing and
+resource ratios to prefix reuse, input/output lengths, and queue state,
+balancing cache locality with load distribution.</li>
+<li><strong>Multimodal serving.</strong> Extend this work to image–text
+workloads, optimizing vision-encoder batching, execution, and feature
+handoff to prefill. Coordinate encoder, prefill, and decode scheduling
+to improve throughput and TTFT.</li>
+</ul>
+<h2 id="7-takeaways">7. Takeaways</h2>
+<p>The gains on GLM-5.3-Flash come from combining correct hybrid-cache
+reuse with more efficient execution. KV-only RadixCache shares prefix
+storage while keeping recurrent state request-local. DFlash2 and MoE/DSA
+optimizations reduce cost per useful output token. FP8 data reuse,
+fusion, and overlap improve prefill supply.</p>
+<p>The 3P1D results show why workload matters: low-prefix-reuse traffic
+still needs more prefill capacity, while high-prefix-reuse traffic
+approaches the decode ceiling. Choosing P/D allocation, parallelism, and
+backends together is what turns these optimizations into higher
+delivered throughput within latency limits.</p>
+<h2 id="configurations-and-launch-commands">Configurations and launch
+commands</h2>
+<details>
+<summary>
+Final optimized source stack and checkpoints
+</summary>
+<p>The final optimized stack is pinned to <a
+href="https://github.com/Jzz1943/sglang/commit/3cb45d3dc4e9a0d6aae90c4efc0e87aa9db75f2e"><code>3cb45d3dc</code></a>,
+built on upstream commit <a
+href="https://github.com/sgl-project/sglang/commit/fd5c52588ff2399d25d31e49cf2121863cf620e3"><code>fd5c52588f</code></a>.
+Install it in a CUDA-compatible Python environment with a Rust
+toolchain:</p>
+<div class="code-block">
+<pre><code>git clone --branch glm-np1d https://github.com/Jzz1943/sglang.git
+cd sglang
+git checkout --detach 3cb45d3dc4e9a0d6aae90c4efc0e87aa9db75f2e
+python -m pip install -e ./python
+python -m pip install nixl==1.5.0 sglang-router==0.3.2</code></pre>
+</div>
+<p>The base already includes FP8 KV support (<a
+href="https://github.com/sgl-project/sglang/pull/42957">#42957</a>),
+CP/BCG/DFlash2 (<a
+href="https://github.com/sgl-project/sglang/pull/43182">#43182</a>, <a
+href="https://github.com/sgl-project/sglang/pull/43774">#43774</a>),
+BF16 tracking (<a
+href="https://github.com/sgl-project/sglang/pull/44886">#44886</a>),
+H200 MoE configurations (<a
+href="https://github.com/sgl-project/sglang/pull/45591">#45591</a>),
+top-k v2 (<a
+href="https://github.com/sgl-project/sglang/pull/43775">#43775</a>), and
+prepared NIXL state transfers (<a
+href="https://github.com/sgl-project/sglang/pull/44740">#44740</a>). The
+following custom commits are applied on top, in order. Checking out the
+pinned revision includes the complete stack; related PR links identify
+the corresponding features.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Order</th>
+<th>Commit</th>
+<th>Change / related PR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/e45a4af9f6fbf2a769b61cad9473003083c35c3a"><code>e45a4af9f6</code></a></td>
+<td>KV-only decode RadixCache (<a
+href="https://github.com/sgl-project/sglang/pull/44889">#44889</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/90b2510990d368b77f92612fcbcf294f3d01ee36"><code>90b2510990</code></a></td>
+<td>Linear EAGLE/MTP cache support (<a
+href="https://github.com/sgl-project/sglang/pull/44889">#44889</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/6392b9349f60f8a15a8dc7248e0640f900ff74ab"><code>6392b9349f</code></a></td>
+<td>DFlash2 cache support (<a
+href="https://github.com/sgl-project/sglang/pull/44889">#44889</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/887bd54f0cdbdd96c764352e68b0fa7890645aad"><code>887bd54f0c</code></a></td>
+<td>Larger DSA FP8 KV tiles (<a
+href="https://github.com/sgl-project/sglang/pull/47761">#47761</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">5</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/1ce66b8cb10f591f5e2154ec1c4b7419606b11ad"><code>1ce66b8cb1</code></a></td>
+<td>Zero padded KDA/GDN outputs (<a
+href="https://github.com/sgl-project/sglang/pull/46225">#46225</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">6</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/b1a42e3f4a2e96ceedf59808d24462b6dbeea93d"><code>b1a42e3f4a</code></a></td>
+<td>CP/NIXL/DFlash2 integration (<a
+href="https://github.com/sgl-project/sglang/pull/44293">#44293</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">7</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/85aa4cbd40c842e95e6f2999956e4ea4f6daecca"><code>85aa4cbd40</code></a></td>
+<td>Raw FP8 Q8 prefill (<a
+href="https://github.com/sgl-project/sglang/pull/44217">#44217</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">8</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/f2bc7570c4a2ec0ba191789033951b1cc893c4fd"><code>f2bc7570c4</code></a></td>
+<td>KDA QKV preparation fusion (<a
+href="https://github.com/sgl-project/sglang/pull/45992">#45992</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">9</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/144f7516589fcf08272c691e0831f3b3c4b421fe"><code>144f751658</code></a></td>
+<td>Triton activation/quantization fusion (<a
+href="https://github.com/sgl-project/sglang/pull/45823">#45823</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">10</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/81a9c9a63eca6e22159f38366d533e161396655e"><code>81a9c9a63e</code></a></td>
+<td>Prefill WAR-barrier scheduling (<a
+href="https://github.com/sgl-project/sglang/pull/46220">#46220</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">11</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/637c08563a4ef2b5bbfe588a9eef02ed057eb01c"><code>637c08563a</code></a></td>
+<td>CP reordering and tail-padding fusion</td>
+</tr>
+<tr>
+<td style="text-align: center;">12</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/a62cd9b1e00c090b564c537c1b432aabd778edd0"><code>a62cd9b1e0</code></a></td>
+<td>KDA Async-TP (<a
+href="https://github.com/sgl-project/sglang/pull/46842">#46842</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">13</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/60dc9d71c0712d8daefeff5b98f85cb06165c022"><code>60dc9d71c0</code></a></td>
+<td>DeepGEMM FP8 reuse and activation fusion (<a
+href="https://github.com/sgl-project/sglang/pull/46776">#46776</a>)</td>
+</tr>
+<tr>
+<td style="text-align: center;">14</td>
+<td><a
+href="https://github.com/Jzz1943/sglang/commit/3cb45d3dc4e9a0d6aae90c4efc0e87aa9db75f2e"><code>3cb45d3dc4</code></a></td>
+<td>CP FP8 MoE transport and fused packing (<a
+href="https://github.com/sgl-project/sglang/pull/46813">#46813</a>)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The Triton activation-fusion switch is off for the final DeepGEMM
+prefill path. Tested runtime versions include PyTorch 2.14.1, Triton
+3.8.0, TileLang 0.1.12, FlashInfer 0.7.2, DeepGEMM 0.2.3.post2, NIXL
+1.5.0, and SGLang Router 0.3.2.</p>
+<p>Checkpoint sources: <a
+href="https://huggingface.co/zai-org/GLM-5.3-Flash">GLM-5.3-Flash</a>
+and <a href="https://huggingface.co/incoai/GLM-5.3-Flash-DFlash2">Inco
+DFlash2</a>.</p>
+</details>
+<details>
+<summary>
+Baseline and optimized configurations
+</summary>
+<p><strong>Prefill</strong></p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Baseline</th>
+<th>Optimized</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TP / EP / CP</td>
+<td>4 / 4 / 1</td>
+<td>4 / 1 / 4, interleave</td>
+</tr>
+<tr>
+<td>MoE runner / A2A</td>
+<td>Triton / none</td>
+<td>DeepGEMM / none</td>
+</tr>
+<tr>
+<td>DSA prefill backend</td>
+<td>TileLang</td>
+<td>FlashMLA sparse Q8 (<code>flashmla_sparse_q8</code>)</td>
+</tr>
+<tr>
+<td>KDA prefill backend</td>
+<td>Triton</td>
+<td>Triton</td>
+</tr>
+<tr>
+<td>KV cache dtype</td>
+<td>BF16</td>
+<td>FP8 E4M3</td>
+</tr>
+<tr>
+<td>Recurrent-state dtype</td>
+<td>FP32</td>
+<td>BF16</td>
+</tr>
+<tr>
+<td>Static memory fraction</td>
+<td>0.75</td>
+<td>0.75</td>
+</tr>
+<tr>
+<td><code>--chunked-prefill-size</code></td>
+<td>8,192</td>
+<td>32,768</td>
+</tr>
+<tr>
+<td><code>--max-prefill-tokens</code></td>
+<td>16,384</td>
+<td>32,768</td>
+</tr>
+<tr>
+<td>Prefill CUDA Graph</td>
+<td>Disabled</td>
+<td>Disabled</td>
+</tr>
+<tr>
+<td>Benchmark concurrency</td>
+<td>2</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Decode</strong></p>
+<div class="table-wrap is-compact">
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Isolated baseline</th>
+<th>Optimized</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TP / EP</td>
+<td>4 / 1</td>
+<td>4 / 4</td>
+</tr>
+<tr>
+<td>MoE runner / A2A</td>
+<td>Triton / none</td>
+<td>Tuned Triton / none</td>
+</tr>
+<tr>
+<td>DSA decode backend</td>
+<td>TileLang</td>
+<td>TileLang</td>
+</tr>
+<tr>
+<td>KDA decode / verify backend</td>
+<td>Triton</td>
+<td>Triton</td>
+</tr>
+<tr>
+<td>KV cache dtype</td>
+<td>BF16</td>
+<td>FP8 E4M3</td>
+</tr>
+<tr>
+<td>Recurrent-state dtype</td>
+<td>FP32</td>
+<td>BF16</td>
+</tr>
+<tr>
+<td>Speculative decoding</td>
+<td>Off</td>
+<td>DFlash2 block8</td>
+</tr>
+<tr>
+<td>Draft attention / KV dtype</td>
+<td>Not applicable</td>
+<td>FA3 / BF16</td>
+</tr>
+<tr>
+<td>ReplaySSM-spec</td>
+<td>Off</td>
+<td>On</td>
+</tr>
+<tr>
+<td>Decode RadixCache</td>
+<td>Off</td>
+<td>KV-only hybrid cache</td>
+</tr>
+<tr>
+<td>Static memory fraction</td>
+<td>0.90</td>
+<td>0.84</td>
+</tr>
+<tr>
+<td>Running-request limit</td>
+<td>56</td>
+<td>132</td>
+</tr>
+<tr>
+<td>State slots</td>
+<td>56</td>
+<td>414</td>
+</tr>
+<tr>
+<td>Decode CUDA Graph max batch</td>
+<td>56</td>
+<td>132</td>
+</tr>
+<tr>
+<td>Benchmark concurrency</td>
+<td>64</td>
+<td>140; 3P1D: 12 / 33 / 140</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>All P/D transfers use NIXL. The optimized D state budget covers six
+extra in-flight requests.</p>
+</details>
+<details>
+<summary>
+Decode baseline launch commands (SGLang v0.5.20)
+</summary>
+<p>Launch P and D in separate terminals using SGLang v0.5.20.</p>
+<div class="code-block">
+<pre><code>export MODEL_PATH=/path/to/GLM-5.3-Flash
+export UCX_NET_DEVICES=lo
+export UCX_TLS=tcp,cuda_copy,cuda_ipc,self,sm
+
+# P, in one terminal:
+CUDA_VISIBLE_DEVICES=0,1,2,3 sglang serve \
+  --model-path &quot;$MODEL_PATH&quot; \
+  --served-model-name llm \
+  --tp-size 4 \
+  --moe-runner-backend triton \
+  --dsa-prefill-backend tilelang \
+  --dsa-decode-backend tilelang \
+  --kv-cache-dtype bfloat16 \
+  --mem-fraction-static 0.75 \
+  --disaggregation-mode prefill \
+  --disaggregation-transfer-backend nixl \
+  --disaggregation-bootstrap-port 8998 \
+  --host 127.0.0.1 \
+  --port 31000 \
+  --nccl-port 29500
+
+# D, in another terminal with the same MODEL_PATH and UCX variables:
+CUDA_VISIBLE_DEVICES=4,5,6,7 sglang serve \
+  --model-path &quot;$MODEL_PATH&quot; \
+  --served-model-name llm \
+  --tp-size 4 \
+  --moe-runner-backend triton \
+  --dsa-prefill-backend tilelang \
+  --dsa-decode-backend tilelang \
+  --kv-cache-dtype bfloat16 \
+  --mem-fraction-static 0.90 \
+  --max-running-requests 56 \
+  --max-mamba-cache-size 56 \
+  --cuda-graph-max-bs-decode 56 \
+  --disaggregation-mode decode \
+  --disaggregation-transfer-backend nixl \
+  --host 127.0.0.1 \
+  --port 32000 \
+  --nccl-port 29501</code></pre>
+</div>
+<p>Use the 1P1D router command below with decode port 32000.</p>
+</details>
+<details>
+<summary>
+Optimized P and D launch commands
+</summary>
+<p>Replace the checkpoint paths and run the following shared setup in
+each role’s Bash terminal before launching P or D.</p>
+<div class="code-block">
+<pre><code>export MODEL_PATH=/path/to/GLM-5.3-Flash
+export DRAFT_MODEL_PATH=/path/to/GLM-5.3-Flash-DFlash2
+export SGLANG_UNIFIED_RADIX_TREE_CORE_BACKEND=python
+export SGLANG_DISAGGREGATION_NIXL_BACKEND=UCX
+export SGLANG_DISAGGREGATION_ENGINE_INIT_TIMEOUT=300
+export NO_PROXY=127.0.0.1,localhost
+export no_proxy=&quot;$NO_PROXY&quot;
+unset SGLANG_MOE_CONFIG_DIR MOE_CONFIG_DIR MOE_ROUTE_CAPTURE_CONFIG</code></pre>
+</div>
+<p>P (GPU 0–3):</p>
+<div class="code-block">
+<pre><code>export P_HOST=127.0.0.1
+export P_PORT=31000
+export BOOTSTRAP_PORT=8998
+export P_NCCL_PORT=29500
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+export SGLANG_HOST_IP=&quot;$P_HOST&quot;
+export SGLANG_CP_KDA_ASYNC_TP=1
+export SGLANG_KDA_FUSED_QKV_PACK=1
+export SGLANG_OPT_MOE_ACT_QUANT_FUSION=0
+export SGLANG_CP_MOE_FP8_TRANSPORT=1
+export SGLANG_CP_DG_ACT_QUANT_FUSION=1
+export SGLANG_CP_FP8_FUSED_PACKET=1
+export SGLANG_DISAGG_STAGING_BUFFER=0
+
+sglang serve \
+  --model-path &quot;$MODEL_PATH&quot; \
+  --served-model-name llm \
+  --trust-remote-code \
+  --tp-size 4 \
+  --ep-size 1 \
+  --enable-prefill-cp \
+  --cp-strategy interleave \
+  --attn-cp-size 4 \
+  --moe-runner-backend deep_gemm \
+  --moe-a2a-backend none \
+  --dsa-prefill-backend flashmla_sparse_q8 \
+  --dsa-decode-backend tilelang \
+  --linear-attn-prefill-backend triton \
+  --linear-attn-decode-backend triton \
+  --kv-cache-dtype fp8_e4m3 \
+  --mamba-ssm-dtype bfloat16 \
+  --mem-fraction-static 0.75 \
+  --chunked-prefill-size 32768 \
+  --max-prefill-tokens 32768 \
+  --cuda-graph-backend-prefill disabled \
+  --speculative-algorithm DFLASH \
+  --speculative-draft-model-path &quot;$DRAFT_MODEL_PATH&quot; \
+  --speculative-dflash-block-size 8 \
+  --speculative-draft-attention-backend fa3 \
+  --speculative-draft-kv-cache-dtype bfloat16 \
+  --disaggregation-mode prefill \
+  --disaggregation-transfer-backend nixl \
+  --disaggregation-bootstrap-port &quot;$BOOTSTRAP_PORT&quot; \
+  --reasoning-parser glm45 \
+  --tool-call-parser glm47 \
+  --tokenizer-worker-num 8 \
+  --host &quot;$P_HOST&quot; \
+  --port &quot;$P_PORT&quot; \
+  --nccl-port &quot;$P_NCCL_PORT&quot;</code></pre>
+</div>
+<p>D (GPU 4–7):</p>
+<div class="code-block">
+<pre><code>export D_HOST=127.0.0.1
+export D_PORT=31500
+export D_NCCL_PORT=29501
+export CUDA_VISIBLE_DEVICES=4,5,6,7
+export SGLANG_HOST_IP=&quot;$D_HOST&quot;
+unset SGLANG_CP_KDA_ASYNC_TP SGLANG_KDA_FUSED_QKV_PACK
+unset SGLANG_OPT_MOE_ACT_QUANT_FUSION SGLANG_DISAGG_STAGING_BUFFER
+unset SGLANG_CP_MOE_FP8_TRANSPORT SGLANG_CP_DG_ACT_QUANT_FUSION SGLANG_CP_FP8_FUSED_PACKET
+
+sglang serve \
+  --model-path &quot;$MODEL_PATH&quot; \
+  --served-model-name llm \
+  --trust-remote-code \
+  --tp-size 4 \
+  --ep-size 4 \
+  --moe-runner-backend triton \
+  --moe-a2a-backend none \
+  --dsa-prefill-backend tilelang \
+  --dsa-decode-backend tilelang \
+  --linear-attn-prefill-backend triton \
+  --linear-attn-decode-backend triton \
+  --linear-attn-verify-backend triton \
+  --kv-cache-dtype fp8_e4m3 \
+  --mamba-ssm-dtype bfloat16 \
+  --mem-fraction-static 0.84 \
+  --max-running-requests 132 \
+  --max-mamba-cache-size 414 \
+  --chunked-prefill-size 8192 \
+  --cuda-graph-max-bs-decode 132 \
+  --cuda-graph-bs-decode 1 2 4 8 16 24 32 48 64 80 88 96 104 112 116 120 128 132 \
+  --speculative-algorithm DFLASH \
+  --speculative-draft-model-path &quot;$DRAFT_MODEL_PATH&quot; \
+  --speculative-dflash-block-size 8 \
+  --speculative-draft-attention-backend fa3 \
+  --speculative-draft-kv-cache-dtype bfloat16 \
+  --enable-linear-replayssm-spec \
+  --disaggregation-mode decode \
+  --disaggregation-transfer-backend nixl \
+  --disaggregation-decode-enable-radix-cache \
+  --disaggregation-decode-extra-slots 6 \
+  --disaggregation-decode-polling-interval 1 \
+  --reasoning-parser glm45 \
+  --tool-call-parser glm47 \
+  --tokenizer-worker-num 8 \
+  --host &quot;$D_HOST&quot; \
+  --port &quot;$D_PORT&quot; \
+  --nccl-port &quot;$D_NCCL_PORT&quot;</code></pre>
+</div>
+<p>For single-node P/D transfer, set <code>UCX_NET_DEVICES=lo</code> and
+<code>UCX_TLS=tcp,cuda_copy,cuda_ipc,self,sm</code> in both terminals
+before launch. Cross-node transfer typically uses RDMA when supported by
+the hardware and network; leave these variables unset so UCX can select
+the available devices and transports.</p>
+</details>
+<details>
+<summary>
+Router and 3P1D placement
+</summary>
+<p>For 1P1D:</p>
+<div class="code-block">
+<pre><code>python -m sglang_router.launch_router \
+  --pd-disaggregation \
+  --mini-lb \
+  --prefill http://127.0.0.1:31000 8998 \
+  --decode http://127.0.0.1:31500 \
+  --host 127.0.0.1 \
+  --port 8090</code></pre>
+</div>
+<p>For 3P1D, use two eight-GPU nodes. On node A, launch P0 on GPU 0–3
+(port 31000, bootstrap 8998, NCCL 29500) and P1 on GPU 4–7 (31001, 8999,
+29501). On node B, launch P2 on GPU 0–3 (31000, 8998, 29500) and D on
+GPU 4–7 (31500, NCCL 29501). Set each role’s host/IP variables to its
+node’s reachable IP. P2 uses
+<code>UCX_TLS=tcp,cuda_copy,cuda_ipc,self,sm</code>; other roles retain
+UCX network auto-selection.</p>
+<p>Launch the router on node A, replacing the example IPs with your node
+addresses:</p>
+<div class="code-block">
+<pre><code>NODE_A=192.0.2.10
+NODE_B=192.0.2.11
+export NO_PROXY=&quot;127.0.0.1,localhost,$NODE_A,$NODE_B&quot;
+export no_proxy=&quot;$NO_PROXY&quot;
+python -m sglang_router.launch_router \
+  --pd-disaggregation \
+  --policy round_robin \
+  --prefill &quot;http://$NODE_A:31000&quot; 8998 \
+  --prefill &quot;http://$NODE_A:31001&quot; 8999 \
+  --prefill &quot;http://$NODE_B:31000&quot; 8998 \
+  --decode &quot;http://$NODE_B:31500&quot; \
+  --host &quot;$NODE_A&quot; \
+  --port 8090</code></pre>
+</div>
+</details>
+<details>
+<summary>
+Benchmark example: 93.75% shared prefix
+</summary>
+<p>GSP uses a configured shared prefix of 61,440 tokens, a 4,096-token
+question, and 1,024 output tokens. Flush all P/D caches before each run,
+then warm up with 12 requests.</p>
+<div class="code-block">
+<pre><code>BENCH_HOST=192.0.2.10
+export NO_PROXY=&quot;127.0.0.1,localhost,$BENCH_HOST&quot;
+export no_proxy=&quot;$NO_PROXY&quot;
+
+python -m sglang.benchmark.serving \
+  --backend sglang \
+  --host &quot;$BENCH_HOST&quot; \
+  --port 8090 \
+  --model /path/to/GLM-5.3-Flash \
+  --served-model-name llm \
+  --dataset-name generated-shared-prefix \
+  --gsp-num-groups 1 \
+  --gsp-prompts-per-group 3072 \
+  --gsp-system-prompt-len 61440 \
+  --gsp-question-len 4096 \
+  --gsp-output-len 1024 \
+  --gsp-range-ratio 1 \
+  --num-prompts 3072 \
+  --request-rate inf \
+  --max-concurrency 140 \
+  --warmup-requests 12 \
+  --temperature 0 \
+  --seed 42 \
+  --cache-report \
+  --output-file benchmark_sp93_75.jsonl</code></pre>
+</div>
+</details>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>We thank <a href="https://github.com/BBuf">BBuf</a>, <a
+href="https://github.com/Fridge003">Fridge003</a>, <a
+href="https://github.com/yuan-luo">yuan-luo</a>, <a
+href="https://github.com/alphabetc1">alphabetc1</a>, <a
+href="https://github.com/hzh0425">hzh0425</a>, <a
+href="https://github.com/huangtingwei9988">huangtingwei9988</a>, <a
+href="https://github.com/ShangmingCai">ShangmingCai</a>, and other
+SGLang community contributors for supporting this work.</p>
+<p>Contact: <a href="https://github.com/Jzz1943">Zhongze Jiang</a> — <a
+href="mailto:jiangzhongze.jzz@ant-intl.com">jiangzhongze.jzz@ant-intl.com</a>.</p>
+</div>
+</article>
+</body>
+</html>

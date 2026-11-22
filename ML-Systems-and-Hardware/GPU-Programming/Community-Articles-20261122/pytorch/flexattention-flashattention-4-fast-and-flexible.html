@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FlexAttention + FlashAttention-4: Fast and Flexible</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FlexAttention + FlashAttention-4: Fast and
+Flexible</h1>
+</header>
+<section id="flexattention-flashattention-4-fast-and-flexible"
+class="header">
+<h1>FlexAttention + FlashAttention-4: Fast and Flexible</h1>
+<p>来源：<a
+href="https://pytorch.org/blog/flexattention-flashattention-4-fast-and-flexible/">https://pytorch.org/blog/flexattention-flashattention-4-fast-and-flexible/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content" data-hide-featured-media="1">
+<div class="content-inner">
+<p><img src="assets/b4bcfed899eb86ea4b3367d134eec5eea112c6d2addf469d2ced04957b091e0b.jpg"
+class="aligncenter wp-image-58139" width="900" height="563" /></p>
+<h4 id="tldr"><strong>TL;DR:</strong></h4>
+<p><span>On Hopper and Blackwell GPUs, FlexAttention now has a
+FlashAttention-4 backend.</span></p>
+<p><span>We added support in PyTorch to automatically generate CuTeDSL
+score/mask modification functions, and to JIT-instantiate
+FlashAttention-4 for custom attention variants.</span></p>
+<p><strong>This leads to performance gains of 1.2× to 3.2× over the
+existing Triton implementation on compute-bound workloads.</strong></p>
+<h3 id="flexattention-recap"><strong>FlexAttention recap</strong></h3>
+<p>FlexAttention is a PyTorch API that lets you implement custom
+attention variants in a few lines of Python, no CUDA required. You write
+a <code>score_mod</code> or <code>mask_mod</code> function that modifies
+attention scores, and the compiler handles the rest: ALiBi, sliding
+window, document masking, soft-capping, and combinations of these all
+work through the same interface.</p>
+<p><span>Under the hood, it’s two extensions over vanilla
+FlashAttention:</span></p>
+<ol>
+<li><span>Pointwise modifications to pre-softmax scores, with arbitrary
+loads from global memory.</span></li>
+<li><span>Block-sparse iteration for both forward and backward, with a
+simple data structure for encoding data-dependent sparsity at
+runtime.</span></li>
+</ol>
+<p><span>That’s it. Of course, the devil is in the details, but as we’ve
+shown in </span><a
+href="flexattention.html"><span>the original
+FlexAttention post</span></a><span> and </span><a
+href="../../../../LLM-Systems/Attention-and-Kernels/Community-Articles-20261122/pytorch/flexattention-for-inference.html"><span>FlexAttention
+for inference</span></a><span>, these two extensions cover a wide range
+of popular attention variants.</span></p>
+<p><span>With this release, FlexAttention now has a FlashAttention-4
+(FA4) backend. Here’s how to use it:</span></p>
+<pre><code>import torch
+from functools import partial
+
+from torch.nn.attention.flex_attention import flex_attention
+
+flex_flash = torch.compile(
+    partial(flex_attention, kernel_options={&quot;BACKEND&quot;: &quot;FLASH&quot;}), dynamic=False
+)
+
+def local_boost(score, b_idx, h_idx, q_idx, kv_idx):
+    return torch.where(torch.abs(q_idx - kv_idx) &lt;= 8, score * 2, score)
+
+B, H, S, D = 2, 8, 2048, 128
+q = torch.randn(B, H, S, D, device=&quot;cuda&quot;, dtype=torch.bfloat16)
+k = torch.randn(B, H, S, D, device=&quot;cuda&quot;, dtype=torch.bfloat16)
+v = torch.randn(B, H, S, D, device=&quot;cuda&quot;, dtype=torch.bfloat16)
+out = flex_flash(q, k, v, score_mod=local_boost)</code></pre>
+<p><span>Set </span><span><code>BACKEND</code></span>
+: <code>"FLASH"</code> to use the FA4 backend. You’ll need a recent <a
+href="https://pytorch.org/get-started/locally/">PyTorch nightly</a> and
+a recent <a
+href="https://github.com/dao-AILab/flash-attention/tree/main/flash_attn/cute/README.md">FlashAttention
+checkout</a>; check the install docs for version compatibility. This is
+actively developed code; expect some breaking changes as it
+stabilizes.</p>
+<p><strong>Democratizing attention research with
+FlexAttention</strong></p>
+<p><span>FlexAttention was originally designed (and named) to provide
+flexibility to AI researchers when prototyping and experimenting with
+new attention variants. In practice, this has proven true: </span><a
+href="https://scholar.google.com/scholar?oi=bibs&amp;hl=en&amp;cites=6169255249999382801"><span>dozens
+of papers cite FlexAttention</span></a><span>, and over a thousand repos
+have adopted it:</span></p>
+<p><img src="assets/9315fd6227d928f4ae248c35fb8b13feb9edc9403af3bc645745d867cedc6640.png"
+class="aligncenter wp-image-58140 size-full" width="1600"
+height="1245" /></p>
+<p><span>While Flex has been successful at enabling researchers, a
+constant refrain from users is that they ultimately hit a performance
+ceiling that’s hard to break. At the time of the original blog post, we
+compared against FlashAttention-3 (FA3) on Hopper GPUs and were roughly
+at 80% of its performance.</span></p>
+<p><span>If you measure this today, FlexAttention achieves roughly 60%
+of FlashAttention-3’s throughput, despite improvements to both
+implementations!</span></p>
+<p><img src="assets/03737a3028d02adcf76b6d9a6961e2d8920f7996d05ebac6c1c72f1e96f1f32c.png"
+class="aligncenter wp-image-58141 size-full" width="1600"
+height="681" /></p>
+<p><span>A common pattern emerges: researchers experiment with Flex,
+find something that works, then hit a wall when performance becomes
+critical. At that point, experts must port it to something lower-level.
+FlashAttention-3 has continued to add new args that extend
+functionality, but every new arg/pattern requires low-level rewrites.
+We’ve pushed the burden from researchers to ML engineers!</span></p>
+<p><span>The delta in performance between fully optimized versions is
+perhaps worth the gain in flexibility on Hopper, but it’s a different
+story on newer Blackwell GPUs.</span></p>
+<p><span>Let’s look at a comparison between FlexAttention using its
+existing Triton implementation (with all the autotune knobs maxed out)
+on a Blackwell GB200 GPU (running at 1000W), versus a highly optimized
+implementation like cuDNN attention available through PyTorch’s SDPA:
+</span></p>
+<p><img src="assets/78800f26149ba76ff657361b7414fd12fbe5df9f5aeff1c916fc184390fa7327.png"
+class="aligncenter wp-image-58142 size-full" width="1600"
+height="681" /></p>
+<p><span>What was once a small gap has grown to a chasm!</span></p>
+<h2
+id="blackwell-bigger-tensor-cores-bigger-problems"><strong>Blackwell:
+bigger tensor cores, bigger problems</strong></h2>
+<p><span>On Blackwell, high-performance attention requires a deeply
+pipelined, warp-specialized kernel. These techniques aren’t expressible
+in our Triton-based implementation. We’d like to direct you to the great
+explanation of the FlashAttention kernel in </span><a
+href="../modal/reverse-engineer-flash-attention-4.html"><span>Reverse
+engineering FlashAttention-4</span></a><span>, which details how the
+implementation leverages new hardware capabilities on Blackwell, plus
+updates to how softmax is computed. The name of the game, as always, is
+to keep the tensor cores busy; since they’ve only gotten faster, this
+requires heavy use of deep async pipelines.</span></p>
+<p><span>Blackwell introduces Tensor Memory (TMEM), a programmer-managed
+scratchpad close to the tensor cores for intermediate results. More
+importantly, both data movement and matmuls are now fully asynchronous.
+A warp can kick off a matmul or load and immediately move on.</span></p>
+<p><span>Warp specialization splits work into stages: some warps handle
+synchronous work like softmax (which needs registers), while others
+orchestrate the async pipeline by issuing loads and matmuls, and
+coordinating synchronization. Because the orchestration warps have low
+register pressure, more operations can stay in flight simultaneously,
+hiding latency.</span></p>
+<p><span>The tensor cores got bigger and faster, but the
+special-function unit (SFU), which handles operations like exponentials,
+didn’t keep pace. For forward attention, this shifts the bottleneck:
+softmax’s exp() is now as expensive as the matrix multiplies. To keep
+the GPU fully saturated, you need to ping-pong between two tiles,
+overlapping one tile’s matrix multiplies with the other’s
+exponentiation. The timeline below shows how these phases alternate to
+hide latency.</span></p>
+<p><img
+src="assets/6080338b6a6f2fb0b481c0c28845c5dcaa50be01554c5622900a599d4844210c.svg"
+class="aligncenter wp-image-58143 size-full" width="1209"
+height="440" /></p>
+<p><span>Backward is even trickier. There isn’t enough TMEM to hold all
+the accumulators at once, so the kernel needs careful pipelining to
+overlap computation with data movement while all shared, register, and
+tensor memory is under heavy pressure.</span></p>
+<p><span>This is the kind of low-level choreography that a
+general-purpose compiler can’t easily discover. As the </span><a
+href="https://github.com/triton-lang/triton/blob/main/python/tutorials/gluon/01-intro.py#L18-L26"><span>Gluon
+intro</span></a><span> puts it: “While the Triton compiler does a good
+job of generating efficient code for a wide range of kernels, it can be
+beaten by hand-tuned low-level code. When this happens, there is little
+the user can do to significantly improve performance since all the
+details are hidden.” This is even harder for FlexAttention, which is a
+meta-attention implementation, so hardcoding compiler optimizations for
+specific patterns is difficult when the patterns are user-defined.
+Because of this, we started looking at lower-level implementations to
+see how best to improve performance on Blackwell.</span></p>
+<h2 id="flashattention-4-as-the-foundation"><strong>FlashAttention-4 as
+the foundation</strong></h2>
+<p><span>There was a lot of flux in attention implementations for new
+Blackwell hardware. cuDNN added performant attention support early, but
+FA3 (the existing SOTA implementation on Hopper) did not work on
+Blackwell. WGMMA no longer exists on SM100: it has been replaced with
+TCGEN05 tensor core instructions, and tensor core ops require different
+memory spaces (tensor memory).</span></p>
+<p><span>Tri Dao et al. started working on </span><a
+href="https://github.com/Dao-AILab/flash-attention/tree/main/flash_attn/cute"><span>FlashAttention-4</span></a><span>,
+an updated version of the implementation that could take full advantage
+of the hardware.</span></p>
+<p><span>One major change from FA3 to FA4 is </span><a
+href="https://docs.nvidia.com/cutlass/latest/media/docs/pythonDSL/cute_dsl_general/dsl_introduction.html"><span>CuTeDSL</span></a><span>,
+a Python DSL recently released by the NVIDIA CUTLASS team for writing
+high-performance CUDA kernels using CUTLASS abstractions. SOTA attention
+implementations make heavy use of CUTLASS abstractions</span> like
+<code>cute.Layouts</code>, but anyone who<span> has tried to install
+FlashAttention knows how painful it can be, with long compile times. So
+while the idea of rewriting Flex in CUTLASS C++ has come up before, the
+dynamic nature of FlexAttention (and the overhead of compilation) made
+the premise less attractive. CuTeDSL enables authoring in Python what
+used to require CUTLASS C++, which makes JIT-style workflows more
+practical for FlexAttention.</span></p>
+<p><span>After some early discussion with Tri Dao about this path, we
+decided to join forces on this implementation for both FlexAttention and
+FlashAttention-4.</span></p>
+<p><span>Rather than building a separate implementation, we collaborated
+to extend FA4 directly, sharing the same async pipeline infrastructure
+and adding extension points where FlexAttention needs to inject score
+modifications and sparsity.</span></p>
+<p><span>This meant adding score-modification support to both forward
+and backward (by inlining score mods into the FlashAttention
+implementation) and adding support for the block-sparse metadata used in
+FlexAttention.</span></p>
+<p><span>This work roughly split into two: changes to FA4 to produce
+FlexAttention template instantiations, and updates to Inductor to
+generate the required CuTeDSL code from its PyTorch
+representation.</span></p>
+<h2 id="inductor-cutedsl-the-glue-layer"><strong>Inductor → CuTeDSL: the
+glue layer</strong></h2>
+<p><span>So what do we need to produce for FlexAttention? Pointwise
+modifications and arbitrary loads. Luckily, this isn’t the first time
+Inductor has done this, and there’s an existing mechanism for this kind
+of extension. For instance, let’s take a look at a score modification
+that can be used to implement ALiBi (fun fact: this was the motivating
+example for the FlexAttention project).</span></p>
+<p>Roughly speaking, <code>torch.compile</code> takes user code and
+transforms it through several IRs. These transformations produce
+increasingly lower-level representations. In the FX IR, you can still
+see familiar PyTorch operators, along with variables being set to None
+immediately after use. The AOTAutograd pass auto-generates the backward:
+since d/dx of (X + A) equals 1, the chain rule sends the gradient
+straight through.</p>
+<p><span>Notably, no part of this stack needs to “know” what CuTeDSL
+code is until we get to Inductor, which ultimately produces the kernel
+code that gets run.</span></p>
+<p><span>Click through the tabs below to see how ALiBi evolves from user
+code to the final CuTeDSL kernel.</span></p>
+<p><span>Original FX IR AOTAutograd CuTeDSL</span></p>
+<div class="code-transform-tabs">
+<div>
+<br />
+<br />
+<br />
+
+</div>
+<div id="tab-original" class="tab-content">
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> alibi_mod(score, b, h, q_idx, kv_idx):</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    scale <span class="op">=</span> torch.exp2(<span class="op">-</span>((h <span class="op">+</span> <span class="dv">1</span>) <span class="op">*</span> <span class="fl">8.0</span> <span class="op">/</span> H))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    bias <span class="op">=</span> (kv_idx <span class="op">-</span> q_idx) <span class="op">*</span> scale</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> score <span class="op">+</span> bias</span></code></pre></div>
+<div>
+<strong>User Code</strong>: A score modification that implements ALiBi,
+the motivating example for the flex-attention project.
+</div>
+</div>
+<div id="tab-fx" class="tab-content">
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> score_mod_0(torch.nn.Module):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> forward(<span class="va">self</span>, child, child_1, child_2, child_3, child_4):</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        add: <span class="st">&quot;i32[][]cuda:0&quot;</span> <span class="op">=</span> child_2 <span class="op">+</span> <span class="dv">1</span><span class="op">;</span>  child_2 <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        mul: <span class="st">&quot;f32[][]cuda:0&quot;</span> <span class="op">=</span> add <span class="op">*</span> <span class="fl">8.0</span><span class="op">;</span>  add <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        truediv: <span class="st">&quot;f32[][]cuda:0&quot;</span> <span class="op">=</span> mul <span class="op">/</span> <span class="dv">32</span><span class="op">;</span>  mul <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        neg: <span class="st">&quot;f32[][]cuda:0&quot;</span> <span class="op">=</span> <span class="op">-</span>truediv<span class="op">;</span>  truediv <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        scale: <span class="st">&quot;f32[][]cuda:0&quot;</span> <span class="op">=</span> torch.exp2(neg)<span class="op">;</span>  neg <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        sub: <span class="st">&quot;i32[][]cuda:0&quot;</span> <span class="op">=</span> child_4 <span class="op">-</span> child_3</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        bias: <span class="st">&quot;f32[][]cuda:0&quot;</span> <span class="op">=</span> sub <span class="op">*</span> scale</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        add_1: <span class="st">&quot;f32[][]cuda:0&quot;</span> <span class="op">=</span> child <span class="op">+</span> bias</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> add_1</span></code></pre></div>
+<div>
+<strong>Dynamo → FX IR</strong>: This looks a little different from the
+original, but if you squint you can see familiar PyTorch operators,
+along with a lot of variables being set to <code>None</code> quickly
+after use.
+</div>
+</div>
+<div id="tab-aot" class="tab-content">
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> fw_graph0(torch.nn.Module):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> forward(<span class="va">self</span>, arg0_1, arg1_1, arg2_1, arg3_1, arg4_1):</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        add <span class="op">=</span> torch.ops.aten.add.Tensor(arg2_1, <span class="dv">1</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        mul <span class="op">=</span> torch.ops.aten.mul.Tensor(add, <span class="fl">8.0</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        div <span class="op">=</span> torch.ops.aten.div.Tensor(mul, <span class="dv">32</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        neg <span class="op">=</span> torch.ops.aten.neg.default(div)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        exp2 <span class="op">=</span> torch.ops.aten.exp2.default(neg)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        sub <span class="op">=</span> torch.ops.aten.sub.Tensor(arg4_1, arg3_1)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        mul_1 <span class="op">=</span> torch.ops.aten.mul.Tensor(sub, exp2)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        add_1 <span class="op">=</span> torch.ops.aten.add.Tensor(arg0_1, mul_1)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> add_1</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> joint_graph0(torch.nn.Module):  <span class="co"># backward pass</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> forward(<span class="va">self</span>, arg0_1, ..., arg5_1):</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        convert <span class="op">=</span> torch.ops.prims.convert_element_type.default(arg5_1, torch.bfloat16)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [convert, <span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span>]</span></code></pre></div>
+<div>
+<strong>AOTAutograd</strong>: We auto-generate the backward pass. Here
+we have a very simple <code>joint_graph</code>: since d/dx of (X + A)
+equals 1, the chain rule sends the backprop gradient straight through,
+with some data conversion if needed.
+</div>
+</div>
+<div id="tab-cute" class="tab-content">
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@cute.jit</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> score_mod(tSrS_ssa, b_idx, h_idx, q_idx, kv_idx, seqlen_info, aux_tensors):</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    tmp1 <span class="op">=</span> tSrS_ssa.to(cutlass.Float32)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    tmp4 <span class="op">=</span> (kv_idx <span class="op">-</span> q_idx)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    tmp5 <span class="op">=</span> tmp4.to(cutlass.Float32)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    tmp7 <span class="op">=</span> (h_idx <span class="op">+</span> cute.full_like(h_idx, <span class="dv">1</span>))</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    tmp8 <span class="op">=</span> tmp7.to(cutlass.Float32)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    tmp9 <span class="op">=</span> (tmp8 <span class="op">*</span> cute.full_like(tmp8, <span class="fl">8.0</span>))</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    tmp10 <span class="op">=</span> (tmp9 <span class="op">*</span> cute.full_like(tmp9, <span class="fl">0.03125</span>))</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    tmp11 <span class="op">=</span> <span class="op">-</span>tmp10</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    tmp12 <span class="op">=</span> (tmp11 <span class="op">*</span> cute.full_like(tmp11, <span class="fl">0.6931471805599453</span>))</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    tmp13 <span class="op">=</span> cute.math.exp2(tmp12 <span class="op">*</span> <span class="fl">1.4426950408889634</span>)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    tmp14 <span class="op">=</span> (tmp5 <span class="op">*</span> tmp13)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    tSrS_ssa <span class="op">=</span> (tmp1 <span class="op">+</span> tmp14)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="at">@cute.jit</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> score_mod_bwd(grad_score_mod_ssa, tSrS_ssa, ...):</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    grad_score_mod_ssa_out <span class="op">=</span> grad_score_mod_ssa</span></code></pre></div>
+<div>
+<strong>CuTeDSL</strong>: TensorSSA expressions that run in register
+memory. Inductor produces this automatically from the FX graph.
+</div>
+</div>
+</div>
+<div id="user-content-tab-aot" dir="auto">
+<p>Inductor lowers pointwise IR as a define-by-run function that
+calls <code>V.ops.&lt;op&gt;</code>, then swaps in a handler that
+reinterprets those calls for a target backend. In practice, this shows
+up as <code>ops_wrapper(...)</code> and <code>OpsWrapper</code>, which
+let you map unary and binary primitives to a new language without
+changing the IR itself. For CuTeDSL, we plug in a CuTeDSL handler that
+rewrites those ops into TensorSSA expressions, so arithmetic is
+performed on register(RMEM) backed cute tensors and expressions can be
+CSE’d.</p>
+<p>We also add a specialized load path for “arbitrary loads.” If a user
+writes a score/mask mod that relies on some global tensor, we
+materialize an RMEM fragment, and emit a load at the (possibly indirect)
+index. This lets us bridge from Inductor’s index expressions to
+CuTeDSL’s TensorSSA.</p>
+<div class="markdown-heading" dir="auto">
+<h2 class="heading-element" dir="auto" tabindex="-1"
+id="flexifying-flashattention-4"><strong>Flexifying
+FlashAttention-4</strong></h2>
+<p>We made two orthogonal extensions to FA4 so it can serve as
+FlexAttention’s backend:</p>
+<ol>
+<li>score modification in forward and backward</li>
+<li>block-sparse iteration in forward and backward</li>
+</ol>
+<p>Both extensions are implemented in CuTeDSL so they can be inlined
+into the same async pipeline that makes FA4 fast.</p>
+<p><a href="assets/1571c4c8d2db3fbee564b62d099f6c3978cd0c73979682afa001ec6f9768941a.svg"><img
+src="assets/1571c4c8d2db3fbee564b62d099f6c3978cd0c73979682afa001ec6f9768941a.svg"
+class="aligncenter wp-image-58144 size-full" width="1100"
+height="520" /></a>Think of FlashAttention as processing a queue of KV
+tiles per SM. Flexification adds two hooks: block sparsity controls
+which tiles enter the queue (skipping empty blocks, marking partial
+blocks), while score/mask mods are applied as pointwise operations in
+the softmax warp.</p>
+<p>With that split in mind, here’s how the forward and backward hooks
+fit in.</p>
+<section id="score-modification"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto" tabindex="-1"><strong>Score
+modification</strong></h3>
+</section>
+<p>One aspect of CuTeDSL that made this project feasible is the ability
+to not only pass a variadic number of kernel arguments to an
+implementation (which then lowers into a specific instantiation), but
+also to pass user callables directly. If you return to the core of
+FlexAttention, we need the ability to inject user modifications at
+precise points in the FlashAttention algorithm. We build on the existing
+FA4 implementation, which was already written to be score-mod
+friendly.</p>
+<p>In forward, we bring the <code>S</code> tile back from TMEM into
+registers so we can apply the mod, compute row-wise max/sum, and
+generate the <code>P</code> tile for the second matmul. We define a
+CuTeDSL interface that mirrors
+FlexAttention’s <code>score_mod</code> signature and, instead of
+threading <code>N</code> variadic captures through the kernel, pass a
+list of <code>aux_tensors</code> that represent any global-memory
+regions used by the mod. Inside the kernel, we reinterpret register
+fragments as TensorSSA views (with optional vectorization) and inline
+the user callable on those tiles.</p>
+<p>We already need <code>S</code> in registers to compute max/sum and
+form the <code>P</code> tile, so we apply score/mask mods while the data
+is resident in RMEM instead of adding a separate phase. That keeps the
+same pipeline structure and overlap between TCGEN and SFU work. Any
+extra reads from <code>aux_tensors</code> are issued directly when
+needed and scheduled alongside the existing stage that
+consumes <code>S</code>.</p>
+<p>Backward follows the same interface shape with a
+generated <code>score_mod_bwd</code> callable, but the liveness story is
+different. In standard FA4, the <code>S</code> and <code>dS</code> tiles
+never need to be live at the same time, so TMEM can be shared across
+phases. With score mods, the backward path depends on what the user’s
+derivative needs.</p>
+<p>If the gradient only depends on <code>P</code> (or the incoming
+gradient), we preserve the default schedule and still
+avoid <code>S</code>/<code>dS</code> overlap in TMEM. If the derivative
+depends on pre-softmax scores, we keep the
+needed <code>S</code> fragments in registers
+alongside <code>P</code> or <code>dS</code> and drop them as soon as
+their contribution is consumed. TMEM stays reserved for the main
+accumulators, and the cost is higher register pressure for those
+specific mods.</p>
+<section id="block-sparse-iteration-forward-backward"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto"
+tabindex="-1"><strong>Block-sparse iteration (forward +
+backward)</strong></h3>
+</section>
+<p>The second change FlexAttention requires from FlashAttention is
+block-sparse iteration. We extend FA4's kernels to accept block-mask
+metadata (the row/column tiles to visit) and drive the tile scheduler
+from it, so the kernel only touches the <code>(m, n)</code> tiles
+present in the mask. We also made the block-sparse path work with GQA
+packing and broadcasted head dimensions.</p>
+<p>One consequence of the two-tile ping-pong from earlier: the minimum
+sparse block size on Blackwell is 256×128, up from 128×128 on the Triton
+path. Because each CTA processes two M-tiles to keep the pipeline full
+(<code>q_stage=2</code>), the smallest unit of work the scheduler can
+skip is 256 rows, so the block-mask granularity has to match.</p>
+<p>Backward walks the same block-mask, computing gradients only for
+tiles present in the forward pass. The backward kernel already uses
+subtile iteration along rows, so the 256-row constraint fits
+naturally.</p>
+<section id="what-we-contributed"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto" tabindex="-1"><strong>What we
+contributed</strong></h3>
+</section>
+<p>These extensions required upstream updates across the FA4 stack:</p>
+<ul>
+<li>Score-mod hooks in forward and backward, including SM90/SM100
+correctness fixes and GQA edge cases</li>
+<li>Block-sparse forward and backward paths for Blackwell and Hopper,
+plus pack-GQA support for broadcasted mask mods</li>
+<li>Interface cleanups for contig layouts and expanded tensors in the
+score/mask-mod path</li>
+<li>CuTeDSL bumps and TVM-FFI enablement to cut CPU dispatch
+overhead</li>
+</ul>
+<p>With those pieces in place, let's look at the performance.</p>
+<section id="results" class="heading-element markdown-heading"
+dir="auto" tabindex="-1">
+<h2 class="heading-element" dir="auto"
+tabindex="-1"><strong>Results</strong></h2>
+<section id="patterns-supported-by-sdpa"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto" tabindex="-1"><strong>Patterns
+supported by SDPA</strong></h3>
+</section>
+<p>For standard attention patterns like dense (noop) and causal masking,
+we can compare FlexAttention's new Flash backend against both the
+existing Triton implementation and cuDNN.</p>
+</section>
+<p><img
+src="assets/0fef98fd286e9abb0ef0d20dac97390a52539bdfb2bd2b9bc778c0dfac89fc40.png"
+class="aligncenter wp-image-58146 size-full" width="2560"
+height="1815" /></p>
+<p>On GB200, the Flash backend achieves <strong>1.6–3.2× speedup over
+Triton</strong> for forward passes and <strong>1.85–2.3× for
+backward</strong>. For backward passes, Flash matches or even beats
+cuDNN in some cases; forward has a larger gap to cuDNN, particularly for
+causal attention.</p>
+<p>You'll notice that for the forward pass, Noop matches cuDNN closely
+while Causal lags further behind. This gap highlights how much overhead
+block-sparse iteration adds compared to FA4's builtin Causal path.</p>
+<section id="why-causal-lags-and-how-to-close-the-gap"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h4 class="heading-element" dir="auto" tabindex="-1"><strong>Why causal
+lags (and how to close the gap)</strong></h4>
+</section>
+<p>After some investigation, one of the culprits is work scheduling: if
+you read through the <a
+href="https://github.com/Dao-AILab/flash-attention/tree/main/hopper">FA3
+code</a>, you'll see the usage of <a
+href="https://en.wikipedia.org/wiki/Longest-processing-time-first_scheduling"
+rel="nofollow">longest processing time first (LPT) scheduling</a>, which
+FA4 implements for builtin causal but FlexAttention doesn't use. If we
+manually specify LPT scheduling, the performance looks like this:</p>
+<p><img
+src="assets/d44809a72190512e51924e31c97bbb6343b0328167547c21cbcb1678dc2267b1.png"
+class="aligncenter wp-image-58147 size-full" width="2560"
+height="947" /></p>
+<p>With LPT scheduling manually specified, forward sees up
+to <strong>1.6× speedup</strong> at shorter sequences, tapering to ~1.1×
+at longer sequences. Backward sees minimal difference since the
+scheduling overhead is amortized differently. We still don't fully match
+the performance, but we are getting closer.</p>
+<p>The LPT schedule works here since we know the specific sparsity
+pattern is causal and the schedule is optimal for this case. In general,
+we don't know the pattern ahead of time: block sparsity can be
+data-dependent, with different rows having different numbers of active
+KV blocks.</p>
+<p>We could rely on CUDA to launch individual output tiles in a
+load-balanced manner, but then we would miss persistent scheduling gains
+from overlapping MMA &amp; loads with epilogues and not repeating
+prologues. This is exactly the problem that <a
+href="https://docs.nvidia.com/cutlass/latest/media/docs/cpp/blackwell_cluster_launch_control.html#dynamic-scheduler-with-cluster-launch-control"
+rel="nofollow">Cluster Launch Control (CLC)</a> solves. CLC is a
+Blackwell feature that enables dynamic work scheduling: instead of
+statically dividing tiles across SMs at launch time, workers can query
+for new tiles on-the-fly. When one SM finishes early (because its row
+had fewer blocks to process), it immediately picks up the next available
+tile rather than sitting idle. CuTeDSL 4.4 added support for CLC-based
+persistent scheduling, which lets FlexAttention transparently benefit
+from better work distribution for block-sparse patterns without
+requiring users to specify a schedule.</p>
+<section id="patterns-supported-by-flexattention"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto" tabindex="-1"><strong>Patterns
+supported by FlexAttention</strong></h3>
+</section>
+<p>FlexAttention is really for patterns that SDPA doesn't support:
+ALiBi, document masking, sliding window and arbitrary user-defined score
+modifications.</p>
+<p><img
+src="assets/ee56fa5a2fee837e0b5f7a41204bcac389f3c6a633bce5648ea5907bcf3c10df.png"
+class="aligncenter wp-image-58148 size-full" width="2410"
+height="2560" /></p>
+<p>For these Flex-only patterns on B200:</p>
+<ul>
+<li><strong>ALiBi</strong>: 1.2–2.1× forward speedup, 1.9–2.9× backward
+speedup</li>
+<li><strong>Document mask</strong>: Up to 2.7× forward, 3× backward at
+longer sequences</li>
+<li><strong>Sliding window</strong>: 1.4–2.1× forward, 1.8–2.2×
+backward</li>
+</ul>
+<section id="hopper-h200-results"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto" tabindex="-1"><strong>Hopper
+(H200) results</strong></h3>
+</section>
+<p>On Hopper GPUs, Flash is consistently faster across all sequence
+lengths.</p>
+<p><img
+src="assets/01671d1b32184607e38372d0b1580ace9b4bdb2b66b23b4a145622ed38d3225c.png"
+class="aligncenter wp-image-58149 size-full" width="2410"
+height="2560" /></p>
+<p>For these Flex-only patterns on H200:</p>
+<ul>
+<li><strong>ALiBi</strong>: 1.30–1.54× forward speedup, 1.36–1.65×
+backward speedup</li>
+<li><strong>Document mask</strong>: 1.41–1.89× forward, 1.48–2.01×
+backward</li>
+<li><strong>Sliding window</strong>: 1.45–1.65× forward, 1.35–1.52×
+backward</li>
+</ul>
+<p>The gains are present even at shorter sequences (2K), with larger
+speedups as sequence length increases.</p>
+<section id="correctness-and-benchmark-methodology"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h2 class="heading-element" dir="auto" tabindex="-1"><strong>Correctness
+and benchmark methodology</strong></h2>
+<p>All benchmark numbers in this post were generated with <a
+href="https://github.com/meta-pytorch/attention-gym/blob/main/benchmarks/flex_perf.py"><code>attention-gym/benchmarks/flex_perf.py</code></a>.</p>
+<section id="correctness" class="heading-element markdown-heading"
+dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto"
+tabindex="-1"><strong>Correctness</strong></h3>
+</section>
+<p>We validate the Flash backend by comparing outputs against an FP32
+reference (cast Q/K/V to FP32, run attention, cast back). Upstream test
+suites continuously exercise these checks:</p>
+<ul>
+<li><strong>PyTorch Inductor</strong>: a broad matrix
+of <code>score_mod</code> / <code>mask_mod</code> patterns (including
+captured buffers and views) and Flash-vs-Triton comparisons in <a
+href="https://github.com/pytorch/pytorch/blob/main/test/inductor/test_flex_flash.py"><code>test/inductor/test_flex_flash.py</code></a>.</li>
+<li><strong>FlashAttention (CuTe)</strong>: stress tests
+for <code>mask_mod</code> + block-sparsity across many
+(<code>seqlen_q</code>, <code>seqlen_k</code>) pairs, validating forward
+and backward against a <code>flex_attention</code> reference in <a
+href="https://github.com/Dao-AILab/flash-attention/blob/main/tests/cute/test_mask_mod.py"><code>tests/cute/test_mask_mod.py</code></a>.</li>
+</ul>
+<p>Beyond unit tests, we also validated the Flash backend in a real
+training setting: Llama 3 70B on 64 H100 GPUs with sequence length 8192
+using <a href="https://github.com/pytorch/torchtitan">torchtitan</a>.
+Both runs converge to a final loss of ~3.7 over 1000 training steps:</p>
+<p><img
+src="assets/82cde98a60a384ccf404a74affc21e1a458f623980d3eea5b2a9ba1b55f1dc01.png"
+class="aligncenter wp-image-58150 size-full" width="2560"
+height="1275" /></p>
+<section id="limitations" class="heading-element markdown-heading"
+dir="auto" tabindex="-1">
+<h3 class="heading-element" dir="auto"
+tabindex="-1"><strong>Limitations</strong></h3>
+<p><strong>Block size constraints:</strong> For paged attention (like
+the vLLM integration), it's common to align kernel blocks to the page
+size. Today, the FA4 path is tuned around 128×128 blocks on Hopper and
+256×128 on Blackwell (due to <code>q_stage=2</code>), with limited
+flexibility to change block sizes. As FA4 exposes more robust
+smaller <code>tile_m</code>/<code>tile_n</code> options, we plan to
+enable this feature.</p>
+</section>
+<p><strong>Dynamic scalars:</strong> Dynamic tensor shapes are fully
+supported and resolve at runtime. However, scalars captured
+in <code>score_mod</code> or <code>mask_mod</code> are baked into the
+compiled kernel. If you have a <code>soft_cap</code> value that changes
+between calls, each unique value triggers a recompilation:</p>
+<pre><code>def tanh_softcap(score, b, h, q_idx, kv_idx):
+    return soft_cap * tanh(score / soft_cap)</code></pre>
+<p><strong>Backward for captured buffers that require
+gradients:</strong> Not currently supported in the Flash backend. For
+example, learnable bias tensors:</p>
+<div
+class="highlight highlight-source-python notranslate position-relative overflow-auto"
+dir="auto">
+<pre><code>bias = torch.randn(seq_q, seq_kv, device=&#39;cuda&#39;, requires_grad=True)
+def bias_func(score, b, h, q_idx, kv_idx):
+    return score + bias[q_idx, kv_idx]</code></pre>
+<p>The Triton backend supports gradients for captured buffers; use it
+for these cases.</p>
+<p><strong>Deterministic backward with block-sparsity:</strong> The
+Flash backend's backward pass is not yet deterministic when
+block-sparsity is enabled (score-mod-only workloads are deterministic).
+We're actively working on a fix for this.</p>
+<p><strong>Performance limitations:</strong></p>
+<ul>
+<li><strong>Loads on the KV dimension in forward</strong> can stall the
+pipeline, especially for pointer-chasing patterns (e.g., document
+masking with per-token metadata) where aux-tensor loads are hard to
+overlap with compute.</li>
+<li><strong>Backward with score_mods requiring pre-softmax
+scores</strong> almost always spills registers with current tiling. For
+example, the gradient
+of <code>score**2</code> is <code>2 * score * grad_score</code>, which
+requires keeping pre-softmax scores live during the backward pass. TMEM
+is fully occupied by the main attention accumulators, and current block
+sizes rarely leave room in SMEM for the <code>S</code> tile, so it stays
+in registers and spills heavily, causing a noticeable slowdown.</li>
+</ul>
+<section id="future-work" class="heading-element markdown-heading"
+dir="auto" tabindex="-1">
+<h2 class="heading-element" dir="auto" tabindex="-1"><strong>Future
+work</strong></h2>
+</section>
+<div dir="auto">
+<p>We're excited about CuTeDSL and the FA4 integration closing the gap
+between research and production.</p>
+<p>On the Flash backend specifically, we're working on support for
+dynamic scalars captured in score mods without requiring recompilation
+(e.g., changing a <code>soft_cap</code> value between calls). Gradients
+for captured buffers will continue to rely on the Triton backend for the
+foreseeable future. We're also exploring dynamic persistent scheduling
+to improve work distribution across block-sparse patterns
+automatically.</p>
+<p>While this article is about the FA4 implementation, the Triton
+implementation remains supported on a much wider range of hardware, and
+we plan to continue improving both backends.</p>
+<section id="thanks" class="heading-element markdown-heading" dir="auto"
+tabindex="-1">
+<h2 class="heading-element" dir="auto"
+tabindex="-1"><strong>Thanks</strong></h2>
+</section>
+<div dir="auto">
+<p>This was a cross-repo collaboration.</p>
+<p>The FlashAttention-4 kernel work (CuTeDSL implementation, scheduling,
+and the extension points needed for score/mask mods and block sparsity)
+lives upstream in <a
+href="https://github.com/Dao-AILab/flash-attention">Dao-AILab/flash-attention</a>,
+while the compiler + integration work (FlexAttention API behavior,
+Inductor lowering, and CuTeDSL codegen) lives upstream in <a
+href="https://github.com/pytorch/pytorch">pytorch/pytorch</a>.</p>
+<p>Thanks to the maintainers, reviewers, and contributors in both repos,
+and to the NVIDIA CUTLASS/CuTeDSL team for building the abstractions
+that made a JIT-style workflow practical.</p>
+<ul>
+<li>FlashAttention / FA4 (kernel + extension points): Tri Dao, Ted
+Zadouri, Reuben Stern, Markus Hoehnerbach, Jay Shah</li>
+<li>PyTorch / Inductor (lowering + codegen + integration): Markus
+Hoehnerbach</li>
+<li>CuTeDSL / CUTLASS: Fung Xie</li>
+</ul>
+<section id="further-reading-links"
+class="heading-element markdown-heading" dir="auto" tabindex="-1">
+<h2 class="heading-element" dir="auto" tabindex="-1"><strong>Further
+reading / links</strong></h2>
+</section>
+<div dir="auto">
+<ul>
+<li><a href="https://github.com/meta-pytorch/attention-gym">Attention
+Gym</a>: example scripts and benchmarks for FlexAttention patterns</li>
+<li><a
+href="https://research.colfax-intl.com/a-users-guide-to-flexattention-in-flash-attention-cute-dsl/"
+rel="nofollow">Colfax Research guide</a>: hands-on guide
+with <code>score_mod</code>/<code>mask_mod</code> examples</li>
+<li><a href="../modal/reverse-engineer-flash-attention-4.html"
+rel="nofollow">Reverse Engineering FlashAttention-4</a>: deep dive into
+the FA4 kernel architecture</li>
+<li><a
+href="https://docs.nvidia.com/cutlass/latest/media/docs/pythonDSL/cute_dsl_general/dsl_introduction.html"
+rel="nofollow">CuTeDSL Documentation</a>: NVIDIA's Python DSL for CUDA
+kernels</li>
+<li><a
+href="https://github.com/Dao-AILab/flash-attention/tree/main/flash_attn/cute">FlashAttention-4</a>:
+FA4 implementation using CuTeDSL</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

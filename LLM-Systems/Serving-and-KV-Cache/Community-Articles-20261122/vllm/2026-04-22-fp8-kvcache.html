@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>The State of FP8 KV-Cache and Attention Quantization in vLLM</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">The State of FP8 KV-Cache and Attention Quantization
+in vLLM</h1>
+</header>
+<section
+id="the-state-of-fp8-kv-cache-and-attention-quantization-in-vllm"
+class="header">
+<h1>The State of FP8 KV-Cache and Attention Quantization in vLLM</h1>
+<p>来源：<a
+href="https://vllm.ai/blog/2026-04-22-fp8-kvcache">https://vllm.ai/blog/2026-04-22-fp8-kvcache</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="max-w-3xl">
+<section
+id="the-state-of-fp8-kv-cache-and-attention-quantization-in-vllm-1"
+class="text-3xl md:text-4xl font-bold leading-tight mb-4 header mb-8">
+<h1 class="text-3xl md:text-4xl font-bold leading-tight mb-4">The State
+of FP8 KV-Cache and Attention Quantization in vLLM</h1>
+<div
+class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+<time datetime="2026-04-22">April 22, 2026</time><span>21 min
+read</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+<span class="text-foreground">Jonas Kübler* (AWS), Eldar Kurtić* (Red
+Hat AI), Lucas Wilkinson (Red Hat AI), Matthew Bonanni (Red Hat AI),
+Michael Goin (Red Hat AI), Alexandre Marques (Red Hat AI), Kailash
+Budhathoki (AWS) (* Equal Contribution)</span>
+</div>
+<div class="flex flex-wrap gap-2 mt-4">
+<a href="https://vllm.ai/blog/tags/quantization"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#quantization</a><a
+href="https://vllm.ai/blog/tags/performance"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#performance</a><a
+href="https://vllm.ai/blog/tags/kv_cache"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#kv_cache</a><a
+href="https://vllm.ai/blog/tags/fp8"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#fp8</a>
+</div>
+</section>
+<div class="lg:hidden">
+<div class="lg:hidden rounded-xl border bg-muted/30 p-4 my-6">
+
+</div>
+</div>
+<div>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="introduction">Introduction</h2>
+<p>Long-context LLM serving is increasingly memory-bound: for standard
+full-attention decoders, the KV cache often dominates GPU memory at
+128k+ contexts, and each decode step must read a large fraction of that
+cache. Halving KV-cache storage with FP8 can therefore translate into
+substantially higher concurrency or longer supported contexts at the
+same hardware cost, provided accuracy holds up.</p>
+<p>vLLM's <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype fp8</code>
+flag quantizes the KV-cache and runs the entire attention computation
+(the QK and ScoreV matrix multiplications) in FP8 (e4m3 is the format
+used throughout this post). This feature has been available in vLLM for
+some time, but how does it perform under stress tests across both
+prefill-heavy and decode-heavy workloads? We conducted a comprehensive
+validation across decoder-only and MoE models, and across Hopper and
+Blackwell architectures. We identified and fixed critical accuracy and
+performance issues in the Flash Attention 3 (FA3) backend (see example
+in Figure 1). On the validated paths in this post, it preserves
+near-baseline accuracy while reducing decode cost and KV-cache memory
+usage. The main caveats are hybrid-attention models with small
+sliding-window layers, where skipping those layers is often better, and
+large-head-dimension models (<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 256</code>),
+where prefill can still regress. Furthermore, for head dimensions 64 and
+128, FP8 format also offers speedups both on prefill and decoding. For
+memory-bound decoding the per-token cost of the KV cache can be reduced
+to 54% of its BF16 counterpart in the best cases. For large head
+dimensions like 256, FP8 also reduces the ITL; however, the default
+prefill performance is currently still slightly worse than for BF16.</p>
+<figure class="my-6">
+<img
+src="assets/0509dde02b4303e12e5b9116d069afd2cec64d667c8c1d05700809ee0dffa109.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 1: Needle-in-a-haystack at 128k on Hopper before and after the FP8 Flash Attention 3 fixes. The accumulation fix restores long-context accuracy from a severe FP8 regression back near the BF16 baseline, while the optimized FP8 path still preserves the decode-speed advantage." />
+<figcaption aria-hidden="true">Figure 1: Needle-in-a-haystack at 128k on
+Hopper before and after the FP8 Flash Attention 3 fixes. The
+accumulation fix restores long-context accuracy from a severe FP8
+regression back near the BF16 baseline, while the optimized FP8 path
+still preserves the decode-speed advantage.</figcaption>
+</figure>
+<p><strong>Table of Contents</strong></p>
+<ul>
+<li><a href="#the-problems-we-found"
+class="text-vllm-blue hover:underline">The Problems We Found</a></li>
+<li><a href="#kernel-and-vllm-improvements"
+class="text-vllm-blue hover:underline">Kernel and vLLM
+Improvements</a></li>
+<li><a href="#performance-benchmarking"
+class="text-vllm-blue hover:underline">Performance Benchmarking</a>
+<ul>
+<li><a href="#single-request-benchmarking"
+class="text-vllm-blue hover:underline">Single Request
+Benchmarking</a></li>
+<li><a href="#throughput-under-load"
+class="text-vllm-blue hover:underline">Throughput under Load</a></li>
+<li><a href="#limitations-for-large-head-dimensions"
+class="text-vllm-blue hover:underline">Limitations for Large Head
+Dimensions</a></li>
+<li><a href="#performance-with-flashinfer-on-blackwell-b200-gpus"
+class="text-vllm-blue hover:underline">Performance with FlashInfer on
+Blackwell (B200) GPUs</a></li>
+</ul></li>
+<li><a href="#accuracy-benchmarking"
+class="text-vllm-blue hover:underline">Accuracy Benchmarking</a>
+<ul>
+<li><a href="#reasoning-evaluations"
+class="text-vllm-blue hover:underline">Reasoning Evaluations</a></li>
+<li><a href="#long-context-evaluations"
+class="text-vllm-blue hover:underline">Long-Context Evaluations</a></li>
+<li><a href="#accuracy-with-flashinfer-on-blackwell-b200-gpus"
+class="text-vllm-blue hover:underline">Accuracy with FlashInfer on
+Blackwell (B200) GPUs</a></li>
+<li><a href="#when-should-you-use-calibration"
+class="text-vllm-blue hover:underline">When Should You Use
+Calibration?</a></li>
+</ul></li>
+<li><a href="#when-to-avoid-fp8-kv-cache"
+class="text-vllm-blue hover:underline">When to Avoid FP8
+KV-Cache</a></li>
+</ul>
+<p><strong>Quick start:</strong></p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code># FP8 KV-cache for all layers
+vllm serve meta-llama/Llama-3.1-8B --kv-cache-dtype fp8
+ 
+# FP8 KV-cache, skipping sliding-window layers (recommended for hybrid-attention models)
+vllm serve gpt-oss-20b --kv-cache-dtype fp8 --kv-cache-dtype-skip-layers sliding_window</code></pre>
+</div>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="the-problems-we-found">The Problems We Found</h2>
+<p>Although <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype fp8</code>
+has been available in vLLM for some time, our stress tests revealed two
+categories of issues:</p>
+<p><strong>Accuracy:</strong> On Hopper GPUs, the FP8 Flash Attention 3
+kernel suffered from accumulation precision loss at long contexts. On a
+128k needle-in-a-haystack task, FP8 accuracy dropped from 91% (BF16
+baseline) to just 13% — a regression traced to imprecise FP32
+accumulation in the Tensor Cores (see the two-level accumulation fix
+below).</p>
+<p><strong>Performance:</strong> The FP8 ITL slope for models with
+sliding-window attention layers (e.g., gpt-oss-20b) was nearly identical
+to BF16 (96% of BF16 slope), meaning users gained almost no decoding
+speedup despite halving memory. The break-even point exceeded 700k
+tokens — well beyond most practical context lengths.</p>
+<p>The following section describes the improvements we shipped to
+address these issues.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="kernel-and-vllm-improvements">Kernel and vLLM Improvements</h2>
+<p>During our investigations, we shipped various improvements to enhance
+the flexibility of the quantization schemes, fix accuracy issues and
+improve the performance. We briefly describe those here.</p>
+<p><strong>Two-level accumulation:</strong> Hopper's FP8 Tensor Cores
+are documented as accumulating into FP32 registers, but in practice the
+intermediate accumulation loses precision when the contraction dimension
+is large — a known hardware-level issue also encountered during
+DeepSeek-V3 training (see Figure 7(b) in the <a
+href="https://arxiv.org/abs/2412.19437"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">DeepSeek-V3 Technical Report</a>). When the
+contraction dimension reaches 100K or more, this imprecise accumulation
+causes drastic numerical errors. Concretely, in long context inference,
+during the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Softmax(AttnScore) * V</code>
+matmul, the contraction dimension corresponds to the context lengths.
+Empirically, we found that this can lead to accuracy regressions from
+91% (BF16) to 13% (FP8) on a long-context needle-in-a-haystack task. To
+mitigate this, we added a two-level accumulation strategy (see <a
+href="https://arxiv.org/abs/2411.10958"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">SageAttention2</a>) that writes the partially
+accumulated results into an <em>actual</em> FP32 register (<a
+href="https://github.com/vllm-project/flash-attention/pull/104"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#104</a>), which brought the
+FP8 accuracy back to 89%. On the downside, this two-level accumulation
+increases the register pressure and causes slowdowns during prefill. We
+partially addressed this through optimized tiling configurations (<a
+href="https://github.com/vllm-project/flash-attention/pull/125"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#125</a>), however, for head
+dimensions larger than 128, the prefill performance remains behind
+BF16.</p>
+<p><strong>Skipping of Layers:</strong> Earlier on, vLLM only allowed
+users to choose a single numeric format for all Attention Layers. We
+added <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype-skip-layers</code>
+(<a href="https://github.com/vllm-project/vllm/pull/33695"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vllm#33695</a>) to allow for hybrid settings.
+Models like GPT-OSS use some layers with sliding window attention, where
+tokens attend to a fixed window size, for example 128 tokens. Here FP8
+overheads cannot be amortized. Therefore, keeping those layers in BF16
+is actually faster than quantizing them, see our empirical results
+below. Furthermore, if some layers are particularly sensitive to
+quantization, this feature allows skipping those layers.</p>
+<p><strong>Per-Head Scales</strong>: Flash Attention 3 kernel allows
+specifying an array of scales for FP8 quantization of the attention
+operation, with each scale corresponding to one KV-head. Enabling this
+feature in vLLM required generalizing support for static quantization
+for all group-shapes (<a
+href="https://github.com/vllm-project/vllm/pull/30833"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vllm#30833</a>) and expanding the scope of the
+<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">reshape_and_cache_flash</code>
+kernel (<a href="https://github.com/vllm-project/vllm/pull/30141"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vllm#30141</a>) to account for an array of
+scales instead of a single scalar.</p>
+<p><strong>Query Quantization Fusion:</strong> We moved query
+quantization out of the attention backend into a simple torch
+implementation that <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">torch.compile</code>
+can fuse into surrounding operations, eliminating the fixed per-token
+overhead (<a href="https://github.com/vllm-project/vllm/pull/24914"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vllm#24914</a>).</p>
+<p><strong>Optimized FA3 FP8 tile sizes:</strong> We tuned the prefill
+tiling configuration for <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 64</code>
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 128</code>
+to reduce register spills introduced by two-level accumulation (<a
+href="https://github.com/vllm-project/flash-attention/pull/125"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#125</a>). Furthermore, we
+added specifically tuned configurations for memory-bound decoding
+workloads that drastically reduce the context-dependent increase in ITL,
+aka the slope (<a
+href="https://github.com/vllm-project/flash-attention/pull/96"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#96</a>, <a
+href="https://github.com/vllm-project/flash-attention/pull/91"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#91</a>).</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="performance-benchmarking">Performance Benchmarking</h2>
+<p>Attention can be a significant cost during decoding for long-context
+LLM serving. Every generated token must attend over the full KV-cache,
+so inter-token latency (ITL) grows linearly with input length.
+Quantizing the KV-cache from BF16 to FP8 halves the memory per cached
+token and thus halves the memory traffic per attention step, which
+should translate directly into lower ITL slopes. Since Hopper and
+Blackwell GPUs offer twice as many FLOPs for FP8 as for BF16, ideally,
+we would also expect prefill speedups. In practice, however, these gains
+are not always realized out of the box, as we demonstrate in the
+following sections.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="single-request-benchmarking">Single Request Benchmarking</h3>
+<p>To cleanly understand the attention behavior, we first present
+benchmarks with concurrency 1, and later for batched inference. For
+concurrency 1, the Inter-Token-Latency (ITL) and the Time-to-First-Token
+(TTFT) are completely separated, and we can fit a linear model to ITL
+vs. input length</p>
+<p><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">ITL = slope × input_len + intercept</code></p>
+<p>and a quadratic to TTFT:</p>
+<p><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">TTFT = a × input_len² + b × input_len + c</code></p>
+<p>The ITL slope directly reflects per-token attention cost — a lower
+slope means each additional cached token adds less latency, which is
+critical for long-context workloads. The <strong>break-even
+point</strong> is the context length at which FP8 ITL drops below BF16
+ITL; beyond this point, FP8 is strictly faster for decoding. The
+quadratic TTFT model captures the compute-bound prefill phase, where
+cost grows quadratically with sequence length due to the self-attention
+over the input.</p>
+<p>All Hopper experiments run on a single H100 GPU using <a
+href="https://openreview.net/forum?id=tVConYid20"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">FlashAttention-3</a> (via the <a
+href="https://github.com/vllm-project/flash-attention"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vLLM fork</a>), which provides native FP8
+KV-cache support with online softmax rescaling. We use a single GPU,
+<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">vllm bench serve</code>
+with concurrency 1, 128 output tokens, and input lengths swept from 256
+to 125k tokens.</p>
+<p>Figure 2 shows results for the Llama-3.1-8B model.</p>
+<figure class="my-6">
+<img
+src="assets/ac211120c3847c119f98822ba325ac5b3f0371a6a1acc666c482f648a57971e7.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 2: Single-request H100 benchmark for Llama-3.1-8B. FP8 nearly halves the decode ITL slope relative to BF16 with almost no intercept penalty, bringing the decode break-even point down to about 7k tokens while preserving similar TTFT." />
+<figcaption aria-hidden="true">Figure 2: Single-request H100 benchmark
+for Llama-3.1-8B. FP8 nearly halves the decode ITL slope relative to
+BF16 with almost no intercept penalty, bringing the decode break-even
+point down to about 7k tokens while preserving similar
+TTFT.</figcaption>
+</figure>
+<p>The fitted ITL slope drops from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">4.37e-05</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">2.37e-05</code>
+ms/token, while the intercept changes only from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">6.44</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">6.58</code>
+ms. The slope ratio of FP8 is at 54% of BF16, which is close to optimal,
+and the intercept gap is just 0.14 ms. This pulls the break-even point
+down to ~7k tokens. Furthermore, even with the enabled two-level
+accumulation we obtain slight TTFT speedups of FP8 for long
+contexts.</p>
+<p>Next, we move to gpt-oss-20b, a 20B-parameter model with a hybrid
+attention architecture featuring both global and sliding-window layers
+(window size 128). Sliding-window layers have bounded KV-cache sizes, so
+quantizing them yields diminishing returns at long contexts. With <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype-skip-layers sliding_window</code>,
+we keep those layers in BF16 while quantizing only the global attention
+layers to FP8. Figure 3 reports results for the model with KV-cache in
+BF16, FP8, and FP8 with skipping of the sliding-window layers.</p>
+<figure class="my-6">
+<img
+src="assets/3b92bf5c42b58309f2ea6da52b9bab272fda1b55c83059e6ba27ca31e3c929dd.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 3: Single-request H100 benchmark for gpt-oss-20b. Skipping sliding-window layers is the best FP8 variant because those layers have bounded KV-cache footprints, so they pay quantization overhead without getting much long-context benefit." />
+<figcaption aria-hidden="true">Figure 3: Single-request H100 benchmark
+for gpt-oss-20b. Skipping sliding-window layers is the best FP8 variant
+because those layers have bounded KV-cache footprints, so they pay
+quantization overhead without getting much long-context
+benefit.</figcaption>
+</figure>
+<p>The fitted ITL slope drops from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">8.94e-06</code>
+ms/token in BF16 to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">7.14e-06</code>
+in full FP8 and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">6.34e-06</code>
+in FP8 skip-SW, while intercepts remain tightly clustered between <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">4.03</code>
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">4.07</code>
+ms. The FP8 slope is at 80% (full FP8) and 71% (skip-SW) of BF16 which
+makes FP8 an attractive option. Before our improvements, the BF16 and
+FP8 slopes were nearly identical.</p>
+<p>The skip-sliding-window variant is the clear winner: by keeping the
+bounded sliding-window layers in BF16 (where quantization adds constant
+overhead but no memory savings at long contexts), it achieves the lowest
+slope with very little intercept penalty. We thus recommend using this
+variant.</p>
+<p>Practical takeaway: for long-context decode-heavy serving, FP8 is
+most compelling when KV-cache traffic dominates, and on H100 it is
+already clearly beneficial for Llama-class models and for hybrid models
+once small sliding-window layers are skipped.</p>
+<p>The table below summarizes the single-request performance before and
+after our improvements, showing a significant reduction in break-even
+points and ITL slopes.</p>
+<p><em>Table 3: Summary of the improvements across both analyzed models
+and KV-cache variants.</em></p>
+<div class="overflow-x-auto my-6">
+<table class="w-full text-sm border-collapse">
+<thead>
+<tr>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Model</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Version</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">FP8
+variant</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Break-even
+(tokens)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">FP8
+slope (% of BF16)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="border-b border-border px-4 py-2">Llama-3.1-8B</td>
+<td class="border-b border-border px-4 py-2">before (v0.10.2)</td>
+<td class="border-b border-border px-4 py-2">FP8</td>
+<td class="border-b border-border px-4 py-2">24,889</td>
+<td class="border-b border-border px-4 py-2">63%</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">Llama-3.1-8B</td>
+<td class="border-b border-border px-4 py-2">after (v0.19.1)</td>
+<td class="border-b border-border px-4 py-2">FP8</td>
+<td class="border-b border-border px-4 py-2"><strong>7,010</strong></td>
+<td class="border-b border-border px-4 py-2">54%</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">gpt-oss-20b</td>
+<td class="border-b border-border px-4 py-2">before (v0.10.2)</td>
+<td class="border-b border-border px-4 py-2">FP8</td>
+<td class="border-b border-border px-4 py-2">741,565</td>
+<td class="border-b border-border px-4 py-2">96%</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">gpt-oss-20b</td>
+<td class="border-b border-border px-4 py-2">after (v0.19.1)</td>
+<td class="border-b border-border px-4 py-2">FP8</td>
+<td class="border-b border-border px-4 py-2">22,109</td>
+<td class="border-b border-border px-4 py-2">80%</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">gpt-oss-20b</td>
+<td class="border-b border-border px-4 py-2">after (v0.19.1)</td>
+<td class="border-b border-border px-4 py-2">FP8 skip-SW</td>
+<td class="border-b border-border px-4 py-2"><strong>7,659</strong></td>
+<td class="border-b border-border px-4 py-2">71%</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="throughput-under-load">Throughput under Load</h3>
+<p>The sweep above isolates per-token attention cost at concurrency 1.
+To measure end-to-end serving performance under realistic conditions, we
+run a throughput benchmark: 150 requests at concurrency 8, each with
+~20k input tokens and ~2k output tokens (±15% variance). We report
+results in Table 4 and Table 5.</p>
+<p><em>Table 4: Performance results for Llama-3.1-8B model under heavy
+throughput load and KV-cache in BF16 and FP8 formats. FP8 shows 14.9%
+higher output throughput, 13.0% faster total runtime, and 14.8% lower
+median ITL.</em></p>
+<div class="overflow-x-auto my-6">
+<table class="w-full text-sm border-collapse">
+<thead>
+<tr>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Config</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Median
+TTFT (ms)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Median
+ITL (ms)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Total
+duration (s)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Output
+tok/s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="border-b border-border px-4 py-2">BF16</td>
+<td class="border-b border-border px-4 py-2">763.6</td>
+<td class="border-b border-border px-4 py-2">15.18</td>
+<td class="border-b border-border px-4 py-2">672.6</td>
+<td class="border-b border-border px-4 py-2">450.3</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">FP8</td>
+<td class="border-b border-border px-4 py-2">742.8</td>
+<td class="border-b border-border px-4 py-2">12.93</td>
+<td class="border-b border-border px-4 py-2">585.2</td>
+<td class="border-b border-border px-4 py-2">517.5</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><em>Table 5: Performance results for gpt-oss-20b model under heavy
+throughput load and KV-cache in BF16, FP8, and FP8 with skipping of
+sliding window. FP8 skip-SW shows 4.8% higher output throughput, 4.6%
+faster total runtime, 4.8% lower median ITL.</em></p>
+<div class="overflow-x-auto my-6">
+<table class="w-full text-sm border-collapse">
+<thead>
+<tr>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Config</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Median
+TTFT (ms)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Median
+ITL (ms)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Total
+duration (s)</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Output
+tok/s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="border-b border-border px-4 py-2">BF16</td>
+<td class="border-b border-border px-4 py-2">468.9</td>
+<td class="border-b border-border px-4 py-2">8.09</td>
+<td class="border-b border-border px-4 py-2">364.2</td>
+<td class="border-b border-border px-4 py-2">831.6</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">FP8</td>
+<td class="border-b border-border px-4 py-2">451.7</td>
+<td class="border-b border-border px-4 py-2">7.90</td>
+<td class="border-b border-border px-4 py-2">355.1</td>
+<td class="border-b border-border px-4 py-2">853.0</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">FP8 skip-SW</td>
+<td class="border-b border-border px-4 py-2">456.4</td>
+<td class="border-b border-border px-4 py-2">7.70</td>
+<td class="border-b border-border px-4 py-2">347.4</td>
+<td class="border-b border-border px-4 py-2">871.8</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These throughput results confirm that the single-request ITL
+improvements translate into real serving gains under load. For
+Llama-3.1-8B, the 54% ITL slope reduction at concurrency 1 translates to
+a 14.9% output throughput increase at concurrency 8 — FP8 not only
+decodes each token faster, but the 2x memory reduction also allows the
+scheduler to pack more concurrent requests. For gpt-oss-20b, the gains
+are smaller (4.8%) because the model's sliding-window layers limit the
+memory savings; the skip-SW variant recovers the most by avoiding the
+overhead on layers that don't benefit from quantization.</p>
+<p>Note that these benchmarks use concurrency 8 with ~20k-token inputs,
+which is moderately heavy. At higher concurrencies or longer contexts,
+the FP8 memory savings become even more impactful since BF16 would hit
+OOM or require more aggressive KV-cache eviction.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="limitations-for-large-head-dimensions">Limitations for Large Head
+Dimensions</h3>
+<p>With <a
+href="https://github.com/vllm-project/flash-attention/pull/104"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#104</a> we enabled two-level
+accumulation by default to ensure the highest quality of models and
+prevent users from getting unexpected accuracy drops. However, for large
+head dimensions, this leads to a TTFT that is slower than BF16.</p>
+<p>To illustrate this, Figure 4 reports results for gemma-4-E2B on H100,
+which uses <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 256</code>.
+It also has three out of four layers with a sliding window with size
+<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">512</code>:</p>
+<figure class="my-6">
+<img
+src="assets/790862d752ffec195cf551e1199276dd7e1036ea11faff633b5be1f172200b7d.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 4: gemma-4-E2B on H100 (head_dim = 256). FP8 improves decode ITL, but prefill becomes slower because two-level accumulation raises register pressure enough to outweigh the FP8 arithmetic advantage." />
+<figcaption aria-hidden="true">Figure 4: gemma-4-E2B on H100 (head_dim =
+256). FP8 improves decode ITL, but prefill becomes slower because
+two-level accumulation raises register pressure enough to outweigh the
+FP8 arithmetic advantage.</figcaption>
+</figure>
+<p>For gemma-4-E2B, the ITL slope drops from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">5.30e-05</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3.60e-05</code>
+ms/token, while the TTFT quadratic coefficient rises from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">6.93e-07</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">1.12e-06</code>
+ms/token². FP8 therefore delivers a clear decode win (slope at 68% of
+BF16) across the measured range. Furthermore, since gemma-4-E2B's
+sliding window size (512) is 4x larger than gpt-oss-20b's (128), there
+is enough data within each window to amortize the FP8 overhead, making
+it worth quantizing the sliding-window layers as well. This gives a
+constant offset against skipping the sliding window layers. However, the
+TTFT quadratic coefficient is ~1.6x larger for FP8 than BF16, meaning
+prefill becomes significantly <em>slower</em> at long contexts due to
+the register pressure from two-level accumulation at <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 256</code>.</p>
+<p>There are currently two ways to address this: 1) users can disable
+the two-level accumulation for improved performance. However, we
+recommend doing extensive accuracy testing on the relevant workloads in
+this case. 2) It is possible to have the accumulation only happen every
+N-steps instead of every step. A functional implementation can be found
+in this open PR <a
+href="https://github.com/vllm-project/flash-attention/pull/122"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">flash-attention#122</a> and recovers speedups
+for prefill. Note that, especially the first option would also give
+larger prefill speedups for head dimensions 64 and 128.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="performance-with-flashinfer-on-blackwell-b200-gpus">Performance with
+FlashInfer on Blackwell (B200) GPUs</h3>
+<p>While most of our performance improvements targeted H100 and
+Flash-Attention 3, we also provide benchmarks on B200 with the
+FlashInfer backend for completeness. Note that on B200, the accumulation
+issue is fixed, hence no explicit two-level accumulation is needed.
+Figures 5 and 6 visualize performance of Llama-3.1-8B and gpt-oss-20b,
+respectively.</p>
+<figure class="my-6">
+<img
+src="assets/724aaf85f5a545b5f8f2880d261e0e7176f4ce67362228bbcf9c21071cda030d.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 5: Llama-3.1-8B on B200 with FlashInfer. FP8 again reduces the decode ITL slope to about 54% of BF16 with an almost negligible intercept penalty, so decode breaks even at roughly 4k tokens." />
+<figcaption aria-hidden="true">Figure 5: Llama-3.1-8B on B200 with
+FlashInfer. FP8 again reduces the decode ITL slope to about 54% of BF16
+with an almost negligible intercept penalty, so decode breaks even at
+roughly 4k tokens.</figcaption>
+</figure>
+<p>For Llama-3.1-8B on B200, the fitted ITL slope drops from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">1.80e-05</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">9.72e-06</code>
+ms/token, while the intercept changes only from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3.93</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3.96</code>
+ms.</p>
+<figure class="my-6">
+<img
+src="assets/233ae0eeae4605901a1691cc92760cc07345942c93bb2ce854f48b93d212afa2.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 6: gpt-oss-20b on B200 with FlashInfer. FP8 lowers the decode ITL slope more strongly than on H100, but the model still needs longer contexts before the smaller slope outweighs the fixed overhead." />
+<figcaption aria-hidden="true">Figure 6: gpt-oss-20b on B200 with
+FlashInfer. FP8 lowers the decode ITL slope more strongly than on H100,
+but the model still needs longer contexts before the smaller slope
+outweighs the fixed overhead.</figcaption>
+</figure>
+<p>For gpt-oss-20b on B200, the fitted ITL slope drops from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3.56e-06</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">2.06e-06</code>
+ms/token and the intercept changes from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3.15</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3.17</code>
+ms, yielding break-even at roughly 13k tokens from the fit. Unlike on
+H100, these B200 benchmarks only compare BF16 vs FP8 (no skip-SW
+variant), as at the time of running the experiments, layer skipping was
+not yet supported for B200.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="accuracy-benchmarking">Accuracy Benchmarking</h2>
+<p>We focus on the following models: Llama-3.3-70B-Instruct,
+Qwen3-30B-A3B-Instruct-2507, Qwen3-30B-A3B-Thinking-2507, and
+Qwen3.5-27B.</p>
+<p>For long-context (prefill-heavy) evaluation, we use the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">openai/mrcr</code>
+task, testing sequence lengths up to 1M. We report the average pass@1
+score for each sequence-length bucket over 5 repetitions, and the
+Area-Under-Curve (AUC) as an aggregate metric across all tested lengths
+(<a href="https://contextarena.ai/"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Context Arena</a>).</p>
+<p>For reasoning (decode-heavy) evaluation, we use AIME25, GPQA:Diamond,
+MATH500, and LiveCodeBench-v6. We report the average pass@1 score: over
+10 repetitions for AIME25 and LiveCodeBench-v6, and over 5 repetitions
+for GPQA:Diamond and MATH500.</p>
+<p>All evaluations adopt the default non-greedy sampling parameters
+suggested by model creators to mimic real-world deployment.</p>
+<p><strong>Important:</strong> All evaluations use per-tensor
+uncalibrated quantization scales (i.e., scale = 1.0). This is the
+simplest possible configuration — no calibration data, no per-head
+tuning — and represents the worst-case scenario for accuracy. We chose
+this setup for two reasons: 1) it is trivially reproducible by any vLLM
+user via <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype fp8</code>;
+and 2) it establishes a lower bound — results with calibrated scales
+will only be better. However, we also support calibration of
+quantization scales on target data and higher granularity of scales
+(per-attention-head instead of per-tensor). For more details on these
+features, please see the following sections.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="reasoning-evaluations">Reasoning Evaluations</h3>
+<p>Figure 7 compares two versions of Qwen3-30B-A3B-Thinking-2507 — the
+original BF16 model and its FP8 weight-and-activation quantized variant
+— on reasoning benchmarks that feature short prefills followed by long
+decode-heavy generations, often reaching tens of thousands of tokens.
+These benchmarks test whether FP8 KV-cache and attention quantization
+degrade reasoning ability across extended generation chains.</p>
+<figure class="my-6">
+<img
+src="assets/c1243be61a84ae4d3aa8cfcbe5cb397a36746962a916bf3a8bce4208fe704764.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 7: Reasoning benchmarks for Qwen3-30B-A3B-Thinking-2507. In both the BF16-model and FP8-model settings, enabling FP8 KV-cache plus FP8 attention changes average accuracy by only about 1-2 points across these decode-heavy tasks." />
+<figcaption aria-hidden="true">Figure 7: Reasoning benchmarks for
+Qwen3-30B-A3B-Thinking-2507. In both the BF16-model and FP8-model
+settings, enabling FP8 KV-cache plus FP8 attention changes average
+accuracy by only about 1-2 points across these decode-heavy
+tasks.</figcaption>
+</figure>
+<p>FP8 KV-cache and attention quantization introduces at most 1-2 points
+of accuracy degradation, with the lowest recovery at 97% (GPQA:Diamond,
+BF16 model).</p>
+<p>In Figure 8, we report the same set of benchmarks for the
+decoder-only Qwen3.5-27B model, using both BF16 and FP8
+weight-and-activation configurations.</p>
+<figure class="my-6">
+<img
+src="assets/7b9f84bc373b0ee7ad1120246f5fbb9ce79e8737dd598e85604c84aaa21f07cf.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 8: Reasoning benchmarks for Qwen3.5-27B. FP8 KV-cache plus FP8 attention is nearly lossless here, with sub-point differences across the aggregate scores in both BF16-model and FP8-model settings." />
+<figcaption aria-hidden="true">Figure 8: Reasoning benchmarks for
+Qwen3.5-27B. FP8 KV-cache plus FP8 attention is nearly lossless here,
+with sub-point differences across the aggregate scores in both
+BF16-model and FP8-model settings.</figcaption>
+</figure>
+<p>FP8 KV-cache and attention quantization shows negligible accuracy
+impact (at most 0.7 points), with the lowest recovery at 99% on AIME25
+for the BF16 model.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="long-context-evaluations">Long-Context Evaluations</h3>
+<p>We evaluate using the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">openai/mrcr</code>
+long-context dataset, characterized by heavy prefill (long-context)
+followed by short decoding. This validates that FP8 KV-cache and
+attention quantization maintain model abilities even up to 1M token
+prompts.</p>
+<p>Figure 9 depicts the accuracy of Llama-3.3-70B-Instruct (unquantized
+BF16) and its weight-and-activation FP8 quantized variant across
+sequence-length buckets from 8k up to the model's maximum input length
+of 128k.</p>
+<figure class="my-6">
+<img
+src="assets/7aed35ff90efbf9dbae5d8f11dac7579dd8d5f0084260a47a27059ed7a973fce.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 9: MRCR results for Llama-3.3-70B-Instruct up to 128k context. The FP8 KV-cache plus FP8 attention curves track the baseline closely in both BF16-model and FP8-model settings, recovering about 97-98% of the baseline AUC." />
+<figcaption aria-hidden="true">Figure 9: MRCR results for
+Llama-3.3-70B-Instruct up to 128k context. The FP8 KV-cache plus FP8
+attention curves track the baseline closely in both BF16-model and
+FP8-model settings, recovering about 97-98% of the baseline
+AUC.</figcaption>
+</figure>
+<p>FP8 KV-cache and attention quantization recovers 97-98% of the
+baseline AUC@128k score.</p>
+<p>In Figure 10 we focus on an MoE model,
+Qwen3-30B-A3B-Instruct-2507.</p>
+<figure class="my-6">
+<img
+src="assets/e8d35a1bb1f212dedc95fa53b5e3557515afaf912b391f7b5139e9d46758f468.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 10: MRCR results for Qwen3-30B-A3B-Instruct-2507 up to 256k context. FP8 KV-cache plus FP8 attention remains close to baseline overall, but the longest buckets show a clearer gap here than for Llama; AUC recovery is about 94% in the BF16-model setting and about 98% in the FP8-model setting." />
+<figcaption aria-hidden="true">Figure 10: MRCR results for
+Qwen3-30B-A3B-Instruct-2507 up to 256k context. FP8 KV-cache plus FP8
+attention remains close to baseline overall, but the longest buckets
+show a clearer gap here than for Llama; AUC recovery is about 94% in the
+BF16-model setting and about 98% in the FP8-model setting.</figcaption>
+</figure>
+<p>Despite higher score variance across all buckets (as shown in both
+figures), the overall AUC@256k metric remains close to baseline, with
+recovery ranging from roughly 94% to 98% depending on whether the
+underlying model weights and activations are BF16 or FP8. The increased
+variance is attributed to the baseline model's slightly unstable
+behavior (e.g., accuracy at 32k &gt; accuracy at 8k/16k; accuracy at
+128k &gt; accuracy at 64k).</p>
+<p>Finally, we focus on the very recent Qwen3.5-27B model, which
+supports input sequence lengths up to 1M tokens and demonstrates very
+competitive accuracy across all considered sequence lengths.</p>
+<figure class="my-6">
+<img
+src="assets/247d99ba6b1b68bd866826c2f41c208c4bd55958623f55ac6f6d2d80b47f1190.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 11: MRCR results for Qwen3.5-27B up to 1M context. FP8 KV-cache plus FP8 attention matches the baseline aggregate AUC in both model settings, although the longest context buckets still show visible variance." />
+<figcaption aria-hidden="true">Figure 11: MRCR results for Qwen3.5-27B
+up to 1M context. FP8 KV-cache plus FP8 attention matches the baseline
+aggregate AUC in both model settings, although the longest context
+buckets still show visible variance.</figcaption>
+</figure>
+<p>Figure 11 shows that even at the extreme of 1M tokens on a strong
+baseline model, FP8 KV-cache and attention quantization fully recovers
+the aggregated AUC@1M metric.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="accuracy-with-flashinfer-on-blackwell-b200-gpus">Accuracy with
+FlashInfer on Blackwell (B200) GPUs</h3>
+<p>We also examine FP8 KV-cache and attention quantization on the newer
+Blackwell architecture. Unlike Hopper, which required interventions like
+two-stage accumulation for precision with the Flash Attention kernel,
+Blackwell utilizes the default FlashInfer kernel, eliminating these
+precision issues. We replicate the exact Hopper experiments:
+Qwen3-30B-A3B-Instruct-2507 (BF16/FP8) on the openai/mrcr long-context
+benchmark, and Qwen3-30B-A3B-Thinking-2507 (BF16/FP8) on reasoning
+benchmarks. Results are in Figures 12 and 13.</p>
+<figure class="my-6">
+<img
+src="assets/32f01954af80debe626b3191cc5ef2fa113e63f8e4e836c926b794a0f24b6f72.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 12: MRCR results for Qwen3-30B-A3B-Instruct-2507 with FlashInfer. FP8 KV-cache plus FP8 attention remains competitive to baseline: AUC recovery is about 93% in the BF16-model setting and about 96% in the FP8-model setting." />
+<figcaption aria-hidden="true">Figure 12: MRCR results for
+Qwen3-30B-A3B-Instruct-2507 with FlashInfer. FP8 KV-cache plus FP8
+attention remains competitive to baseline: AUC recovery is about 93% in
+the BF16-model setting and about 96% in the FP8-model
+setting.</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/357f05dec38edff6e2dd412ebf23496a9bee1dcae4431467816a802e49b37873.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 13: Reasoning benchmarks for Qwen3-30B-A3B-Thinking-2507 with FlashInfer. The FP8 KV-cache plus FP8 attention configuration stays close to baseline, with average differences of roughly a point or less across the two model settings." />
+<figcaption aria-hidden="true">Figure 13: Reasoning benchmarks for
+Qwen3-30B-A3B-Thinking-2507 with FlashInfer. The FP8 KV-cache plus FP8
+attention configuration stays close to baseline, with average
+differences of roughly a point or less across the two model
+settings.</figcaption>
+</figure>
+<p>On B200 GPUs with the FlashInfer backend, FP8 KV-cache plus FP8
+attention remains competitive in accuracy while preserving the same core
+systems benefit: a much smaller KV cache and lower decode cost. In our
+results, the accuracy match is still strong, though not uniformly as
+tight as on the best Hopper/FA3 cases.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="final-remarks">Final Remarks</h3>
+<p>Our main conclusion is that FP8 KV-cache quantization is now ready to
+be the default starting point for many long-context vLLM deployments and
+hardware environments. If your workload is decode-heavy and
+memory-bound, FP8 can deliver meaningful latency and capacity gains with
+small or negligible accuracy loss. The main exceptions are workloads
+where prefill dominates on <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 256</code>,
+hybrid models whose small sliding-window layers should be left in BF16,
+and models or backends that show persistent uncalibrated accuracy loss,
+where calibration remains important.</p>
+<p>While our primary focus here is the simplest (uncalibrated scale)
+configuration, we have also implemented two additional features for
+better accuracy recovery in niche deployments: 1) enabling scale
+calibration using a user-provided dataset via <a
+href="https://github.com/vllm-project/llm-compressor"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer"><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">vllm-project/LLM-Compressor</code></a>,
+and 2) supporting more granular <a
+href="https://github.com/vllm-project/vllm/pull/30141"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">per-attention-head quantization scales.</a>
+For detailed examples, refer to the <a
+href="https://github.com/vllm-project/vllm/blob/4f436782afd0b21d6754ea6bc4b80639f737bbc1/docs/features/quantization/quantized_kvcache.md#3-recommended-calibration-using-a-dataset-with-llm-compressor"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vLLM examples.</a></p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="when-should-you-use-calibration">When Should You Use
+Calibration?</h3>
+<p>Not all models work well with uncalibrated FP8 scales. To illustrate
+this, we tested the Kimi-K2.5 model — which uses the Flash MLA attention
+backend, a different kernel path than the models above — with
+uncalibrated FP8 KV-cache quantization on H200 GPUs.</p>
+<p>Figure 14 shows a consistent downward shift across sequence-length
+buckets. While the aggregate AUC drop is modest and the standard error
+bands overlap, the degradation is systematic rather than random.
+Practical takeaway: start with uncalibrated FP8 because it is simple and
+often good enough, but calibrate if you observe this kind of persistent
+downward shift on your real workload rather than just isolated noisy
+buckets. This is especially relevant for models using non-standard
+attention backends (e.g., FlashMLA) where the FP8 kernel behavior may
+differ from the well-validated FA3 and FlashInfer paths.</p>
+<figure class="my-6">
+<img
+src="assets/5e5303e7f529cd9eaf839f91f93b0a676e90939c677e86b912e323eaee53a312.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 14: MRCR results for Kimi-K2.5 with FlashMLA and uncalibrated FP8 KV-cache plus FP8 attention. The drop is modest in aggregate AUC but consistently negative across context lengths, which makes this a good example of when calibration is worth doing." />
+<figcaption aria-hidden="true">Figure 14: MRCR results for Kimi-K2.5
+with FlashMLA and uncalibrated FP8 KV-cache plus FP8 attention. The drop
+is modest in aggregate AUC but consistently negative across context
+lengths, which makes this a good example of when calibration is worth
+doing.</figcaption>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="when-to-avoid-fp8-kv-cache">When to Avoid FP8 KV-Cache</h2>
+<p>FP8 KV-cache quantization is not always the right choice. Consider
+staying with BF16 if:</p>
+<ul>
+<li><strong>Your contexts are short (&lt; ~7k tokens):</strong> FP8 has
+a small constant overhead (the intercept gap), so at short contexts BF16
+may be slightly faster for ITL.</li>
+<li><strong>Your model uses <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">head_dim = 256</code>
+and prefill latency matters:</strong> The two-level accumulation
+overhead increases TTFT by ~1.6x at long contexts. Disabling two-level
+accumulation recovers speed but requires careful accuracy
+validation.</li>
+<li><strong>Uncalibrated accuracy drops below 95% on your
+workload:</strong> Some models (e.g., Kimi-K2.5 with FlashMLA) show
+consistent degradation with uncalibrated scales, and might benefit from
+calibration on the target dataset.</li>
+<li><strong>Your model has many small sliding-window attention
+layers:</strong> FP8 overhead may not amortize well there; for
+hybrid-attention models, prefer <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype-skip-layers sliding_window</code>.</li>
+</ul>
+</div>
+</article>
+</body>
+</html>

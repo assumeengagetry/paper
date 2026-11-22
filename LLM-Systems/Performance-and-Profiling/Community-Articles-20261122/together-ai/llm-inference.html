@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>LLM inference: How it works and how to optimize it</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">LLM inference: How it works and how to optimize
+it</h1>
+</header>
+<section id="llm-inference-how-it-works-and-how-to-optimize-it"
+class="header">
+<h1>LLM inference: How it works and how to optimize it</h1>
+<p>来源：<a
+href="https://www.together.ai/blog/llm-inference">https://www.together.ai/blog/llm-inference</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="text-rich w-richtext" data-click-zoom-article=""
+data-fs-richtext-element="rich-text" data-fs-toc-element="contents"
+data-fs-toc-offsettop="7.5em">
+<p>LLM inference is what happens every time a trained model answers a
+request. The serving engine runs the network forward, again and again,
+until the response is complete. Nothing is learned. No weights change.
+Training happens once per model and inference happens on every call, so
+inference is where your users wait and where your bill accrues.</p>
+<p>You can't make inference fast in a single dimension. You trade
+latency for one user against throughput across all users, and both
+against cost per token. This article walks one request through the
+engine, explains why its two phases have different bottlenecks, and then
+covers metrics, batching, the main optimizations and cost. For what
+happens inside the forward pass itself, see <a
+href="https://www.together.ai/blog/what-are-llms">how large language
+models work</a>.</p>
+<h2 id="how-llm-inference-works-the-request-lifecycle"><strong>How LLM
+inference works: the request lifecycle</strong></h2>
+<p>Six steps cover every text-generation request:</p>
+<ul>
+<li><strong>Tokenize:</strong> The server converts your prompt into
+token IDs with the model's tokenizer.</li>
+<li><strong>Prefill:</strong> The model processes all prompt tokens in
+one forward pass and stores the attention keys and values it
+computes.</li>
+<li><strong>Sample the first token:</strong> The last position's output
+is a vector of logits over the vocabulary. Temperature rescales them,
+softmax turns them into a distribution, and top-p decides how much of
+that distribution the sampler draws from.</li>
+<li><strong>Decode loop:</strong> The new token is appended, the model
+runs a forward pass for that single position, and the sampler picks
+again. Every output token costs one pass.</li>
+<li><strong>Stop:</strong> The loop ends when the model emits its
+end-of-sequence token, matches a stop string, or reaches
+max_tokens.</li>
+<li><strong>Detokenize and stream:</strong> Token IDs are converted back
+to text and sent as they are produced, which is why streaming adds no
+work for the model.</li>
+</ul>
+<p>Steps 1 and 6 are cheap CPU work. Steps 2 and 4 take the GPU time,
+and they behave so differently that serving systems treat them as
+separate workloads. The guide to <a
+href="https://www.together.ai/blog/what-are-llms">tokens and
+attention</a> covers what happens inside each pass. This article stays
+with the engine.</p>
+<h2 id="prefill-is-compute-bound-decode-is-memory-bound"><strong>Prefill
+is compute-bound, decode is memory-bound</strong></h2>
+<p>Send a 4,000-token prompt and ask for a 500-token answer. The GPU
+does one large pass over 4,000 positions, then 499 small passes over one
+position each. Both use the same weights, but they stress different
+parts of the hardware.</p>
+<p>In prefill, every prompt position goes through the model at once, so
+each layer is a large matrix-matrix multiplication. That is the work
+GPUs are built for, and it keeps the arithmetic units saturated, which
+means prefill is <strong>compute-bound</strong>. Its cost grows with
+prompt length, so prompt length mostly decides how long you wait for the
+first token. Faster attention kernels like FlashAttention-3 pay off
+here, because prefill runs attention over the whole prompt in one
+go.</p>
+<p>A decode step computes one position per request, so each layer is a
+matrix-vector multiplication, one position against the full weight
+matrix. That is very little arithmetic, but the GPU still has to read
+every active weight and the request's cached attention state out of
+memory. The arithmetic units finish early and wait for data, so decode
+is <strong>memory-bound</strong>. Memory bandwidth sets its speed.
+Together AI's QTIP post on <a
+href="https://www.together.ai/blog/even-better-even-faster-quantized-llms-with-qtip">memory-bound
+decoding and weight quantization</a> gives the upper bound for
+small-batch decoding: tokens/sec ≤ batch size × memory bandwidth (GB/s)
+÷ model size (GB).</p>
+<p>Run the numbers for a single stream. Llama 3.1 8B at bf16 is ~16 GB
+of weights, and NVIDIA's spec sheet gives the H100 80GB 3.35 TB/s of
+memory bandwidth, so the ceiling is 3,350 ÷ 16 ≈ 210 tokens/sec. Llama
+3.1 70B at bf16 needs ~141 GB for weights alone, more than one 80 GB GPU
+holds. At fp8 it is ~71 GB, which fits with little room to spare, and
+the ceiling becomes 3,350 ÷ 71 ≈ 47 tokens/sec. These are ceilings, not
+forecasts, because cache reads and kernel overhead come out of the same
+budget. The bound also shows what helps decode: fewer bytes per weight
+(quantization), fewer weights read per token (a mixture-of-experts model
+reads only its active parameters), and more tokens per read
+(batching).</p>
+<p>That cached attention state is the <a
+href="https://www.together.ai/blog/kv-cache">KV cache</a>: the keys and
+values for past tokens, stored so decode doesn't recompute them at every
+step. It grows with every token of every active request, and that memory
+often caps concurrency before the weights do.</p>
+<p>The two phases also compete for the same GPU. When a long prompt
+arrives while other requests are mid-decode, a naive scheduler runs the
+whole prefill first, and every streaming response stalls until it
+finishes. Batching has to manage that conflict.</p>
+<h2 id="llm-inference-metrics-that-matter"><strong>LLM inference metrics
+that matter</strong></h2>
+<p>Four metrics describe an inference deployment, and each one maps back
+to a phase:</p>
+<ul>
+<li><strong>Time to first token (TTFT):</strong> The wait between
+sending a request and receiving the first token. It is mostly prefill,
+plus queueing, network time and any cold start.</li>
+<li><strong>Time per output token (TPOT), also called inter-token
+latency (ITL):</strong> The gap between streamed tokens, which is mostly
+decode. Many dashboards report the inverse, tokens per second (TPS). For
+a single stream, TPS ≈ 1 ÷ TPOT, so 20 ms per token is 50 TPS.</li>
+<li><strong>End-to-end latency:</strong> E2E ≈ TTFT + TPOT × (output
+tokens − 1). With a 0.5 s TTFT and a 20 ms TPOT, a 300-token chat reply
+takes 0.5 + 0.02 × 299 ≈ 6.5 s. A reasoning model that emits 4,000
+tokens takes 0.5 + 0.02 × 3,999 ≈ 80.5 s, and TTFT is under 1% of it.
+Long-output workloads are decode-dominated, so work on TPOT first.</li>
+<li><strong>Throughput and goodput:</strong> Throughput is total
+tokens/sec per GPU across all requests, and it sets your cost per token.
+The share of that throughput delivered inside your latency target is
+<strong>goodput</strong>. Size capacity on goodput, because a late token
+did not serve the user.</li>
+</ul>
+<p>Report P50 and P95 or P99 for each of these. Averages hide the tail.
+Queueing gives latency a long tail, and the tail is what users
+notice.</p>
+<p>To measure them yourself, stream the response and timestamp the first
+chunk for TTFT. Count output tokens from the API's usage field or the
+model's own tokenizer. Character and word counts will not match. Then
+repeat at your production concurrency, because a single request only
+measures an idle server. The docs page <a
+href="https://docs.together.ai/learn/ttft-and-tps">TTFT and TPS
+explained</a> lists what moves each number.</p>
+<h2 id="batching-trades-latency-for-throughput"><strong>Batching trades
+latency for throughput</strong></h2>
+<p>Serving one request at a time wastes most of a GPU, because decode
+reads every weight to produce one token. The key idea is simple: read
+the weights once and use them for many requests. A decode step for 32
+requests reads the same weights as a step for one, so throughput rises
+almost for free until KV cache memory or compute runs out.</p>
+<p>Collecting a fixed group of requests and running it to completion is
+<strong>static batching</strong>. Short requests wait on the longest
+one, and new arrivals wait for the whole batch. Scheduling at every
+decode step instead lets finished sequences leave and queued ones join
+immediately, and that is <strong>continuous batching</strong>. <a
+href="https://www.usenix.org/conference/osdi22/presentation/yu">Orca (Yu
+et al., 2022)</a> introduced it as iteration-level scheduling, and <a
+href="../../../Serving-and-KV-Cache/2309.06180v1.pdf">vLLM (Kwon et al., 2023)</a>
+added paged KV cache memory so more sequences fit in each batch.</p>
+<p>Batching is not free for the individual request. Once a step's
+compute and KV cache reads outweigh the weight read, every added request
+slows the step, so per-request TPOT rises while tokens/sec per GPU keeps
+improving. The curve has a flat part and then a knee. One published
+sweep of dedicated endpoints (<a
+href="https://www.together.ai/blog/configuring-dedicated-model-inference">measured
+throughput and latency across batch sizes</a>) shows the flat part. It
+ran Qwen3.5-9B in bf16 on one single-GPU replica (TP1) of the post's
+demo endpoint, with 200-token generations:</p>
+<div data-rt-embed-type="true">
+<div class="sqs-block-content">
+<table>
+<thead>
+<tr>
+<th>Concurrency</th>
+<th>Aggregate throughput</th>
+<th>Throughput ÷ concurrency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4</td>
+<td>362 tokens/sec</td>
+<td>~91 tokens/sec</td>
+</tr>
+<tr>
+<td>8</td>
+<td>789 tokens/sec</td>
+<td>~99 tokens/sec</td>
+</tr>
+<tr>
+<td>16</td>
+<td>1,464 tokens/sec</td>
+<td>~92 tokens/sec</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Throughput grew 4× while each request's share stayed flat, and the
+post reports p95 TTFT rising only ~17% from concurrency 4 to 16. A
+second profile in the same sweep peaked at concurrency 4 and lost half
+its throughput beyond it. Find the knee for your model before you set a
+batch limit.</p>
+<p>Batching also brings back the prefill-decode conflict. Splitting a
+long prompt into pieces that run alongside ongoing decode steps is
+<strong>chunked prefill</strong>. Streams slow slightly instead of
+stalling. Running the two phases on separate GPU pools goes further and
+is called <strong>disaggregation</strong>. A production example is <a
+href="https://www.together.ai/blog/cache-aware-disaggregated-inference">cache-aware
+prefill-decode disaggregation</a>, which also routes each prompt by how
+much cached context it can reuse.</p>
+<h2 id="inference-optimization-techniques"><strong>Inference
+optimization techniques</strong></h2>
+<p>Sort every technique by two questions: which phase does it speed up,
+and does it change the model's outputs. Five techniques cover most of
+the gains:</p>
+<ul>
+<li><strong>Speculative decoding (exact):</strong> A small draft model
+proposes several tokens and the target model verifies them in one
+forward pass, keeping only the tokens it accepts, which leaves the
+output distribution unchanged. Together's docs put the gain at 2–3× TPS
+when the guesses are right, and it <a
+href="https://www.together.ai/blog/speculative-decoding-for-high-throughput-long-context-inference">usually
+shrinks at large batch sizes with short contexts</a>, where less idle
+compute is left for verification. <a
+href="https://www.together.ai/blog/adaptive-learning-speculator-system-atlas">Adaptive
+speculative decoding (ATLAS)</a> keeps the draft aligned by learning
+from live traffic.</li>
+<li><strong>Quantization (lossy):</strong> Storing weights at fp8 or
+4-bit instead of 16-bit cuts the bytes read per token to a half or a
+quarter, which speeds up decode and frees memory for the KV cache. fp8
+is usually near-lossless and 4-bit varies by model and task, so <a
+href="https://www.together.ai/blog/evaluate-and-benchmark-llms">evaluate
+LLM quality</a> on your own data first. The docs cover <a
+href="https://docs.together.ai/learn/quantization">quantization formats
+and tradeoffs</a>.</li>
+<li><strong>Attention and KV cache optimizations (exact):</strong>
+FlashAttention kernels, PagedAttention and prefix caching preserve
+outputs while cutting memory traffic, wasted memory and repeated prefill
+work. Architectures with GQA or MLA go further and shrink the KV cache
+by design.</li>
+<li><strong>Parallelism (exact):</strong> Tensor parallelism splits each
+layer across GPUs, which lowers per-GPU memory and per-token latency but
+adds communication at every layer. Expert parallelism spreads a
+mixture-of-experts model's experts across GPUs instead.</li>
+<li><strong>A smaller model (different outputs):</strong> An 8B model
+reads ~9× fewer bytes per token than a 70B model at the same precision.
+It is often the cheapest optimization available, provided it passes the
+same evals.</li>
+</ul>
+<h2 id="what-llm-inference-costs"><strong>What LLM inference
+costs</strong></h2>
+<p>You pay for inference in one of two units. Serverless APIs charge per
+million tokens, with separate input and output rates. Output is
+typically priced at <a
+href="https://docs.together.ai/learn/tokens-and-tokenization">3–4×
+input</a>, because output tokens come from decode, the slow,
+bandwidth-bound phase, while input tokens go through one parallel
+prefill pass. Dedicated GPUs charge per GPU-hour whether or not you send
+traffic, so cost per token is the hourly rate divided by the tokens you
+actually serve.</p>
+<p>Together's deployment docs work through an illustrative example. It
+is not a price quote. An H100 at ~\$3 per hour costs 3 × 24 = \$72 per
+day. At a serverless rate of \$1 per 1M tokens, \$72 buys 72M tokens, so
+the crossover sits at ~72M tokens per day. That is 3M tokens per hour,
+or ~830 tokens/sec sustained around the clock. Below it, per-token
+pricing is cheaper. Above it, the dedicated GPU wins, provided it can
+sustain that rate for your model at acceptable latency, which is the
+batching curve again.</p>
+<div data-rt-embed-type="true">
+<div class="sqs-block-content">
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Use it when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serverless (per token)</td>
+<td>You are prototyping, or traffic is spiky or low and you want no idle
+cost</td>
+</tr>
+<tr>
+<td>Dedicated endpoints (per GPU-hour)</td>
+<td>Volume is steady and high, you have a strict P95 target, or you
+serve custom weights</td>
+</tr>
+<tr>
+<td>Self-hosted or dedicated containers</td>
+<td>Compliance requires your own infrastructure, or you need custom
+inference code around the model</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The docs guide to <a
+href="https://docs.together.ai/learn/choosing-a-deployment-option">choosing
+between serverless, dedicated, and containers</a> covers the full
+decision.</p>
+<h2 id="conclusion"><strong>Conclusion</strong></h2>
+<p>LLM inference is two workloads sharing one GPU. Prefill is
+compute-bound and sets TTFT, decode is memory-bound and sets TPS, and
+batching decides where you sit between per-user latency and cost per
+token. The quickest way to see this is to stream one request and time
+it. TTFT is when the first chunk lands, and TPS comes from everything
+after. You can run that test in a few minutes against <a
+href="https://www.together.ai/serverless-inference">Together AI
+serverless inference</a>, then repeat it at production concurrency.</p>
+<h2 id="faq"><strong>FAQ</strong></h2>
+<p><strong>Does LLM inference need a GPU?</strong> Not for small models.
+Quantized models of a few billion parameters run on laptop CPUs with
+llama.cpp and GGUF files. For 70B-class models or many concurrent users
+you need one in practice, because decode speed tracks memory bandwidth
+and GPU memory has far more of it than system RAM.</p>
+<p><strong>What is the difference between AI inference and
+training?</strong> Training runs forward and backward passes and updates
+the weights. Inference runs forward passes only, with weights frozen, so
+there are no gradients or optimizer state to hold in memory. <a
+href="https://www.together.ai/blog/what-are-llms">How large language
+models work</a> covers training in full.</p>
+<p><strong>How expensive is LLM inference?</strong> It depends on model
+size, your mix of input and output tokens, and how you deploy. APIs
+price per million tokens, with output typically 3–4× input, and
+dedicated GPUs price per hour. The cost section works through an
+example.</p>
+<p><strong>Does quantization reduce output quality?</strong> Sometimes.
+fp8 is usually indistinguishable from 16-bit weights. 4-bit results vary
+by model, quantization method and task, so run your evals before
+switching a production endpoint.</p>
+</div>
+</body>
+</html>

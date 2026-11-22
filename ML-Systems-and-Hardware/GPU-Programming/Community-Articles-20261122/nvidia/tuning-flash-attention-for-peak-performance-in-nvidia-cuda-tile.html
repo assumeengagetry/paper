@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Tuning Flash Attention for Peak Performance in NVIDIA CUDA Tile</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Tuning Flash Attention for Peak Performance in NVIDIA
+CUDA Tile</h1>
+</header>
+<section
+id="tuning-flash-attention-for-peak-performance-in-nvidia-cuda-tile"
+class="header">
+<h1>Tuning Flash Attention for Peak Performance in NVIDIA CUDA Tile</h1>
+<p>来源：<a
+href="https://developer.nvidia.com/blog/tuning-flash-attention-for-peak-performance-in-nvidia-cuda-tile/">https://developer.nvidia.com/blog/tuning-flash-attention-for-peak-performance-in-nvidia-cuda-tile/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="entry-content">
+<p>In this post, we dive into one of the most critical workloads in
+modern AI: <strong>Flash Attention</strong>, where you’ll learn:</p>
+<ul>
+<li><strong>How to implement Flash Attention using NVIDIA</strong> <a
+href="https://github.com/nvidia/cutile-python" data-wpel-link="external"
+target="_blank" rel="follow"><strong>cuTile</strong></a>. Walk through
+the complete code for a production-ready implementation.</li>
+<li><strong>The “trap and rescue” optimization journey</strong>. This
+case study shows how naive optimizations (like just increasing tile
+size) can backfire, and how to fix them.</li>
+<li><strong>Advanced techniques</strong> like FMA patterns, fast math,
+loop splitting, and adaptive tiling for maximum performance.</li>
+</ul>
+<p><strong>Environment requirements:</strong></p>
+<ul>
+<li><strong>CUDA 13.1</strong> or higher</li>
+<li><strong>GPU architecture</strong>: Compute capability 8.X, 10.X,
+11.X, 12.X (NVIDIA Ampere, NVIDIA Ada, NVIDIA Blackwell)</li>
+<li><strong>Python</strong>: 3.10 or higher</li>
+</ul>
+<p>See the <a
+href="https://docs.nvidia.com/cuda/cutile-python/quickstart.html"
+data-wpel-link="internal" target="_self" rel="follow">quickstart doc</a>
+for more information on installing cuTile Python.</p>
+<h2 class="wp-block-heading" id="what_is_attention">What is attention?<a
+href="#what_is_attention" class="heading-anchor-link"
+aria-label="Scroll to What is attention? section"><em></em></a></h2>
+<p>The attention mechanism is the computational heart of transformer
+models. Given a sequence of tokens, attention enables each token to
+“look at” every other token and decide how much to weigh their
+contributions. Mathematically, for input matrices Query
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math>),
+Key
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>),
+and Value
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>),
+the output is:</p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo>=</mo><mtext mathvariant="normal">softmax</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mrow><mi>Q</mi><msup><mi>K</mi><mi>T</mi></msup></mrow><msqrt><mi>d</mi></msqrt></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><mi>V</mi></mrow><annotation encoding="application/x-tex">O = \text{softmax}\left(\frac{QK^T}{\sqrt{d}}\right)V</annotation></semantics></math></p>
+<p>Where:</p>
+<ul>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> has shape </mtext><mspace width="0.333em"></mspace></mrow><mo stretchy="false" form="prefix">(</mo><mi>N</mi><mo>,</mo><mi>d</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="0.222em"></mspace><mi>N</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> query tokens, each with dimension </mtext><mspace width="0.333em"></mspace></mrow><mi>d</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">Q \text{ has shape } (N,d),\ N \text{ query tokens, each with dimension } d.</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>K</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> has shape </mtext><mspace width="0.333em"></mspace></mrow><mo stretchy="false" form="prefix">(</mo><mi>N</mi><mo>,</mo><mi>d</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="0.222em"></mspace><mi>N</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> key tokens.</mtext></mrow></mrow><annotation encoding="application/x-tex">K \text{ has shape } (N,d),\ N \text{ key tokens.}</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> has shape </mtext><mspace width="0.333em"></mspace></mrow><mo stretchy="false" form="prefix">(</mo><mi>N</mi><mo>,</mo><mi>d</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="0.222em"></mspace><mi>N</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> value tokens.</mtext></mrow></mrow><annotation encoding="application/x-tex">V \text{ has shape } (N,d),\ N \text{ value tokens.}</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mtext mathvariant="normal">The intermediate </mtext><mspace width="0.333em"></mspace></mrow><mi>Q</mi><msup><mi>K</mi><mi>T</mi></msup><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> matrix has shape </mtext><mspace width="0.333em"></mspace></mrow><mo stretchy="false" form="prefix">(</mo><mi>N</mi><mo>,</mo><mi>N</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> is a problem.</mtext></mrow></mrow><annotation encoding="application/x-tex">\text{The intermediate } QK^{T} \text{ matrix has shape } (N,N), \text{ is a problem.}</annotation></semantics></math></li>
+</ul>
+<h3 class="wp-block-heading" id="the_memory_bandwidth_problem">The
+memory bandwidth problem<a href="#the_memory_bandwidth_problem"
+class="heading-anchor-link"
+aria-label="Scroll to The memory bandwidth problem section"><em></em></a></h3>
+<p>For a sequence length of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mn>16</mn><mo>,</mo><mn>384</mn></mrow><annotation encoding="application/x-tex">N = 16,384</annotation></semantics></math>
+(common in modern LLMs), the attention matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><msup><mi>K</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">QK^{T}</annotation></semantics></math>
+contains
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>N</mi><mn>2</mn></msup><mo>=</mo><mn>268</mn></mrow><annotation encoding="application/x-tex">N^2 = 268</annotation></semantics></math>
+million elements. In FP16, that’s 512 MB of intermediate storage per
+attention head, per batch item.</p>
+<p>Standard attention implementations:</p>
+<ol>
+<li>Compute the full
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>×</mo><mi>N</mi></mrow><annotation encoding="application/x-tex">N \times N</annotation></semantics></math>
+attention matrix and write it to global memory (slow)</li>
+<li>Apply softmax row-by-row</li>
+<li>Read the matrix back and multiply by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math></li>
+</ol>
+<p>This approach is <strong>memory-bound</strong> as the GPU spends most
+of its time waiting for data to move between HBM and compute units,
+rather than computing.</p>
+<h3 class="wp-block-heading"
+id="how_flash_attention_solves_the_memory_bandwidth_problem">How Flash
+Attention solves the memory bandwidth problem<a
+href="#how_flash_attention_solves_the_memory_bandwidth_problem"
+class="heading-anchor-link"
+aria-label="Scroll to How Flash Attention solves the memory bandwidth problem section"><em></em></a></h3>
+<p><strong>Flash Attention</strong> (introduced by Dao et al., 2022) is
+an IO-aware algorithm that never materializes the full
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>×</mo><mi>N</mi></mrow><annotation encoding="application/x-tex">N \times N</annotation></semantics></math>
+matrix. Instead, it:</p>
+<ol>
+<li><strong>Tiles the computation</strong>: Processes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo>,</mo><mi>K</mi><mo>,</mo><mi>V</mi></mrow><annotation encoding="application/x-tex">Q, K, V</annotation></semantics></math>
+in small blocks that fit in fast on-chip SMEM</li>
+<li><strong>Uses online softmax</strong>: Computes softmax incrementally
+without needing the full row</li>
+<li><strong>Fuses operations</strong>: Combines the matrix multiply and
+softmax into a single kernel pass</li>
+</ol>
+<p>The result is a <strong>2-4x speedup</strong> and significant memory
+savings, enabling longer context lengths.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027c9f7baec&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027c9f7baec">
+<img
+src="assets/0a6b22994b41e8fa328f3e31cee4ba85e775314cb86b3004f23e4c2025c67cfb.webp"
+class="lazyload wp-image-113183"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 486px) 100vw, 486px" width="486" height="348"
+alt="A tiled flash attention figure showing Q, K^T, V and O in HBM, being accumulated to Q, K, V, and O in SMEM." />
+<figcaption><em>Figure 1. Tiled Flash Attention
+computation</em></figcaption>
+</figure>
+</div>
+<h2 class="wp-block-heading"
+id="understanding_online_softmax">Understanding online softmax<a
+href="#understanding_online_softmax" class="heading-anchor-link"
+aria-label="Scroll to Understanding online softmax section"><em></em></a></h2>
+<p>The key algorithmic insight of Flash Attention is the online softmax
+trick. The numerically stable <strong>safe softmax</strong> requires
+knowing the maximum value across the entire row before computing:</p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">softmax</mtext><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><msup><mi>e</mi><mrow><msub><mi>x</mi><mi>i</mi></msub><mi>–</mi><mrow><mi mathvariant="normal">max</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mrow><msub><mo>∑</mo><mi>j</mi></msub><msup><mi>e</mi><mrow><msub><mi>x</mi><mi>j</mi></msub><mi>–</mi><mrow><mi mathvariant="normal">max</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup></mrow></mfrac></mrow><annotation encoding="application/x-tex">\text{softmax}(x_i) = \frac{e^{x_i – \max(x)}}{\sum_j e^{x_j – \max(x)}}</annotation></semantics></math></p>
+<p>But if we’re processing tiles, we don’t have access to the full row.
+Online softmax solves this by maintaining running statistics that can be
+updated incrementally.</p>
+<h3 class="wp-block-heading" id="the_online_softmax_algorithm">The
+online softmax algorithm<a href="#the_online_softmax_algorithm"
+class="heading-anchor-link"
+aria-label="Scroll to The online softmax algorithm section"><em></em></a></h3>
+<p>We maintain two running values for each row:</p>
+<ul>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>m</mi><mi>i</mi></msub><annotation encoding="application/x-tex">m_i</annotation></semantics></math>:
+The maximum value seen so far (for numerical stability)</li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>l</mi><mi>i</mi></msub><annotation encoding="application/x-tex">l_i</annotation></semantics></math>:
+The sum of exponentials seen so far (the softmax denominator)</li>
+</ul>
+<p>When we process a new tile with values
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub><annotation encoding="application/x-tex">x_{new}</annotation></semantics></math>:</p>
+<ol>
+<li><strong>Update the maximum</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>m</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>m</mi><mi>i</mi></msub><mo>,</mo><mrow><mi mathvariant="normal">max</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">m_{new} = \max(m_i, \max(x_{new}))</annotation></semantics></math></li>
+<li><strong>Compute correction factor</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><msup><mi>e</mi><mrow><msub><mi>m</mi><mi>i</mi></msub><mi>–</mi><msub><mi>m</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">\alpha = e^{m_i – m_{new}}</annotation></semantics></math>
+(rescales previous work)</li>
+<li><strong>Update the sum</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>l</mi><mi>i</mi></msub><mo>=</mo><msub><mi>l</mi><mi>i</mi></msub><mo>⋅</mo><mi>α</mi><mo>+</mo><mo>∑</mo><msup><mi>e</mi><mrow><msub><mi>x</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub><mi>–</mi><msub><mi>m</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">l_i = l_i \cdot \alpha + \sum e^{x_{new} – m_{new}}</annotation></semantics></math></li>
+<li><strong>Update the accumulator</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mi>c</mi><mi>c</mi><mo>=</mo><mi>a</mi><mi>c</mi><mi>c</mi><mo>⋅</mo><mi>α</mi><mo>+</mo><msub><mi>P</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub><mo>⋅</mo><msub><mi>V</mi><mrow><mi>t</mi><mi>i</mi><mi>l</mi><mi>e</mi></mrow></msub></mrow><annotation encoding="application/x-tex">acc = acc \cdot \alpha + P_{new} \cdot V_{tile}</annotation></semantics></math></li>
+</ol>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>P</mi><mrow><mi>n</mi><mi>e</mi><mi>w</mi></mrow></msub><annotation encoding="application/x-tex">P_{new}</annotation></semantics></math>
+is the matrix of the attention weights, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>V</mi><mrow><mi>t</mi><mi>i</mi><mi>l</mi><mi>e</mi></mrow></msub><annotation encoding="application/x-tex">V_{tile}</annotation></semantics></math>
+is the value matrix tile, corresponding to the Key tile of the current
+iteration. At the end, we normalize:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo>=</mo><mi>a</mi><mi>c</mi><mi>c</mi><mi>/</mi><msub><mi>l</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">O = acc / l_i</annotation></semantics></math></p>
+<p>This enables us to compute an exact softmax without ever storing the
+full row.</p>
+<h2 class="wp-block-heading"
+id="causal_attention_and_grouped-query_attention">Causal attention and
+grouped-query attention<a
+href="#causal_attention_and_grouped-query_attention"
+class="heading-anchor-link"
+aria-label="Scroll to Causal attention and grouped-query attention section"><em></em></a></h2>
+<p>Before diving into the implementation, let’s understand two important
+attention variants used in modern LLMs:</p>
+<h3 class="wp-block-heading" id="causal_attention ">Causal attention <a
+href="#causal_attention%C2%A0" class="heading-anchor-link"
+aria-label="Scroll to Causal attention  section"><em></em></a></h3>
+<p>In autoregressive language models like GPT, LLaMA, and Claude, each
+token can only attend to <strong>previous tokens</strong> in the
+sequence, not future ones. This prevents “cheating” during training,
+where the model looks ahead to predict the next word.</p>
+<p>Mathematically, we apply a <strong>triangular mask</strong> to the
+attention scores:</p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">mask</mtext><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">{</mo><mtable><mtr><mtd columnalign="left" style="text-align: left"><mn>0</mn></mtd><mtd columnalign="left" style="text-align: left"><mrow><mtext mathvariant="normal">if </mtext><mspace width="0.333em"></mspace></mrow><mi>i</mi><mo>≥</mo><mi>j</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> (query position ≥ key position)</mtext></mrow><mspace width="0.222em"></mspace><mo>−</mo><mi>∞</mi></mtd><mtd columnalign="left" style="text-align: left"><mrow><mtext mathvariant="normal">if </mtext><mspace width="0.333em"></mspace></mrow><mi>i</mi><mo>&lt;</mo><mi>j</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> (future tokens)</mtext></mrow></mtd></mtr></mtable></mrow></mrow><annotation encoding="application/x-tex">\text{mask}_{ij} = \begin{cases} 0 &amp; \text{if } i \geq j \text{ (query position ≥ key position)} \ -\infty &amp; \text{if } i &lt; j \text{ (future tokens)} \end{cases}</annotation></semantics></math></p>
+<p>The masked attention becomes:</p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo>=</mo><mtext mathvariant="normal">softmax</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mrow><mi>Q</mi><msup><mi>K</mi><mi>T</mi></msup></mrow><msqrt><mi>d</mi></msqrt></mfrac><mo>+</mo><mtext mathvariant="normal">mask</mtext><mo stretchy="true" form="postfix">)</mo></mrow><mi>V</mi></mrow><annotation encoding="application/x-tex">O = \text{softmax}\left(\frac{QK^T}{\sqrt{d}} + \text{mask}\right)V</annotation></semantics></math></p>
+<p>Adding
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mi>∞</mi></mrow><annotation encoding="application/x-tex">-\infty</annotation></semantics></math>
+to future positions ensures they become zero after softmax, effectively
+blocking information flow from future tokens.</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027c9f7dca3&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027c9f7dca3">
+<img
+src="assets/fe898780a44171a17d50ac8adf43bb2a6e43fdc666bb7093297070f3fdac504b.webp"
+class="lazyload wp-image-113186"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 275px) 100vw, 275px" width="275" height="275"
+alt="Causal attention mask matrix for 4 tokens showing how the upper triangle of the matrix is masked to 0, meaning that those values are not used in the computation. " />
+<figcaption><em>Figure 2. Causal attention mask for four
+tokens</em></figcaption>
+</figure>
+</div>
+<p>With causal masking, roughly <strong>half the attention matrix is
+masked</strong> (the upper triangle). We can skip computing these masked
+tiles entirely, providing a 2x algorithmic speedup. This is crucial for
+the K-loop splitting optimization.</p>
+<h3 class="wp-block-heading" id="grouped-query_attention">Grouped-query
+attention<a href="#grouped-query_attention" class="heading-anchor-link"
+aria-label="Scroll to Grouped-query attention section"><em></em></a></h3>
+<p>Standard multi-head attention has separate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>K</mi><mo>,</mo><mi>V</mi></mrow><annotation encoding="application/x-tex">K,V</annotation></semantics></math>
+matrices for each attention head, leading to high memory usage:</p>
+<ul>
+<li><strong>Multi-head attention (MHA)</strong>: 32 query heads → 32 K/V
+heads (1:1 ratio)</li>
+<li><strong>Grouped-query attention (GQA)</strong>: 32 query heads → 4
+K/V heads (8:1 ratio)</li>
+<li><strong>Multi-query attention (MQA)</strong>: 32 query heads → 1 K/V
+head (32:1 ratio)</li>
+</ul>
+<p>In GQA, multiple query heads <strong>share</strong> the same K/V
+heads. For example, with 32 query heads and 4 K/V heads:</p>
+<ul>
+<li>Query heads 0-7 use K/V head 0</li>
+<li>Query heads 8-15 use K/V head 1</li>
+<li>Query heads 16-23 use K/V head 2</li>
+<li>Query heads 24-31 use K/V head 3</li>
+</ul>
+<p>This reduces K/V cache size by <strong>8x</strong> during inference,
+critical for serving long-context models. Modern LLMs like LlamA 2,
+Llama 3, Mistral, and Qwen use GQA extensively.</p>
+<p><strong>When implementing in Flash Attention,</strong> each CUDA
+block computes attention for one query head, but loads the appropriate
+shared K/V head:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+head_idx = bid_y % num_heads              # Which query head (0-31)
+kv_head_idx = head_idx // query_group_size # Which K/V head (0-3)</code></pre>
+</div>
+<p>With a query group size of 8, query heads 0-7 all map to
+<code>kv_head_idx = 0</code>, sharing the same K/V tiles in memory.</p>
+<h2 class="wp-block-heading"
+id="part_1_the_flash_attention_kernel_in_cuda_tile">Part 1: The flash
+attention kernel in CUDA Tile<a
+href="#part_1_the_flash_attention_kernel_in_cuda_tile"
+class="heading-anchor-link"
+aria-label="Scroll to Part 1: The flash attention kernel in CUDA Tile section"><em></em></a></h2>
+<p>Let’s implement Flash Attention step-by-step. Our baseline uses small
+<strong>64×64 tiles</strong> and straightforward code—correct but not
+yet optimized.</p>
+<h3 class="wp-block-heading" id="1_defining_the_kernel_interface">1.
+Defining the kernel interface<a href="#1_defining_the_kernel_interface"
+class="heading-anchor-link"
+aria-label="Scroll to 1. Defining the kernel interface section"><em></em></a></h3>
+<p>In cuTile, the <code>@ct.kernel</code> decorator marks a Python
+function as a GPU kernel. We pass compile-time constants using
+<code>ct.Constant[T]</code> type annotations:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+import math
+import cuda.tile as ct
+
+# Type aliases for compile-time constants
+ConstInt = ct.Constant[int]
+ConstBool = ct.Constant[bool]
+
+# Conversion factor: we use exp2 instead of exp for efficiency
+INV_LOG_2 = 1.0 / math.log(2)
+
+@ct.kernel()
+def fmha_kernel(
+    Q, K, V, Out,              # Input/output tensors
+    qk_scale: float,           # Scale factor (1/sqrt(d))
+    input_pos: int,            # Position offset for causal masking
+    TILE_D: ConstInt,          # Head dimension (for example, 128)
+    H: ConstInt,               # Number of attention heads
+    TILE_M: ConstInt,          # Tile size for Q dimension (for example, 64)
+    TILE_N: ConstInt,          # Tile size for K/V dimension (for example, 64)
+    QUERY_GROUP_SIZE: ConstInt,# For Grouped Query Attention (GQA)
+    CAUSAL: ConstBool,         # Whether to apply causal mask
+    EVEN_K: ConstBool,         # Whether K length is divisible by TILE_N
+):</code></pre>
+</div>
+<h3 class="wp-block-heading" id="2_block_id_mapping">2. Block ID
+mapping<a href="#2_block_id_mapping" class="heading-anchor-link"
+aria-label="Scroll to 2. Block ID mapping section"><em></em></a></h3>
+<p>Each CUDA block computes one tile of the output. Using <a
+href="https://docs.nvidia.com/cuda/cutile-python/generated/cuda.tile.bid.html#cuda.tile.bid"
+data-wpel-link="internal" target="_self"
+rel="follow"><code>ct.bid</code></a> , we map the 2D grid to batch/head
+indices:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+# Get block indices
+    bid_x = ct.bid(0)  # Which tile along the sequence dimension
+    bid_y = ct.bid(1)  # Which batch-head combination
+    
+    # Decode batch and head from flattened index
+    batch_idx = bid_y // H
+    head_idx = bid_y % H
+    
+    # For Grouped Query Attention: multiple Q heads share one K/V head
+    off_kv_h = head_idx // QUERY_GROUP_SIZE</code></pre>
+</div>
+<h3 class="wp-block-heading" id="3_initializing_accumulators">3.
+Initializing accumulators<a href="#3_initializing_accumulators"
+class="heading-anchor-link"
+aria-label="Scroll to 3. Initializing accumulators section"><em></em></a></h3>
+<p>Before the main loop, we initialize the online softmax state and
+output accumulator:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+# Convert scale for base-2 exponential (faster than natural exp)
+    qk_scale = qk_scale * INV_LOG_2
+    
+    # Create position indices for this tile
+    offs_m = bid_x * TILE_M + ct.arange(TILE_M, dtype=ct.int32)
+    offs_m += input_pos
+    offs_m = offs_m[:, None]  # Shape: [TILE_M, 1]
+    
+    offs_n_tile = ct.arange(TILE_N, dtype=ct.int32)
+    offs_n_tile = offs_n_tile[None, :]  # Shape: [1, TILE_N]
+    
+    # Online softmax state (float32 for numerical stability)
+    m_i = ct.full((TILE_M, 1), -math.inf, dtype=ct.float32)  # Running max
+    l_i = ct.full((TILE_M, 1), 0.0, dtype=ct.float32)        # Running sum
+    acc = ct.full((TILE_M, TILE_D), 0.0, dtype=ct.float32)   # Output accumulator</code></pre>
+</div>
+<p>We use <code>float32</code> for accumulators, even when inputs are
+float16 to maintain numerical precision during the iterative softmax
+computation.</p>
+<h3 class="wp-block-heading" id="4_loading_the_query_tile">4. Loading
+the query tile<a href="#4_loading_the_query_tile"
+class="heading-anchor-link"
+aria-label="Scroll to 4. Loading the query tile section"><em></em></a></h3>
+<p>The query tile is loaded once and reused across all K/V
+iterations:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+    # Load Q tile: shape [1, 1, TILE_M, TILE_D] -&gt; [TILE_M, TILE_D]
+    q = ct.load(
+        Q, 
+        index=(batch_idx, head_idx, bid_x, 0), 
+        shape=(1, 1, TILE_M, TILE_D)
+    ).reshape((TILE_M, TILE_D))</code></pre>
+</div>
+<p>The <a
+href="https://docs.nvidia.com/cuda/cutile-python/generated/cuda.tile.load.html#cuda.tile.load"
+data-wpel-link="internal" target="_self"
+rel="follow"><code>ct.load</code></a> function handles boundary
+conditions automatically when the tile extends past the tensor edge.</p>
+<h3 class="wp-block-heading" id="5_the_main_loop_over_kv_tiles">5. The
+main loop over K/V tiles<a href="#5_the_main_loop_over_kv_tiles"
+class="heading-anchor-link"
+aria-label="Scroll to 5. The main loop over K/V tiles section"><em></em></a></h3>
+<p>This is the heart of Flash Attention. We iterate over K/V tiles:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+   # Calculate loop bounds
+    m_end = input_pos + (bid_x + 1) * TILE_M
+    k_seqlen = K.shape[2]
+    
+    if CAUSAL:
+        # For causal attention, stop early (future tokens are masked)
+        Tc = ct.cdiv(min(m_end, k_seqlen), TILE_N)
+    else:
+        Tc = ct.cdiv(k_seqlen, TILE_N)
+    
+    for j in range(0, Tc):
+        # --- Step A: Load Key tile and compute QK^T ---
+        k = ct.load(
+            K,
+            index=(batch_idx, off_kv_h, 0, j),
+            shape=(1, 1, TILE_D, TILE_N),
+            order=(0, 1, 3, 2),  # Transpose for correct layout
+            latency=2            # Hint for memory prefetching
+        ).reshape((TILE_D, TILE_N))
+        
+        # Matrix multiply: Q @ K^T
+        qk = ct.full((TILE_M, TILE_N), 0.0, dtype=ct.float32)
+        qk = ct.mma(q, k, qk)  # Uses Tensor Cores automatically</code></pre>
+</div>
+<p>The <code>order=(0,1,3,2)</code> in the parameter tells <a
+href="https://docs.nvidia.com/cuda/cutile-python/generated/cuda.tile.load.html#cuda.tile.load"
+data-wpel-link="internal" target="_self" rel="follow">cuTile load</a>
+operation to use K transposed, and <code>latency=2</code> hints that we
+can tolerate some latency (enabling better pipelining). Then we use the
+<code>ct.mma=(q, k, k,qk)</code> to perform the <a
+href="https://docs.nvidia.com/cuda/cutile-python/generated/cuda.tile.mma.html"
+data-wpel-link="internal" target="_self" rel="follow">cuTile matrix
+multiply-accumulate</a>.</p>
+<h3 class="wp-block-heading" id="6_applying_the_causal_mask">6. Applying
+the causal mask<a href="#6_applying_the_causal_mask"
+class="heading-anchor-link"
+aria-label="Scroll to 6. Applying the causal mask section"><em></em></a></h3>
+<p>For autoregressive models (GPT, Llama, etc.), each token can only
+attend to previous tokens:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+# --- Step B: Apply causal masking ---
+        if CAUSAL or not EVEN_K:
+            offs_n = j * TILE_N + offs_n_tile
+            mask = ct.full((TILE_M, TILE_N), True, dtype=ct.bool_)
+            
+            # Boundary mask (for non-divisible sequence lengths)
+            if not EVEN_K:
+                mask = mask &amp; (offs_n &lt; k_seqlen)
+            
+            # Causal mask: query position &gt;= key position
+            if CAUSAL:
+                mask = mask &amp; (offs_m &gt;= offs_n)
+            
+            # Convert to additive mask: True-&gt;0, False-&gt;-inf
+            mask = ct.where(mask, 0.0, -math.inf)
+            qk += mask</code></pre>
+</div>
+<p>Adding <code>-inf</code> to masked positions ensures they become zero
+after softmax.</p>
+<h3 class="wp-block-heading" id="7_online_softmax_update">7. Online
+softmax update<a href="#7_online_softmax_update"
+class="heading-anchor-link"
+aria-label="Scroll to 7. Online softmax update section"><em></em></a></h3>
+<p>Now we update our running softmax statistics:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+   # --- Step C: Online softmax ---
+        # Find max in current tile
+        qk_max = ct.max(qk, axis=-1, keepdims=True)
+        qk_max_scaled = qk_max * qk_scale
+        
+        # Update running maximum
+        m_ij = max(m_i, qk_max_scaled)
+        
+        # Scale QK scores
+        qk = qk * qk_scale
+        qk = qk - m_ij
+        
+        # Compute attention weights (using exp2 for speed)
+        p = ct.exp2(qk)
+        
+        # Update running sum
+        l_ij = ct.sum(p, axis=-1, keepdims=True)
+        alpha = ct.exp2(m_i - m_ij)  # Correction factor
+        l_i = l_i * alpha
+        l_i = l_i + l_ij
+        
+        # Rescale previous accumulator
+        acc = acc * alpha</code></pre>
+</div>
+<h3 class="wp-block-heading" id="8_accumulating_the_output">8.
+Accumulating the output<a href="#8_accumulating_the_output"
+class="heading-anchor-link"
+aria-label="Scroll to 8. Accumulating the output section"><em></em></a></h3>
+<p>Finally, we load the Value tile and accumulate:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+# --- Step D: Load V and accumulate ---
+        v = ct.load(
+            V,
+            index=(batch_idx, off_kv_h, j, 0),
+            shape=(1, 1, TILE_N, TILE_D),
+            latency=4
+        ).reshape((TILE_N, TILE_D))
+        
+        # Cast attention weights back to input dtype for Tensor Core MMA
+        p = p.astype(Q.dtype)
+        
+        # Accumulate: acc += P @ V
+        acc = ct.mma(p, v, acc)
+        
+        # Update max for next iteration
+        m_i = m_ij</code></pre>
+</div>
+<h3 class="wp-block-heading" id="9_final_normalization_and_store">9.
+Final normalization and store<a href="#9_final_normalization_and_store"
+class="heading-anchor-link"
+aria-label="Scroll to 9. Final normalization and store section"><em></em></a></h3>
+<p>After processing all tiles, we normalize by the total sum and write
+the result:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+   # --- Final: Normalize and store ---
+    acc = ct.truediv(acc, l_i)
+    acc = acc.reshape((1, 1, TILE_M, TILE_D)).astype(Out.dtype)
+    ct.store(Out, index=(batch_idx, head_idx, bid_x, 0), tile=acc)</code></pre>
+</div>
+<h2 class="wp-block-heading"
+id="launching_the_kernel_host-side_code">Launching the kernel: Host-side
+code<a href="#launching_the_kernel_host-side_code"
+class="heading-anchor-link"
+aria-label="Scroll to Launching the kernel: Host-side code section"><em></em></a></h2>
+<p>Now let’s look at the host-side code that launches the kernel:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+import torch
+from math import ceil
+
+def tile_fmha(q, k, v, sm_scale=None, is_causal=True):
+    &quot;&quot;&quot;
+    Launch the Flash Attention kernel.
+    
+    Args:
+        q: Query tensor, shape [batch, heads, seq_len, head_dim]
+        k: Key tensor, shape [batch, kv_heads, seq_len, head_dim]
+        v: Value tensor, shape [batch, kv_heads, seq_len, head_dim]
+        sm_scale: Softmax scale (default: 1/sqrt(head_dim))
+        is_causal: Whether to apply causal masking
+    
+    Returns:
+        Output tensor, same shape as q
+    &quot;&quot;&quot;
+    if sm_scale is None:
+        sm_scale = 1.0 / math.sqrt(q.size(-1))
+    
+    batch_size, num_heads, seq_len, head_dim = q.shape
+    _, num_kv_heads, _, _ = k.shape
+    
+    # Calculate query group size for GQA
+    query_group_size = num_heads // num_kv_heads
+    
+    # Ensure contiguous memory layout
+    q = q.contiguous()
+    k = k.contiguous()
+    v = v.contiguous()
+    
+    # Allocate output
+    o = torch.empty_like(q)
+    
+    # Choose tile sizes (we&#39;ll optimize this later!)
+    TILE_M, TILE_N = 64, 64
+    
+    # Calculate grid dimensions
+    grid_x = ceil(seq_len / TILE_M)  # Number of tiles along sequence
+    grid_y = batch_size * num_heads  # One block per batch-head pair
+    grid = (grid_x, grid_y, 1)
+    
+    # Check if K length is evenly divisible
+    EVEN_K = (k.shape[2] % TILE_N) == 0
+    
+    # Launch kernel
+    ct.launch(
+        torch.cuda.current_stream(),
+        grid,
+        fmha_kernel,
+        (q, k, v, o, sm_scale, 0, head_dim, num_heads,
+         TILE_M, TILE_N, query_group_size, is_causal, EVEN_K)
+    )
+    
+    return o</code></pre>
+</div>
+<p>This baseline with <strong>64×64 tiles</strong> works correctly. But
+can we make it faster? Let’s find out.</p>
+<h2 class="wp-block-heading"
+id="part_2_the_“trap_and_rescue”_optimization_journey">Part 2: The “trap
+and rescue” optimization journey<a
+href="#part_2_the_“trap_and_rescue”_optimization_journey"
+class="heading-anchor-link"
+aria-label="Scroll to Part 2: The “trap and rescue” optimization journey section"><em></em></a></h2>
+<p>We benchmark on the following configuration:</p>
+<ul>
+<li><strong>Hardware</strong>: NVIDIA B200</li>
+<li><strong>Batch</strong>: 4, <strong>Heads</strong>: 32, <strong>Head
+dimension</strong>: 128</li>
+<li><strong>Attention</strong>: Causal, <strong>Dtype</strong>:
+FP16</li>
+<li><strong>Sequence lengths</strong>: 1024, 2048, 4096, 8192,
+16384</li>
+</ul>
+<p>To interpret each step, we use Nsight Compute with a minimal section
+set:</p>
+<ul>
+<li><code>LaunchStats</code></li>
+<li><code>Occupancy</code></li>
+<li><code>SpeedOfLight</code></li>
+<li><code>ComputeWorkloadAnalysis</code></li>
+<li><code>MemoryWorkloadAnalysis</code></li>
+</ul>
+<h3 class="wp-block-heading" id="baseline_performance">Baseline
+performance<a href="#baseline_performance" class="heading-anchor-link"
+aria-label="Scroll to Baseline performance section"><em></em></a></h3>
+<figure class="wp-block-table aligncenter">
+<table>
+<thead>
+<tr>
+<th><strong>SeqLen</strong></th>
+<th><strong>Throughput (TFLOPS)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024</td>
+<td>330</td>
+</tr>
+<tr>
+<td>2,048</td>
+<td>441</td>
+</tr>
+<tr>
+<td>4,096</td>
+<td>511</td>
+</tr>
+<tr>
+<td>8,192</td>
+<td>546</td>
+</tr>
+<tr>
+<td>16,384</td>
+<td>566</td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 1. Baseline performance without any specific
+optimizations</em></figcaption>
+</figure>
+<p>This is our starting point with 64×64 tiles and no optimizations.</p>
+<p><strong>NCU insight (SeqLen=1024, B200)</strong>:</p>
+<ul>
+<li>Registers/thread: 128</li>
+<li>Theoretical/achieved occupancy: 25% / 19.8%</li>
+<li>Compute (SM) throughput: 37.8%</li>
+<li>Memory throughput: 19.7%</li>
+<li>Grid size: 2,048</li>
+</ul>
+<h2 class="wp-block-heading" id="1_the_trap_of_larger_tiles">1. The trap
+of larger tiles<a href="#1_the_trap_of_larger_tiles"
+class="heading-anchor-link"
+aria-label="Scroll to 1. The trap of larger tiles section"><em></em></a></h2>
+<p>A common intuition in GPU programming is <strong>“bigger tiles =
+better performance.”</strong> Larger tiles:</p>
+<ul>
+<li>Amortize memory access overhead.</li>
+<li>Improve L2 cache utilization.</li>
+<li>Reduce kernel launch overhead per element.</li>
+</ul>
+<p>So, let’s increase our tile size from <strong>64×64</strong> to
+<strong>256×128</strong>:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+TILE_M, TILE_N = 256, 128  # Was 64, 64</code></pre>
+</div>
+<p><strong>The expected</strong> is better memory bandwidth utilization
+→ faster performance. However, the <strong>result in TFLOPS</strong>
+are:</p>
+<figure class="wp-block-table">
+<table>
+<thead>
+<tr>
+<th><strong>SeqLen</strong></th>
+<th><strong>Baseline (64×64)</strong></th>
+<th><strong>Larger tiles (256×128)</strong></th>
+<th><strong>Performance Degradation</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024</td>
+<td>330</td>
+<td>187</td>
+<td><strong>-43%</strong></td>
+</tr>
+<tr>
+<td>2,048</td>
+<td>441</td>
+<td>268</td>
+<td><strong>-39%</strong></td>
+</tr>
+<tr>
+<td>4,096</td>
+<td>511</td>
+<td>347</td>
+<td><strong>-32%</strong></td>
+</tr>
+<tr>
+<td>8,192</td>
+<td>546</td>
+<td>415</td>
+<td><strong>-24%</strong></td>
+</tr>
+<tr>
+<td>16,384</td>
+<td>566</td>
+<td>463</td>
+<td><strong>-18%</strong></td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 2. Baseline performance compared to performance
+with larger tile sizes, showing degradation when using larger tile
+sizes</em></figcaption>
+</figure>
+<p>Performance degraded by <strong>18-43%</strong> across all sequence
+lengths. <strong>This is the trap, where</strong> large tiles make
+performance <em>worse</em>.</p>
+<p><strong>Why does this happen?</strong></p>
+<ol>
+<li><strong>Compute bottleneck</strong>: With more elements per tile,
+inefficient operations (separate mul/add, precise math) become the
+bottleneck.</li>
+<li><strong>Instruction overhead</strong>: More work per tile means more
+instructions before the next memory operation.</li>
+</ol>
+<p><strong>Lesson</strong>: Tile size and compute efficiency are
+interdependent. Large tiles only help if the computation is efficient
+enough to keep up.</p>
+<p><strong>NCU insight (SeqLen=1,024, NVIDIA B200)</strong>:</p>
+<ul>
+<li>Registers/thread jump to 168 (+31%), reducing theoretical occupancy
+to 18.75%</li>
+<li>Achieved occupancy drops to 16.5%</li>
+<li>Compute throughput collapses to 17.4% (the trap)</li>
+<li>Memory throughput falls to 7.4%</li>
+<li>Grid size shrinks to 512 (fewer blocks from larger tiles)</li>
+</ul>
+<h2 class="wp-block-heading" id="2_the_rescue_with_fast_math ">2. The
+rescue with fast math <a href="#2_the_rescue_with_fast_math%C2%A0"
+class="heading-anchor-link"
+aria-label="Scroll to 2. The rescue with fast math  section"><em></em></a></h2>
+<p>One of the bottlenecks is special functions: exp2 (exponential) and
+truediv (division). By default, these are IEEE-754 precise—highly
+accurate, but slow.</p>
+<p>For deep learning, we can trade a tiny bit of precision for massive
+speedups:</p>
+<p><strong>Before</strong> (precise operations):</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+p = ct.exp2(qk)
+alpha = ct.exp2(m_i - m_ij)
+acc = ct.truediv(acc, l_i)</code></pre>
+</div>
+<p><strong>After</strong> (fast math):</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+p = ct.exp2(qk, flush_to_zero=True)
+alpha = ct.exp2(m_i - m_ij, flush_to_zero=True)
+acc = ct.truediv(acc, l_i, flush_to_zero=True, rounding_mode=RMd.APPROX)</code></pre>
+</div>
+<p><strong>What these flags do</strong>:</p>
+<ul>
+<li><code>flush_to_zero=True</code>: Denormal numbers (extremely small
+values near zero) become exactly zero. This avoids slow microcode paths
+on the GPU.</li>
+<li><code>rounding_mode=RMd.APPROX</code>: Skips iterative refinement
+after initial hardware approximation.</li>
+</ul>
+<p>With fast math, we’ve “rescued” the large tiles, and the
+<strong>results in TFLOPS are:</strong></p>
+<figure class="wp-block-table aligncenter">
+<table>
+<thead>
+<tr>
+<th><strong>SeqLen</strong></th>
+<th><strong>Larger tiles (trap)</strong></th>
+<th><strong>Fast math (rescue)</strong></th>
+<th><strong>Improvement</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024</td>
+<td>187</td>
+<td>322</td>
+<td><strong>+72%</strong></td>
+</tr>
+<tr>
+<td>2,048</td>
+<td>268</td>
+<td>436</td>
+<td><strong>+63%</strong></td>
+</tr>
+<tr>
+<td>4,096</td>
+<td>347</td>
+<td>524</td>
+<td><strong>+51%</strong></td>
+</tr>
+<tr>
+<td>8,192</td>
+<td>415</td>
+<td>585</td>
+<td><strong>+41%</strong></td>
+</tr>
+<tr>
+<td>16,384</td>
+<td>463</td>
+<td>620</td>
+<td><strong>+34%</strong></td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 3. Performance improvement when using two fast
+math optimizations</em></figcaption>
+</figure>
+<p>We now match or exceed the small-tile baseline, with <strong>10-20%
+gains</strong> for longer sequences.</p>
+<p><strong>NCU insight (SeqLen=1,024, NVIDIA B200)</strong>:</p>
+<ul>
+<li>Registers/thread: 168 (unchanged)</li>
+<li>Theoretical/achieved occupancy: 18.75% / 16.6% (unchanged)</li>
+<li>Compute throughput rebounds to 24.0%</li>
+<li>Memory throughput improves to 12.9%</li>
+</ul>
+<h2 class="wp-block-heading" id="3_k-loop_split">3. K-loop split<a
+href="#3_k-loop_split" class="heading-anchor-link"
+aria-label="Scroll to 3. K-loop split section"><em></em></a></h2>
+<p>For <strong>causal attention</strong>, we apply a triangular mask:
+each query can only attend to keys at earlier positions. In our
+baseline, we check <code>if CAUSAL: mask</code>… on <em>every</em> loop
+iteration.</p>
+<p>But think about it: for a query tile at position 1000, most key tiles
+(0-900) need <strong>no masking at all</strong>. Only tiles near the
+diagonal need the mask. And tiles beyond the query position are
+<strong>completely masked</strong> (we can skip them entirely).</p>
+<div class="wp-block-image">
+<figure class="aligncenter size-full wp-lightbox-container"
+data-wp-context="{&quot;imageId&quot;:&quot;6b027c9f83725&quot;}"
+data-wp-interactive="core/image" data-wp-key="6b027c9f83725">
+<img
+src="assets/64099512bd604df82cc30de8d5906e04fae664650c95ea6b7129a06ddbe4300d.webp"
+class="lazyload wp-image-113192"
+data-wp-class--hide="state.isContentHidden"
+data-wp-class--show="state.isContentVisible"
+data-wp-init="callbacks.setButtonStyles"
+data-wp-on--click="actions.showLightbox"
+data-wp-on--load="callbacks.setButtonStyles"
+data-wp-on--pointerdown="actions.preloadImage"
+data-wp-on--pointerenter="actions.preloadImageWithDelay"
+data-wp-on--pointerleave="actions.cancelPreload"
+data-wp-on-window--resize="callbacks.setButtonStyles"
+data-sizes="(max-width: 474px) 100vw, 474px" width="474" height="285"
+alt="Q by K tiled causal attention matrix showing 8 tiles per side and showing how the lower triangle is computed. The diagonal is partially computed, and the upper triangle is skipped." />
+<figcaption><em>Figure 3. Tiled causal attention matrix (8 tiles per
+side) </em></figcaption>
+</figure>
+</div>
+<p><strong>The optimization</strong> splits the loop into phases:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+# Calculate where masking starts being necessary
+mask_start = (input_pos + bid_x * TILE_M) // TILE_N
+mask_start = min(mask_start, k_seqlen // TILE_N)
+
+# Calculate where to stop (for causal, we exit early)
+if CAUSAL:
+    Tc = ct.cdiv(min(m_end, k_seqlen), TILE_N)
+else:
+    Tc = ct.cdiv(k_seqlen, TILE_N)
+
+for j in range(0, Tc):
+    # Load K and compute QK...
+    
+    # ONLY apply masking when necessary
+    if (CAUSAL or not EVEN_K) and j &gt;= mask_start:
+        offs_n = j * TILE_N + offs_n_tile
+        mask = ct.full((TILE_M, TILE_N), True, dtype=ct.bool_)
+        if not EVEN_K:
+            mask = mask &amp; (offs_n &lt; k_seqlen)
+        if CAUSAL:
+            mask = mask &amp; (offs_m &gt;= offs_n)
+        mask = ct.where(mask, 0.0, -math.inf)
+        qk += mask
+    
+    # Continue with softmax and accumulation...</code></pre>
+</div>
+<p><strong>Why this matters</strong>: For a 16K sequence with 256-token
+tiles:</p>
+<ul>
+<li>~50% of tiles are fully unmasked (no branch, no mask
+computation)</li>
+<li>~1 tile per row is partially masked (full logic)</li>
+<li>The rest are skipped entirely (early exit)</li>
+</ul>
+<p><strong>Result in TFLOPS</strong>:</p>
+<figure class="wp-block-table aligncenter">
+<table>
+<thead>
+<tr>
+<th><strong>SeqLen</strong></th>
+<th><strong>Fast math</strong></th>
+<th><strong>Loop split</strong></th>
+<th><strong>Improvement</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024</td>
+<td>322</td>
+<td>373</td>
+<td><strong>+16%</strong></td>
+</tr>
+<tr>
+<td>2,048</td>
+<td>436</td>
+<td>552</td>
+<td><strong>+27%</strong></td>
+</tr>
+<tr>
+<td>4,096</td>
+<td>524</td>
+<td>684</td>
+<td><strong>+31%</strong></td>
+</tr>
+<tr>
+<td>8,192</td>
+<td>585</td>
+<td>770</td>
+<td><strong>+32%</strong></td>
+</tr>
+<tr>
+<td>16,384</td>
+<td>620</td>
+<td>813</td>
+<td><strong>+31%</strong></td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 4. Performance improvement when using K-loop split
+optimization</em></figcaption>
+</figure>
+<p>This is the <strong>biggest single optimization</strong>—up to 32%
+speedup across all sequence lengths.</p>
+<p><strong>NCU insight (SeqLen=1,024, B200)</strong>:</p>
+<ul>
+<li>Registers/thread: 168 (unchanged)</li>
+<li>Theoretical/achieved occupancy: 18.75% / 16.6% (unchanged)</li>
+<li>Memory throughput improves to 14.5% (less wasted work)</li>
+<li>Compute throughput remains 24.0% (work is more useful, not
+necessarily faster per cycle)</li>
+</ul>
+<h2 class="wp-block-heading" id="4_programid_remapping">4. ProgramId
+remapping<a href="#4_programid_remapping" class="heading-anchor-link"
+aria-label="Scroll to 4. ProgramId remapping section"><em></em></a></h2>
+<p>One subtle optimization is <strong>reversing the block order</strong>
+for causal attention. When we process tiles in reverse (bottom-right to
+top-left), later-launched blocks have less work due to the causal mask.
+This improves load balancing and reduces tail effects.</p>
+<p><strong>Before</strong> (standard order):</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+bid_x = ct.bid(0)  # Process tiles 0, 1, 2, ...</code></pre>
+</div>
+<p><strong>After</strong> (reversed for causal):</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+if CAUSAL:
+    bid_x = NUM_M_BLOCKS - 1 - ct.bid(0)  # Process tiles N, N-1, N-2, ...
+else:
+    bid_x = ct.bid(0)</code></pre>
+</div>
+<p>This small change improves wave scheduling, as blocks complete more
+uniformly across the GPU.</p>
+<p><strong>Result in TFLOPS</strong>:</p>
+<figure class="wp-block-table aligncenter">
+<table>
+<thead>
+<tr>
+<th><strong>SeqLen</strong></th>
+<th><strong>Loop split</strong></th>
+<th><strong>Remapping</strong></th>
+<th><strong>Improvement</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024</td>
+<td>373</td>
+<td>377</td>
+<td><strong>+1%</strong></td>
+</tr>
+<tr>
+<td>2,048</td>
+<td>552</td>
+<td>560</td>
+<td><strong>+1.5%</strong></td>
+</tr>
+<tr>
+<td>4,096</td>
+<td>684</td>
+<td>696</td>
+<td><strong>+1.8%</strong></td>
+</tr>
+<tr>
+<td>8,192</td>
+<td>770</td>
+<td>781</td>
+<td><strong>+1.5%</strong></td>
+</tr>
+<tr>
+<td>16,384</td>
+<td>813</td>
+<td>835</td>
+<td><strong>+2.6%</strong></td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 5. Performance improvement after remapping the
+block order of the tiles </em></figcaption>
+</figure>
+<p>A modest but consistent 1-3% gain, especially noticeable at longer
+sequences where tail effects matter most.</p>
+<h2 class="wp-block-heading" id="5_autotuning">5. Autotuning<a
+href="#5_autotuning" class="heading-anchor-link"
+aria-label="Scroll to 5. Autotuning section"><em></em></a></h2>
+<p>We’ve optimized large tiles, but there’s a catch: <strong>short
+sequences still prefer small tiles</strong>.</p>
+<p>Why? With a 1,024-token sequence and 256-token tiles, we only have 4
+tiles. That’s not enough to fully utilize all SMs on a B200. Smaller
+tiles (64×64) give us 16 tiles, better filling the GPU.</p>
+<p>Rather than manually choosing a threshold, we can let
+<strong>cuTile’s autotuner</strong> benchmark multiple configurations
+and cache the best one for each input shape.</p>
+<p><strong>The autotuner approach</strong>:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+def _fmha_autotune_configs():
+    &quot;&quot;&quot;Search space for autotuning.
+
+    The autotuner will benchmark these configurations and cache the best one
+    per input shape (sequence length, batch size, etc.).
+    &quot;&quot;&quot;
+    gpu_capability = torch.cuda.get_device_capability()
+
+    if gpu_capability in [(12, 0), (12, 1)]:
+        # RTX 50 series (sm120, sm121)
+        yield SimpleNamespace(TILE_M=64, TILE_N=64, num_ctas=1, occupancy=2)
+    else:
+        # B200/GB200 (sm100) - Try multiple tile sizes
+        # Autotuner will discover:
+        # - 64x64 is best for short sequences (1024-2048)
+        # - 128x128 may be best for medium sequences (4096)
+        # - 256x128 is best for long sequences (8192+)
+        yield SimpleNamespace(TILE_M=64, TILE_N=64, num_ctas=1, occupancy=2)
+        yield SimpleNamespace(TILE_M=128, TILE_N=128, num_ctas=1, occupancy=2)
+        yield SimpleNamespace(TILE_M=256, TILE_N=128, num_ctas=1, occupancy=1)</code></pre>
+</div>
+<p><strong>How to launch with autotuning</strong>:</p>
+<p>Instead of calling <code>ct.launch</code> directly, use
+<code>ct_experimental.autotune_launch</code>:</p>
+<div class="wp-block-syntaxhighlighter-code">
+<pre class="brush: python; title: ; notranslate" title=""><code>
+import cuda.tile_experimental as ct_experimental
+
+def autotune_launch_fmha(
+    stream, q, k, v, o, sm_scale, input_pos,
+    hidden_size, num_heads, query_group_size, is_causal
+):
+    batch_size, _, q_len, _ = q.shape
+
+    def _grid_fn(cfg):
+        return (math.ceil(q_len / cfg.TILE_M), batch_size * num_heads, 1)
+
+    def _args_fn(cfg):
+        num_m_blocks = math.ceil(q_len / cfg.TILE_M)
+        even_k = (k.shape[2] % cfg.TILE_N) == 0
+        return (
+            q, k, v, o, sm_scale, input_pos,
+            hidden_size, num_heads, cfg.TILE_M, cfg.TILE_N,
+            query_group_size, is_causal, even_k, num_m_blocks,
+        )
+
+    ct_experimental.autotune_launch(
+        stream,
+        grid_fn=_grid_fn,
+        kernel=fmha_kernel,
+        args_fn=_args_fn,
+        hints_fn=lambda cfg: {&quot;num_ctas&quot;: cfg.num_ctas, &quot;occupancy&quot;: cfg.occupancy},
+        search_space=_fmha_autotune_configs,
+    )</code></pre>
+</div>
+<p>Note: The autotuner API may be subject to change.</p>
+<p>The autotuner works intelligently:</p>
+<ol>
+<li><strong>First call with seq_len=1024</strong>: Benchmarks all 3
+configs, caches best one</li>
+<li><strong>First call with seq_len=2048</strong>: Benchmarks all 3
+configs, caches best one</li>
+<li><strong>Subsequent calls</strong>: Uses cached config (zero
+overhead)</li>
+</ol>
+<p>The cache key includes tensor shapes, so different sequence lengths
+automatically get different optimal configurations.</p>
+<p><strong>Result in TFLOPS</strong>:</p>
+<figure class="wp-block-table aligncenter">
+<table>
+<thead>
+<tr>
+<th><strong>SeqLen</strong></th>
+<th><strong>Baseline</strong></th>
+<th><strong>Remapping</strong></th>
+<th><strong>Autotune</strong></th>
+<th><strong>Speedup vs baseline</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024</td>
+<td>330</td>
+<td>377</td>
+<td><strong>548</strong></td>
+<td><strong>1.66x</strong></td>
+</tr>
+<tr>
+<td>2,048</td>
+<td>441</td>
+<td>560</td>
+<td><strong>708</strong></td>
+<td><strong>1.61x</strong></td>
+</tr>
+<tr>
+<td>4,096</td>
+<td>511</td>
+<td>696</td>
+<td><strong>817</strong></td>
+<td><strong>1.60x</strong></td>
+</tr>
+<tr>
+<td>8,192</td>
+<td>546</td>
+<td>781</td>
+<td><strong>887</strong></td>
+<td><strong>1.62x</strong></td>
+</tr>
+<tr>
+<td>16,384</td>
+<td>566</td>
+<td>835</td>
+<td><strong>918</strong></td>
+<td><strong>1.62x</strong></td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 6. Original baseline compared to step 5 and to
+step 6 autotuned results</em></figcaption>
+</figure>
+<p>The autotuner discovers that 64×64 tiles are best for sequences
+≤2,048, then transitions to larger tiles for longer sequences. This
+delivers <strong>45% additional performance</strong> at short sequences
+compared to fixed large tiles, while maintaining peak performance at
+long sequences.</p>
+<p><strong>What the autotuner chose</strong> (on B200):</p>
+<ul>
+<li>SeqLen 1,024: 64×64 tiles (high parallelism)</li>
+<li>SeqLen 2,048: 64×64 or 128×128 tiles (balanced)</li>
+<li>SeqLen 4,096+: 128×128 or 256×128 tiles (memory efficiency)</li>
+</ul>
+<p>We now achieve optimal performance across all sequence lengths
+without manual tuning.</p>
+<h2 class="wp-block-heading"
+id="summary_the_optimization_stack">Summary: The optimization stack<a
+href="#summary_the_optimization_stack" class="heading-anchor-link"
+aria-label="Scroll to Summary: The optimization stack section"><em></em></a></h2>
+<figure class="wp-block-table aligncenter">
+<table>
+<thead>
+<tr>
+<th><strong>Optimization</strong></th>
+<th><strong>Key insight</strong></th>
+<th><strong>Impact</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline (64×64)</td>
+<td>Correct but unoptimized</td>
+<td>Baseline</td>
+</tr>
+<tr>
+<td>Large tiles (256×128)</td>
+<td><strong>TRAP</strong>: 18-43% slower!</td>
+<td>-18% to -43%</td>
+</tr>
+<tr>
+<td>+ Fast math (FTZ, APPROX)</td>
+<td><strong>RESCUE</strong>: Large tiles now pay off</td>
+<td>+34% to +72% from trap</td>
+</tr>
+<tr>
+<td>+ K-loop split</td>
+<td>Biggest single optimization</td>
+<td>+16% to +32%</td>
+</tr>
+<tr>
+<td>+ ProgramId remapping</td>
+<td>Better load balancing</td>
+<td>+1% to +3%</td>
+</tr>
+<tr>
+<td>+ Autotuning</td>
+<td>Optimal tiles per sequence</td>
+<td>+10% to +45%</td>
+</tr>
+</tbody>
+</table>
+<figcaption><em>Table 7. Step-by-step optimization results with
+performance impacts for each step</em></figcaption>
+</figure>
+<p><strong>Final speedup: 1.60x-1.66x</strong> across all sequence
+lengths.</p>
+<h2 class="wp-block-heading" id="getting_started">Getting started<a
+href="#getting_started" class="heading-anchor-link"
+aria-label="Scroll to Getting started section"><em></em></a></h2>
+<p>Writing high-performance kernels is rarely about finding one “magic”
+setting. As we saw with the “trap and rescue”:</p>
+<ol>
+<li><strong>Optimizations are interdependent</strong>: Large tiles were
+<em>slower</em> until we fixed the math. You can’t evaluate tile size in
+isolation.</li>
+<li><strong>Math matters</strong>: Flags like <code>flush_to_zero</code>
+and <code>APPROX</code> are critical for unlocking Tensor Core
+throughput. Precise math is often overkill for deep learning.</li>
+<li><strong>Algorithmic wins compound</strong>: K-loop splitting gave us
+the biggest single improvement (up to 32%) by avoiding unnecessary
+work.</li>
+<li><strong>Autotuning beats manual heuristics</strong>: cuTile’s
+autotuner discovers optimal tile sizes per sequence length (64×64 for
+short sequences, 256×128 for long), delivering 10-45% gains over fixed
+configurations.</li>
+<li><strong>Cumulative effects are multiplicative</strong>: The full
+optimization stack delivers <strong>1.60x-1.66x speedup</strong> across
+all sequence lengths—far more than any single optimization alone.</li>
+</ol>
+<p><a href="https://github.com/NVIDIA/cutile-python"
+data-wpel-link="external" target="_blank"
+rel="follow"><strong>cuTile</strong></a> enables developers to express
+these optimizations—tiling, fast math controls, loop splitting,
+autotune—in clean, readable Python code while generating highly
+optimized PTX for NVIDIA GPUs.</p>
+<p>You can find the completely optimized kernel in the <a
+href="https://github.com/NVIDIA/TileGym" data-wpel-link="external"
+target="_blank" rel="follow">TileGym repository</a>. Happy hacking.</p>
+</div>
+</body>
+</html>

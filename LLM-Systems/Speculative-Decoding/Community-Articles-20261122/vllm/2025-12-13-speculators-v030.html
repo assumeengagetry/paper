@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Diving into speculative decoding training support for vLLM with Speculators v0.3.0</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Diving into speculative decoding training support for
+vLLM with Speculators v0.3.0</h1>
+</header>
+<section
+id="diving-into-speculative-decoding-training-support-for-vllm-with-speculators-v0.3.0"
+class="header">
+<h1>Diving into speculative decoding training support for vLLM with
+Speculators v0.3.0</h1>
+<p>来源：<a
+href="https://vllm.ai/blog/2025-12-13-speculators-v030">https://vllm.ai/blog/2025-12-13-speculators-v030</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="max-w-3xl">
+<section
+id="diving-into-speculative-decoding-training-support-for-vllm-with-speculators-v0.3.0-1"
+class="text-3xl md:text-4xl font-bold leading-tight mb-4 header mb-8">
+<h1 class="text-3xl md:text-4xl font-bold leading-tight mb-4">Diving
+into speculative decoding training support for vLLM with Speculators
+v0.3.0</h1>
+<div
+class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+<time datetime="2025-12-13">December 13, 2025</time><span>11 min
+read</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+<span class="text-foreground">Fynn Schmitt-Ulms, Helen Zhao, Rahul Tuli
+and Dipika Sikka (Red Hat AI Model Optimization Team)</span>
+</div>
+<div class="flex flex-wrap gap-2 mt-4">
+<a href="https://vllm.ai/blog/tags/speculative-decoding"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#speculative-decoding</a><a
+href="https://vllm.ai/blog/tags/ecosystem"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#ecosystem</a>
+</div>
+</section>
+<div class="lg:hidden">
+<div class="lg:hidden rounded-xl border bg-muted/30 p-4 my-6">
+
+</div>
+</div>
+<div>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="key-highlights">Key Highlights</h2>
+<ul>
+<li>Speculative decoding serves as an optimization to improve inference
+performance; however, training a unique draft model for each LLM can be
+difficult and time-consuming, while production-ready training utilities
+for generating models for vLLM are scarce</li>
+<li><a
+href="https://github.com/vllm-project/speculators/releases/tag/v0.3.0"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Speculators v0.3.0</a> provides end-to-end
+training support for Eagle3 draft models that can seamlessly run with
+vLLM</li>
+<li>Support for training includes offline data generation using vLLM as
+well as training capabilities for single- and multi-layer draft models,
+for both MoE and non-MoE verifiers</li>
+</ul>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="inference-at-scale">Inference at scale</h2>
+<p>Over the past decade, LLMs have expanded rapidly in both scale and
+capability, bringing with it increasing demands on inference
+performance. As LLMs generate tokens sequentially—with each token
+requiring a full forward pass through billions of parameters—the cost of
+generation scales quickly. As model sizes continue to rise, this
+sequential computation becomes a significant bottleneck, making today’s
+LLMs incredibly capable yet often slow.</p>
+<p>One promising optimization to alleviate this challenge is speculative
+decoding, which accelerates generation by allowing smaller draft models
+to propose tokens that the larger model can quickly verify.</p>
+<p>This blog will explore speculative decoding as an optimization
+technique, introduce the <a
+href="https://github.com/vllm-project/speculators"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Speculators</a> library, and dive into it and
+its recent <a
+href="https://github.com/vllm-project/speculators/releases/tag/v0.3.0"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">v0.3.0 release</a>. Speculators provides
+researchers, engineers, and ML practitioners the tools to generate
+speculative decoding models end-to-end with seamless vLLM
+integration.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="what-is-speculative-decoding">What is speculative decoding?</h2>
+<p>Speculative decoding allows LLMs to generate multiple tokens in a
+single forward pass. It works by utilizing a small “draft” model in
+conjunction with the full sized “verifier” model (i.e, the original LLM
+that you are trying to serve). The draft model which is cheap and fast
+to run (often just a single transformer block) does the heavy lifting
+and auto-regressively predicts several tokens. The verifier model
+processes these tokens in parallel. For each token, the verifier
+determines if it agrees with the draft’s prediction or not. If the
+verifier rejects a token, the rest of the sequence is discarded,
+otherwise the tokens are included in the verifier model’s response.</p>
+<p>The advantages of this approach are:</p>
+<ol>
+<li>The final response comes from the same distribution as using the
+verifier model alone, which ensures there is no degradation in model
+performance using speculative decoding.</li>
+<li>The verifier model is able to generate multiple tokens in
+parallel.</li>
+<li>Because the draft model is small, it usually produces minimal
+overhead to run</li>
+</ol>
+<p>Altogether this can reduce model latency by 1.5-3x resulting in
+significantly faster generation.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="using-speculative-decoding-models-in-vllm">Using speculative
+decoding models in vLLM</h2>
+<p>vLLM and Speculators make running speculative decoding models as easy
+as serving any other model with vllm serve. In particular, speculative
+decoding performs best in low-throughput scenarios, where GPUs are not
+fully saturated and can take advantage of the verifier model’s parallel
+token generation. It is also important for the draft model to align
+closely with the verifier model, which is why we train draft models
+specific to each verifier. However, having to train an LLM-specific
+draft model can be difficult and time consuming. Fortunately, the
+Speculators library simplifies this training process and enables users
+to produce draft models with seamless integration into vLLM.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="creating-new-draft-models">Creating new draft models</h2>
+<p>The current SOTA for speculative decoding algorithms is Eagle3 <a
+href="https://arxiv.org/abs/2503.01840"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">(Zhang et al., 2025)</a>.</p>
+<p>Eagle3 draft models take the hidden states from three layers of the
+verifier model as input, capturing the verifier’s latent features.
+Combined with the token ids, these hidden states are passed through the
+smaller draft model, which auto-regressively generates draft tokens.</p>
+<p>This means that training an Eagle3 draft model requires a dataset of
+sample sequences with the following components:</p>
+<ol>
+<li>Verifier model hidden states (from three intermediate layers)</li>
+<li>Token ids</li>
+<li>Loss mask (used to train only on model responses, ignoring user
+prompts)</li>
+<li>Verifier model output probabilities (the training target for the
+draft model)</li>
+</ol>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="data-generation">Data Generation</h3>
+<p>Extracting these values directly from vLLM is non-trivial.
+Fortunately, Speculators v0.3.0 supports offline training data
+generation through a hidden states generator, which produces hidden
+state tensors from standard LLM text datasets. These hidden state
+tensors are then saved to disk for later use in the training
+process.</p>
+<p>There are three main parts of data generation: preprocessing, hidden
+states generation and saving.</p>
+<figure class="my-6">
+<img
+src="assets/c12fdb1368f35c3594a00aeb39070c84b1d6e839830f50a0338c359fa26b22d7.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="data_generation_overview" />
+<figcaption aria-hidden="true">data_generation_overview</figcaption>
+</figure>
+<p>Preprocessing takes in a raw dataset,</p>
+<ol>
+<li>Reformats and normalizes conversation turns</li>
+<li>Applies the model’s chat template</li>
+<li>Tokenizes the conversation</li>
+<li>Calculates loss masks based on assistant response spans</li>
+<li>Saves it to disk along with the token IDs</li>
+<li>Collects statistics on token frequencies, which are saved to disk
+for later use</li>
+</ol>
+<p>The loss masks ensure training focuses only on machine generated
+tokens. For reasoning models which typically only insert thinking tokens
+in the last response, Speculators provides an extra flag to randomly
+drop turns of the conversation to ensure the model trains on a variety
+of conversation lengths.</p>
+<p>The hidden states generator takes advantage of the vLLM plug-in
+system through a custom worker extension. It patches the model’s forward
+pass to intercept and capture intermediate hidden states during the
+prefill phase. The generator uses vLLM’s multiprocess executor for
+efficient batch inference and supports tensor parallelism for larger
+models. This process is illustrated in the diagram below.</p>
+<figure class="my-6">
+<img
+src="assets/696315a0d1686a489e4d6a48150508749a8e3936e7f61166dd9c5eab6f0751ea.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="hidden_state_generator" />
+<figcaption aria-hidden="true">hidden_state_generator</figcaption>
+</figure>
+<p>During the saving phase, each processed sample is saved as an
+individual .pt file on disk, containing:</p>
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">input_ids</code>:
+tokenized input sequences</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">hidden_states</code>:
+list of tensors on per captured layer</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">loss_mask</code>:
+binary mask indicating trainable tokens</li>
+</ul>
+<p>The generator uses asynchronous I/O with ThreadPoolExecutor to
+parallelize disk write while hidden states generation continues,
+maximizing throughput.</p>
+<p>Along with the data files, two additional files are saved to
+disk:</p>
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">data_config.json</code>,
+which contains metadata about the data generation</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">token_freq.pt</code>,
+which contains information about token frequencies</li>
+</ul>
+<p>The frequency data stored in token_freq.pt is used to build
+additional target-to-draft (t2d) and draft-to-target (d2t) files. These
+files act as mappings between the verifier’s full vocabulary and the
+smaller vocabulary of the draft model. This reduced “draft” vocabulary
+improves the efficiency of the draft model by including only the most
+frequently occurring tokens.</p>
+<p>The following scripts can be used to enable offline data
+generation:</p>
+<ul>
+<li><a
+href="https://github.com/vllm-project/speculators/blob/main/scripts/data_generation_offline.py"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer"><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">data_generation_offline.py</code></a>:
+preprocesses data, saves token-frequency distribution, and generates
+hidden states</li>
+<li><a
+href="https://github.com/vllm-project/speculators/blob/main/scripts/build_vocab_mapping.py"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer"><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">build_vocab_mapping.py</code></a>:
+builds t2d and d2t tensors</li>
+</ul>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="training">Training</h3>
+<p>Speculators v0.3.0 supports training Eagle3 draft models. Training
+takes as input the generated samples and vocabulary mapping files from
+the previous steps, along with model configuration information and
+initializes a new Eagle3DraftModel instance. This model is then trained
+using a technique introduced by the Eagle3 authors called
+“train-time-testing”. Train-time-testing simulates the multi-step draft
+sampling process during training to ensure the model learns to predict
+not just the first token, but also subsequent ones.</p>
+<figure class="my-6">
+<img
+src="assets/69c394da08377f676ad9d02fe7265900956e9931101c9f9a7be95b1a1cac5e27.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="flex_attention" />
+<figcaption aria-hidden="true">flex_attention</figcaption>
+</figure>
+<p>Diagram from Eagle3 <a href="https://arxiv.org/abs/2503.01840"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">(Zhang et al., 2025)</a> paper.</p>
+<p>The diagram above shows the train-time-testing process, and the
+attention mask at each step. For every prefix, the draft model generates
+a next token (blue). Then for every prefix plus first generation step,
+the model generates a second token (yellow), and so on.</p>
+<p>Train-time-testing is challenging to implement because the attention
+mask is sparse which typical attention implementations struggle to
+handle in a compute and memory efficient way. That is why Speculators
+uses FlexAttention <a href="../../../../ML-Systems-and-Hardware/GPU-Programming/Dong%20%E7%AD%89%20-%202024%20-%20Flex%20Attention%20A%20Programming%20Model%20for%20Generating%20Optimized%20Attention%20Kernels.pdf"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">(He et al., 2024)</a> for attention
+computations. FlexAttention splits the attention mask into blocks and
+only computes attention in non-empty regions. Combined with <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">torch.compile</code>,
+this speeds up computation while drastically reducing the activation
+VRAM required for the backward pass.</p>
+<p>Another important feature for any training implementation is
+batching. Batching samples for LLM training is made more complicated by
+the fact that sequences are typically different lengths. There are two
+approaches to this problem, the first is to make the sequences the same
+length using some combination of truncation and padding. This works well
+for datasets with uniform lengths, but can lead to wasted compute on
+datasets that need a lot of padding. Instead, Speculators v0.3.0 uses
+the second approach, which is to concatenate sequences along the
+“sequence” dimension, and then configure the attention masks to treat
+them as separate sequences. This integrates well with the FlexAttention
+implementation, and results in better performance, particularly when
+combined with an intelligent batch sampling algorithm which efficiently
+packs samples into batches that are close to the max sequence
+length.</p>
+<p>Together these components make Speculators Eagle3 model training fast
+and memory efficient, all of which can be applied using a single <a
+href="https://github.com/vllm-project/speculators/blob/main/scripts/train.py"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">train.py</a> script.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="running-speculators-models-in-vllm">Running Speculators models in
+vLLM</h2>
+<p>Once training is complete, the library generates a complete model
+artifact with an extended config.json file that includes a <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculators_config</code>.
+Models can then be run seamlessly in vLLM using a simple vllm serve
+command:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>vllm serve RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3</code></pre>
+</div>
+</figure>
+<p>When running this command, vLLM will read the speculative decoding
+settings (e.g., the name of the verifier model) stored in the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculators_config</code>.
+This information is used to load both the draft model and the verifier
+model into the same server and set up speculative decoding. The <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculators_config</code>
+provides a standardized configuration format, enabling a self-contained
+model that knows how it should run while making deployment of
+speculative decoding models as simple as running any other LLM. For
+further details on the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculators_config</code>,
+<a href="#speculators_config" class="text-vllm-blue hover:underline">see
+an example below</a>.</p>
+<p>While the simplified one-command deployment is perfect for getting
+started, vLLM also provides a long-form syntax when you need more
+control. This is useful for:</p>
+<ul>
+<li>Using a different verifier model than the one in the config</li>
+<li>Tuning for speculative decoding parameters, such as the number of
+speculative tokens</li>
+</ul>
+<p>The long-form command serves the base (verifier) model and specifies
+the speculator via the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--speculative-config</code>
+flag. This flexibility is crucial for experimentation and optimization.
+For example, you might want to swap in a quantized version of the
+verifier to further improve performance:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>vllm serve RedHatAI/Qwen3-8B-FP8-dynamic \
+  --tensor-parallel-size 1 \
+  --gpu-memory-utilization 0.9 \
+  --speculative-config &#39;{&quot;model&quot;: &quot;RedHatAI/Qwen3-8B-speculator.eagle3&quot;, &quot;num_speculative_tokens&quot;: 5, &quot;method&quot;: &quot;eagle3&quot;}&#39;</code></pre>
+</div>
+</figure>
+<p>In this example, we're using the FP8-quantized Qwen3-8B as the
+verifier (instead of the default BF16 version referenced in the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculators_config</code>)
+and increasing the number of speculative tokens from the default 3 to 5
+for potentially higher throughput.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="vllm-integration-production-ready-speculative-decoding">vLLM
+Integration: Production-Ready Speculative Decoding</h2>
+<p>The tight integration between Speculators and vLLM transforms
+speculative decoding from a research technique into a production-ready
+feature. vLLM's support for Eagle3 enables seamless deployment across
+diverse model architectures and configurations:</p>
+<p><strong>vLLM serving and Speculators training</strong>:</p>
+<ul>
+<li>Llama (3.1, 3.2, 3.3): 8B to 70B parameters</li>
+<li>Qwen3: 8B, 14B, 32B parameters</li>
+<li>Qwen3 MoE: 235B-A22B parameters (mixture-of-experts)</li>
+<li>GPT-OSS: 20B, 120B parameters</li>
+</ul>
+<p><strong>vLLM serving only</strong>:</p>
+<ul>
+<li>Multimodal: Llama 4 vision-language models</li>
+</ul>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="whats-next">What’s Next?</h2>
+<p>Speculators will be focusing on the following next set of
+features:</p>
+<ul>
+<li>Online data generation (generate hidden states while training, with
+no intermediate caching to disk)</li>
+<li>Data generation support for Vision Language models</li>
+<li>Regenerating verifier responses (replace the dataset “assistant”
+response with one generated by the verifier for better aligned training
+data)</li>
+</ul>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="get-involved">Get involved!</h2>
+<p>Interested in learning more about speculative decoding? Check out the
+<a href="https://github.com/vllm-project/speculators"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Speculators repository</a> and help grow the
+repository by checking out <a
+href="https://github.com/vllm-project/speculators/issues"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Good First Issues</a>!</p>
+<p>For additional resources, documentation, and slack channels, check
+out:</p>
+<ul>
+<li><strong>Speculators Documentation</strong>: <a
+href="https://docs.vllm.ai/projects/speculators/en/latest/"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">https://docs.vllm.ai/projects/speculators/en/latest/</a></li>
+<li><strong>vLLM slack channels</strong>: <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">#speculators</code>,
+<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">#feat-spec-decode</code></li>
+<li><strong>Data Generation and Training Scripts</strong>: <a
+href="https://github.com/vllm-project/speculators/blob/main/scripts/README.md"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">https://github.com/vllm-project/speculators/blob/main/scripts/README.md</a></li>
+<li><strong>End-to-end examples</strong>: <a
+href="https://github.com/vllm-project/Speculators/tree/main/examples/data_generation_and_training"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">https://github.com/vllm-project/Speculators/tree/main/examples/data_generation_and_training</a></li>
+<li>For a list of already trained Speculators models, check out the <a
+href="https://huggingface.co/collections/RedHatAI/speculator-models"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Red Hat AI Hub</a></li>
+</ul>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="appendix">Appendix</h2>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="eagle3-algorithm">Eagle3 Algorithm</h3>
+<figure class="my-6">
+<img
+src="assets/2418d5f759fd1d29012c84582d18f1b967739c44eef35c44de41e6619c7a8993.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Eagle3 Algorithm" />
+<figcaption aria-hidden="true">Eagle3 Algorithm</figcaption>
+</figure>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="speculators_config"><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculators_config</code>:</h3>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="yaml"
+data-theme="github-dark-default github-light-default"><code>{
+  &quot;architectures&quot;: [&quot;Eagle3Speculator&quot;],
+  &quot;auto_map&quot;: {&quot;&quot;: &quot;eagle3.Eagle3SpeculatorConfig&quot;},
+  &quot;Speculators_model_type&quot;: &quot;eagle3&quot;,
+  &quot;Speculators_version&quot;: &quot;0.3.0&quot;,
+ 
+  &quot;draft_vocab_size&quot;: 10000,
+  &quot;transformer_layer_config&quot;: {
+    &quot;num_hidden_layers&quot;: 1,
+    &quot;hidden_size&quot;: 4096,
+    ...
+  },
+ 
+  &quot;Speculators_config&quot;: {
+    &quot;algorithm&quot;: &quot;eagle3&quot;,
+    &quot;proposal_methods&quot;: [{
+      &quot;proposal_type&quot;: &quot;greedy&quot;,
+      &quot;speculative_tokens&quot;: 3,
+      ...
+    }],
+    &quot;verifier&quot;: {
+      &quot;name_or_path&quot;: &quot;meta-llama/Llama-3.1-8B-Instruct&quot;,
+      &quot;architectures&quot;: [&quot;LlamaForCausalLM&quot;]
+    }
+  }
+}</code></pre>
+</div>
+</figure>
+<p>This config defines the speculator as a complete model with:</p>
+<ul>
+<li>Model Identity:
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">architectures</code>:
+The speculator's model class (e.g., Eagle3Speculator)</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">auto_map</code>:
+Custom model loading for Hugging Face compatibility</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Speculators_model_type</code>:
+The specific speculator implementation</li>
+</ul></li>
+<li>Draft Model Architecture:
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">transformer_layer_config</code>:
+Full specification of the draft model's transformer layers</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">draft_vocab_size</code>:
+Reduced vocabulary size for efficient draft generation (typically
+10k-32k tokens)</li>
+<li>Model-specific configuration options</li>
+</ul></li>
+<li>Speculative Decoding Configuration:
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">algorithm</code>:
+The spec decoding algorithm (EAGLE3)</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">proposal_methods</code>:
+Token generation strategies with parameters
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">speculative_tokens</code>:
+Number of draft tokens to generate per step</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">verifier_accept_k</code>:
+How many top-k predictions to consider during verification</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">accept_tolerance</code>:
+Probability threshold for accepting draft tokens</li>
+</ul></li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">verifier</code>:
+Which verifier model to use and validate against
+<ul>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">name_or_path</code>:
+HuggingFace model ID or local path</li>
+<li><code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">architectures</code>:
+Expected verifier architecture for compatibility checks</li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</article>
+</body>
+</html>

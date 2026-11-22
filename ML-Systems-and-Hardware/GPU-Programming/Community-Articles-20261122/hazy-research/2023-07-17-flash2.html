@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FlashAttention-2: Faster Attention with Better
+Parallelism and Work Partitioning</h1>
+</header>
+<div class="container__Wrapper-sc-1hfr0wd-0 bMusaN">
+<div>
+<p>Jul 17, 2023 · 8 min read</p>
+<h1 class="Post_title__H6bPg"
+id="flashattention-2-faster-attention-with-better-parallelism-and-work-partitioning-1">FlashAttention-2:
+Faster Attention with Better Parallelism and Work Partitioning</h1>
+<p><a href="https://tridao.me/">Tri Dao</a></p>
+</div>
+<div class="Post_content__JuwtT">
+<figure>
+<img
+src="assets/61969fc112a38be106744ce2c416a2bca8026a173ef3cbb883826c998732958c.png" />
+</figure>
+<p>Just within the last year, there have been several language models
+with much longer context than before: GPT-4 with context length 32k,
+MosaicML's MPT with context length 65k, and Anthropic's Claude with
+context length 100k. Emerging use cases such as long document querying
+and story writing have demonstrated a need for models with such long
+context. Scaling up the context length of Transformers is a challenge,
+since the attention layer at their heart has runtime and memory
+requirements that are quadratic in the input sequence length.</p>
+<p>A year ago, we released <a
+href="https://github.com/HazyResearch/flash-attention">FlashAttention</a>,
+a new algorithm to speed up attention and reduce its memory
+footprint—without any approximation. We’ve been very happy to see
+FlashAttention being adopted by many organizations and research labs to
+speed up their training &amp; inference (see this <a
+href="https://github.com/HazyResearch/flash-attention/blob/main/usage.md">page</a>
+for a partial list). Even though FlashAttention was already 2-4x faster
+than optimized baselines at the time of its release, it still has quite
+a bit of headroom. FlashAttention is still not nearly as fast as
+optimized matrix-multiply (GEMM) operations, reaching only 25-40% of the
+theoretical maximum FLOPs/s (e.g. up to 124 TFLOPs/s on A100 GPU).</p>
+<p>In the past few months, we’ve been working on the next version,
+FlashAttention-2, that makes FlashAttention even better. Rewritten
+completely from scratch to use the primitives from Nvidia’s <a
+href="https://github.com/NVIDIA/cutlass">CUTLASS</a> 3.x and its core
+library <a
+href="https://github.com/NVIDIA/cutlass/blob/main/media/docs/cute/00_quickstart.md">CuTe</a>,
+FlashAttention-2 is about 2x faster than its previous version, reaching
+up to 230 TFLOPs/s on A100 GPUs (FP16/BF16). When used end-to-end to
+train GPT-style language models, we reach a training speed of up to 225
+TFLOPs/s (72% model FLOP utilization). In this blogpost, we describe
+some of the bottlenecks of FlashAttention, and how we use better
+parallelism and work partitioning to get significant speedup.</p>
+<p>FlashAttention-2 is available at: <a
+href="https://github.com/Dao-AILab/flash-attention">https://github.com/Dao-AILab/flash-attention</a></p>
+<h1 id="flashattention-recap">FlashAttention Recap</h1>
+<p>FlashAttention is an algorithm that reorders the attention
+computation and leverages classical techniques (tiling, recomputation)
+to significantly speed it up and reduce memory usage from quadratic to
+linear in sequence length. Tiling means that we load blocks of inputs
+from HBM (GPU memory) to SRAM (fast cache), perform attention with
+respect to that block, and update the output in HBM. By not writing the
+large intermediate attention matrices to HBM, we reduce the amount of
+memory reads/writes, which brings 2-4x wallclock time speedup.</p>
+<p>Here we show a diagram of FlashAttention forward pass: with tiling
+and softmax rescaling, we operate by blocks and avoid having to
+read/write from HBM, while obtaining the correct output with no
+approximation.</p>
+<figure>
+<img
+src="assets/eae7804376324cb0b7ac4ccf7f1331389aeaf96173f979479a598d2e38c8bfcb.png" />
+</figure>
+<p>However, FlashAttention still has some inefficiency due to suboptimal
+work partitioning between different thread blocks and warps on the GPU,
+causing either low-occupancy or unnecessary shared memory
+reads/writes.</p>
+<h1
+id="flashattention-2-better-algorithm-parallelism-and-work-partitioning">FlashAttention-2:
+Better Algorithm, Parallelism, and Work Partitioning</h1>
+<h2 id="fewer-non-matmul-flops">Fewer non-matmul FLOPs</h2>
+<p>We tweak the algorithm from FlashAttention to reduce the number of
+non-matmul FLOPs. This is important because modern GPUs have specialized
+compute units (e.g., Tensor Cores on Nvidia GPUs** that makes matmul
+much faster. As an example, the A100 GPU has a max theoretical
+throughput of 312 TFLOPs/s of FP16/BF16 matmul, but only 19.5 TFLOPs/s
+of non-matmul FP32. Another way to think about this is that each
+non-matmul FLOP is 16x more expensive than a matmul FLOP. To maintain
+high throughput, we want to spend as much time on matmul FLOPs as
+possible.</p>
+<p>We rewrite the online softmax trick used in FlashAttention to reduce
+the number of rescaling ops, as well as bound-checking and causal
+masking operations, without changing the output.</p>
+<h2 id="better-parallelism">Better Parallelism</h2>
+<p>The first version of FlashAttention parallelizes over batch size and
+number of heads. We use 1 thread block to process one attention head,
+and there are overall (batch_size * number of heads) thread blocks. Each
+thread block is scheduled to run on a streaming multiprocessor (SM), and
+there are 108 of these SMs on an A100 GPU for example. This scheduling
+is efficient when this number is large (say &gt;= 80), since we can
+effectively use almost all of the compute resources on the GPU.</p>
+<p>In the case of long sequences (which usually means small batch sizes
+or small number of heads), to make better use of the multiprocessors on
+the GPU, we now additionally parallelize over the sequence length
+dimension. This results in significant speedup for this regime.</p>
+<h2 id="better-work-partitioning">Better Work Partitioning</h2>
+<p>Even within each thread block, we also have to decide how to
+partition the work between different warps (a group of 32 threads
+working together). We typically use 4 or 8 warps per thread block, and
+the partitioning scheme is described below. We improve this partitioning
+in FlashAttention-2 to reduce the amount of synchronization and
+communication between different warps, resulting in less shared memory
+reads/writes.</p>
+<figure>
+<img
+src="assets/a6259b0ba75badcc213a59852dfa3684a7edc19d5c73de10c7231a690783dd5a.png" />
+</figure>
+<p>For each block, FlashAttention splits K and V across 4 warps while
+keeping Q accessible by all warps. This is referred to as the “sliced-K”
+scheme. However, this is inefficient since all warps need to write their
+intermediate results out to shared memory, synchronize, then add up the
+intermediate results. These shared memory reads/writes slow down the
+forward pass in FlashAttention.</p>
+<p>In FlashAttention-2, we instead split Q across 4 warps while keeping
+K and V accessible by all warps. After each warp performs matrix
+multiply to get a slice of Q K^T, they just need to multiply with the
+shared slice of V to get their corresponding slice of the output. There
+is no need for communication between warps. The reduction in shared
+memory reads/writes yields speedup</p>
+<h1
+id="new-features-head-dimensions-up-to-256-multi-query-attention">New
+features: head dimensions up to 256, multi-query attention</h1>
+<p>FlashAttention only supported head dimensions up to 128, which works
+for most models but a few were left out. FlashAttention-2 now supports
+head dimension up to 256, which means that models such as GPT-J, CodeGen
+and CodeGen2, and StableDiffusion 1.x can use FlashAttention-2 to get
+speedup and memory saving.</p>
+<p>This new version also supports <a
+href="https://arxiv.org/abs/1911.02150">multi-query attention</a> (MQA)
+as well as <a href="https://arxiv.org/abs/2305.13245">grouped-query
+attention</a> (GQA). These are variants of attention where multiple
+heads of query attend to the same head of key and value, in order to
+reduce the size of KV cache during inference and can lead to
+significantly higher inference throughput.</p>
+<h1 id="attention-benchmark">Attention Benchmark</h1>
+<p>We measure the runtime of different attention methods on an A100 80GB
+SXM4 GPU for different settings (without / with causal mask, head
+dimension 64 or 128). We see that FlashAttention-2 is around 2x faster
+than FlashAttention (as well as its other implementations in the
+xformers library and in Triton, using the newest dev version as of July
+14, 2023). Compared to a standard attention implementation in PyTorch,
+FlashAttention-2 can be up to 9x faster.</p>
+<p>Here we show attention forward + backward speed on A100 80GB SXM4 GPU
+(BF16).</p>
+<figure>
+<img
+src="assets/c1d31938cd597204eaee34f54b551123dc0f4b4554d46a2bc7907653a876232d.png" />
+</figure>
+<p>Just running the same implementation on H100 SXM5 GPUs (using no
+special instructions to make use of new hardware features such as TMA
+and 4th-gen Tensor Cores), we obtain up to 335 TFLOPs/s.</p>
+<p>Here we show attention forward + backward speed on H100 SXM5 GPU
+(BF16).</p>
+<figure>
+<img
+src="assets/92bec94ee65e454bf55efbfe32dfde0419c40cb7017da1902de760ae1803505e.png" />
+</figure>
+<p>When used to train a GPT-style model end-to-end, FlashAttention-2
+helps achieve up to 225 TFLOPs/s on A100 GPU (72% model FLOPs
+utilization). This is a 1.3x end-to-end speedup over an already very
+optimized model with FlashAttention.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Baseline</th>
+<th>FlashAttention</th>
+<th>FlashAttention-2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT3-1.3B, 2K context</td>
+<td>142 TFLOPs/s</td>
+<td>189 TFLOPs/s</td>
+<td>196 TFLOPs/s</td>
+</tr>
+<tr>
+<td>GPT3-1.3B, 8K context</td>
+<td>72 TFLOPs/s</td>
+<td>170 TFLOPs/s</td>
+<td>220 TFLOPs/s</td>
+</tr>
+<tr>
+<td>GPT3-2.7B, 2K context</td>
+<td>149 TFLOPs/s</td>
+<td>189 TFLOPs/s</td>
+<td>205 TFLOPs/s</td>
+</tr>
+<tr>
+<td>GPT3-2.7B, 8K context</td>
+<td>80 TFLOPs/s</td>
+<td>175 TFLOPs/s</td>
+<td>225 TFLOPs/s</td>
+</tr>
+</tbody>
+</table>
+<p>Baseline: A popular training framework without FlashAttention.</p>
+<h1 id="discussion-and-future-work">Discussion and Future work</h1>
+<p>FlashAttention-2 is 2x faster than FlashAttention, which means that
+we can train models with 16k longer context for the same price as
+previously training a 8k context model. We’re excited about how this can
+be used to understand long books and reports, high resolution images,
+audio and video. FlashAttention-2 will also speed up training,
+finetuning, and inference of existing models.</p>
+<p>In the near future, we plan to collaborate with folks to make
+FlashAttention widely applicable in different kinds of devices (e.g.
+H100 GPUs, AMD GPUs), as well as new data types such as FP8. As an
+immediate next step, we plan to optimize FlashAttention-2 for H100 GPUs
+to use new hardware features (TMA, 4th-gen Tensor Cores, fp8). Combining
+the low-level optimizations in FlashAttention-2 with high-level
+algorithmic changes (e.g. local, dilated, block-sparse attention) could
+allow us to train AI models with much longer context. We’re also excited
+to work with compiler researchers to make these optimization techniques
+easily programmable.</p>
+<h1 id="acknowledgment">Acknowledgment</h1>
+<p>We thank Phil Tillet and Daniel Haziza, who have implemented versions
+of FlashAttention in Triton and the xformers library. FlashAttention-2
+was motivated by exchange of ideas between different ways that attention
+could be implemented. We are grateful to the Nvidia CUTLASS team
+(especially Vijay Thakkar, Cris Cecka, Haicheng Wu, and Andrew Kerr) for
+their CUTLASS library, in particular the CUTLASS 3.x release, which
+provides clean abstractions and powerful building blocks for the
+implementation of FlashAttention-2. We thank Driss Guessous for
+integrating FlashAttention to PyTorch. FlashAttention-2 has benefited
+from helpful discussions with Phil Wang, Markus Rabe, James Bradbury,
+Young-Jun Ko, Julien Launay, Daniel Hesslow, Michaël Benesty, Horace He,
+Ashish Vaswani, and Erich Elsen. Thanks to Stanford CRFM and Stanford
+NLP for the compute support. We thank Dan Fu and Christopher Ré for
+their collaboration, constructive feedback, and constant encouragement
+on this line of work of designing hardware-efficient algorithms. We
+thank Albert Gu and Beidi Chen for their helpful suggestions on early
+drafts of the FlashAttention-2 technical report.</p>
+</div>
+<div class="spacer__Spacer-sc-16n8pus-0 iHVKse">
+
+</div>
+</div>
+</body>
+</html>

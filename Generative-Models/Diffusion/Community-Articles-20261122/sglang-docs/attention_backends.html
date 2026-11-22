@@ -1,0 +1,2636 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Attention Backends</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Attention Backends</h1>
+</header>
+<section id="attention-backends" class="header">
+<h1>Attention Backends</h1>
+<p>来源：<a
+href="https://docs.sglang.io/docs/sglang-diffusion/attention_backends">https://docs.sglang.io/docs/sglang-diffusion/attention_backends</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
+<defs><symbol id="mi-mint-1-CalloutWarning" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 9 6.75 v 1.5 m 0 3 h 0.0075 m -5.2035 3 h 10.392 c 1.155 0 1.8765 -1.2503 1.299 -2.25 L 10.299 3 c -0.5775 -0.9997 -2.0205 -0.9997 -2.598 0 L 2.505 12 c -0.5775 0.9997 0.144 2.25 1.299 2.25 z" fill="none" stroke="currentColor"></path>
+</svg>
+</symbol></defs>
+</svg>
+<div id="content"
+class="mdx-content @container/columns-container relative mt-8 prose prose-gray dark:prose-invert [contain:inline-size] isolate empty:hidden mb-14"
+data-page-title="Attention Backends"
+data-page-href="/docs/sglang-diffusion/attention_backends">
+<span data-as="p">This document describes the attention backends
+available in sglang diffusion (<code>sglang.multimodal_gen</code>) and
+how to select them.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_39crmhkd74t9_" id="overview"><a href="#overview"
+class="anchor-link" aria-label="Navigate to header: Overview"></a><span
+id="_R_39crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Overview</span></h2>
+<span data-as="p">Attention backends are defined by
+<code>AttentionBackendEnum</code>
+(<code>sglang.multimodal_gen.runtime.platforms.interface.AttentionBackendEnum</code>)
+and selected via the CLI flag <code>--attention-backend</code>.</span>
+<span data-as="p">Backend selection is performed by the shared attention
+layers (e.g. <code>LocalAttention</code> / <code>USPAttention</code> /
+<code>UlyssesAttention</code> in
+<code>sglang.multimodal_gen.runtime.layers.attention.layer</code>).
+<code>--attention-backend</code> is strict for the diffusion transformer
+/ DiT. Auxiliary components such as encoders and VAEs use it when
+compatible, then fall back to a component default or a
+platform-compatible backend. Use
+<code>--component-attention-backends</code> when an auxiliary component
+must use a specific backend; incompatible overrides, including an
+override for a component that constructs no SGLang attention layer, fail
+unless a sparse backend is being replaced for cross-attention. A
+component key may carry a <code>.self</code> or <code>.cross</code> role
+suffix to override just one kind of attention; see <a
+href="#per-role-overrides" class="link">Per-role overrides</a>.</span>
+<span data-as="p">When using the diffusers backend,
+<code>--attention-backend</code> is passed through to diffusers’
+<code>set_attention_backend</code> (e.g., <code>flash</code>,
+<code>_flash_3_hub</code>, <code>sage</code>, <code>xformers</code>,
+<code>native</code>).</span>
+<ul>
+<li><strong>CUDA</strong>: prefers FlashAttention (FA3/FA4) when
+supported; otherwise falls back to PyTorch SDPA. On SM100/SM103
+(B200/B300), dense non-causal fp16/bf16 native attention prefers cuDNN
+SDPA and falls back to FA4 if cuDNN has no compatible kernel.</li>
+<li><strong>ROCm</strong>: on Instinct (CDNA, gfx9) GPUs, defaults to
+<code>aiter</code> when <code>--attention-backend</code> is not set; on
+Radeon (RDNA) GPUs, use <code>torch_sdpa</code>.
+<code>aiter_sage</code>, <code>aiter_quant</code> and
+<code>torch_sdpa</code> can be selected explicitly. FlashAttention
+dispatches through FA3, which is CUDA-only, so <code>fa</code> falls
+back to PyTorch SDPA on ROCm.</li>
+<li><strong>Intel XPU</strong>: uses XPU Flash Attention backend
+(fp16/bf16, head sizes 64/96/128/192/256); otherwise falls back to
+PyTorch SDPA.</li>
+<li><strong>MUSA</strong>: uses FlashAttention when available; also
+supports Sage Attention when installed; otherwise falls back to PyTorch
+SDPA.</li>
+<li><strong>MPS</strong>: always uses PyTorch SDPA.</li>
+<li><strong>NPU</strong>: for ring attention uses FA otherwise uses
+PyTorch SDPA.</li>
+<li><strong>CPU</strong>: uses <code>amx_attn</code> when the CPU
+supports AMX, the dtype is bf16/fp16, and the head size is even;
+otherwise PyTorch SDPA.</li>
+</ul>
+<span data-as="p">On Blackwell, <code>dynamic_cudnn_sdpa</code> keeps
+FA4 for attention with one side shorter than 128 tokens and the other at
+least 128 during breakable CUDA graph warmup, capture and replay,
+including the eager breaks of a replay. In eager execution outside a
+graph, <code>lossless</code> and <code>high</code> requests use cuDNN
+for these shapes to avoid FA4 host-dispatch overhead; <code>exact</code>
+keeps the reference FA4 route. Switching backends can change
+floating-point rounding.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_f9crmhkd74t9_" id="backend-options"><a
+href="#backend-options" class="anchor-link"
+aria-label="Navigate to header: Backend options"></a><span
+id="_R_f9crmhkd74t9_" class="cursor-pointer">Backend options</span></h2>
+<span data-as="p">For SGLang-native pipelines, the CLI accepts the
+lowercase names of <code>AttentionBackendEnum</code>. The table below
+lists the backends implemented by the built-in platforms.
+<code>fa3</code>/<code>fa4</code> are accepted as aliases for
+<code>fa</code>.</span>
+<table>
+<thead>
+<tr>
+<th>CLI value</th>
+<th>Enum value</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flashinfer_fa2</code></td>
+<td><code>FLASHINFER_FA2</code></td>
+<td>FlashInfer’s FA2 implementation.</td>
+</tr>
+<tr>
+<td><code>fa</code> / <code>fa3</code> / <code>fa4</code></td>
+<td><code>FA</code></td>
+<td>FlashAttention. <code>fa3/fa4</code> are normalized to
+<code>fa</code> during argument parsing
+(<code>ServerArgs.</code><strong><code>post_init</code></strong>). On
+Ascend NPU, <code>fa</code> selects Ascend FA and supports <a
+href="#ascend-quantized-attention-with-mindie-sd">quantized attention
+through MindIE-SD</a>.</td>
+</tr>
+<tr>
+<td><code>fa2</code></td>
+<td><code>FA2</code></td>
+<td>FlashAttention 2. CUDA-only; requires the <code>flash-attn</code>
+package.</td>
+</tr>
+<tr>
+<td><code>torch_sdpa</code></td>
+<td><code>TORCH_SDPA</code></td>
+<td>PyTorch <code>scaled_dot_product_attention</code>.</td>
+</tr>
+<tr>
+<td><code>torch_cudnn_sdpa</code> / <code>cudnn_sdpa</code></td>
+<td><code>TORCH_CUDNN_SDPA</code></td>
+<td>PyTorch SDPA forced to the cuDNN kernel. CUDA-only.
+<code>cudnn_sdpa</code> is normalized to
+<code>torch_cudnn_sdpa</code>.</td>
+</tr>
+<tr>
+<td><code>dynamic_cudnn_sdpa</code></td>
+<td><code>DYNAMIC_CUDNN_SDPA</code></td>
+<td>cuDNN SDPA with a FlashAttention fallback for causal or unsupported
+shapes and cuDNN runtime errors. CUDA-only. Selected automatically for
+dense non-causal fp16/bf16 attention on SM100 / SM103 (B200 / B300) when
+no backend is set and FlashAttention is usable.</td>
+</tr>
+<tr>
+<td><code>sliding_tile_attn</code></td>
+<td><code>SLIDING_TILE_ATTN</code></td>
+<td>Sliding Tile Attention (STA). Requires <code>st_attn</code>.
+Configure via <code>—attention-backend-config</code>.</td>
+</tr>
+<tr>
+<td><code>sage_attn</code></td>
+<td><code>SAGE_ATTN</code></td>
+<td>Requires <code>sageattention</code>. On Hopper (SM90), PyPI
+<code>sageattention==2.2.0</code> is unsupported because it lacks the
+upstream SM90 binding fix. Install
+<code>pip install —force-reinstall git+</code><a
+href="https://github.com/thu-ml/SageAttention.git@d9704247a5139ab4c03bf7fc6b35cc0e2cbb5ea4"
+class="link" target="_blank"
+rel="noreferrer"><code>https://github.com/thu-ml/SageAttention.git@d9704247a5139ab4c03bf7fc6b35cc0e2cbb5ea4</code></a><code> —no-build-isolation</code>.
+Upstream SageAttention CUDA extensions target SM80/SM86/SM89/SM90/SM120;
+see upstream <code>setup.py</code>.</td>
+</tr>
+<tr>
+<td><code>sage_attn_3</code></td>
+<td><code>SAGE_ATTN_3</code></td>
+<td>Requires SageAttention3 installed per upstream instructions.</td>
+</tr>
+<tr>
+<td><code>sparge_attn</code></td>
+<td><code>SPARGE_ATTN</code></td>
+<td>Training-free sparse SageAttention2. CUDA SM80/86/87/89/90,
+FP16/BF16, head dim 64/128, and square self-attention with sequence
+length at least 128. Other attention shapes use dense SDPA. Install
+<code>pip install git+</code><a
+href="https://github.com/thu-ml/SpargeAttn.git" class="link"
+target="_blank"
+rel="noreferrer"><code>https://github.com/thu-ml/SpargeAttn.git</code></a><code> —no-build-isolation</code>;
+configure retained block ratio with <code>topk</code>.</td>
+</tr>
+<tr>
+<td><code>sol_attn</code></td>
+<td><code>SOL_ATTN</code></td>
+<td>Requires the upstream <code>sol-attn</code> package. Install with
+<code>pip install git+</code><a
+href="https://github.com/NVlabs/Sana.git@sol-engine#subdirectory=techniques/sparse_backends"
+class="link" target="_blank"
+rel="noreferrer"><code>https://github.com/NVlabs/Sana.git@sol-engine#subdirectory=techniques/sparse_backends</code></a>.
+BF16, head dim 128. Configure via
+<code>—attention-backend-config</code>.</td>
+</tr>
+<tr>
+<td><code>video_sparse_attn</code></td>
+<td><code>VIDEO_SPARSE_ATTN</code></td>
+<td>Requires <code>vsa</code>. Configure <code>sparsity</code> via
+<code>—attention-backend-config</code>.</td>
+</tr>
+<tr>
+<td><code>subblock_sparse_attn</code></td>
+<td><code>SUBBLOCK_SPARSE_ATTN</code></td>
+<td>Training-free SubBlock sparsity for MiniMax-H3 on CUDA SM90, SM100,
+and SM120. The default compute mode is BF16;
+<code>compute_mode=sage_fp8</code> is an approximate path on SM90
+(requires <code>SpargeAttn</code>) and SM120 (uses FlashInfer’s CuTe-DSL
+SM120 Sage kernel). See the <a
+href="https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3#subblock-sparse-attention"
+class="link">MiniMax-H3 recipe</a>.</td>
+</tr>
+<tr>
+<td><code>cube_sparse_attn</code></td>
+<td><code>CUBE_SPARSE_ATTN</code></td>
+<td>MiniMax-H3 cube sparse attention: TopK sparsity over H3’s 3D visual
+streams, built on PyTorch FlexAttention. CUDA-only. Requires
+<code>local_cube_size</code> and <code>topk_ratio_list</code> in
+<code>—attention-backend-config</code>. See the <a
+href="https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3"
+class="link">MiniMax-H3 recipe</a>.</td>
+</tr>
+<tr>
+<td><code>video_sparse_attn_h3</code></td>
+<td><code>VIDEO_SPARSE_ATTN_H3</code></td>
+<td>Video Sparse Attention for MiniMax-H3 / FastH3 (VSA-H3). In-tree
+kernels, no external package: FastVideo’s native tcgen05 block-sparse
+forward on SM100 / SM103, the Triton tile-64 kernel on SM80 / SM90.
+Configure via <code>—attention-backend-config</code>.</td>
+</tr>
+<tr>
+<td><code>hybrid_window_attn_h3</code></td>
+<td><code>HYBRID_WINDOW_ATTN_H3</code></td>
+<td>VDN-H3 hybrid attention: chunk-aligned window softmax (exact, gated)
+plus the Video Delta linear branch over the window complement. The
+window runs as a union of FlashAttention varlen calls (FA4 on SM100 /
+SM103 / SM120, FA3 on SM90; on SM80 / SM86 / SM89 the same FA3 build
+runs its Sm80 mainloop at FA2-class speed). Configure via
+<code>—attention-backend-config</code>.</td>
+</tr>
+<tr>
+<td><code>vmoba_attn</code></td>
+<td><code>VMOBA_ATTN</code></td>
+<td>Requires <code>flash-attn</code> &gt;= 2.7.1. Configure via
+<code>—attention-backend-config</code>.</td>
+</tr>
+<tr>
+<td><code>aiter</code></td>
+<td><code>AITER</code></td>
+<td>Requires <code>aiter</code>.</td>
+</tr>
+<tr>
+<td><code>aiter_sage</code></td>
+<td><code>AITER_SAGE</code></td>
+<td>Requires <code>aiter</code>.</td>
+</tr>
+<tr>
+<td><code>aiter_quant</code></td>
+<td><code>AITER_QUANT</code></td>
+<td>Quantized AITER MHA v4 family. Requires
+<code>SGLANG_USE_AITER=1</code> and an <code>aiter</code> that ships
+<code>aiter.ops.mha_v4</code>. gfx950 (gfx942 supports
+<code>i8fp8</code> / <code>fp8</code> only). head_dim 128, non-causal.
+Pick the quant format with
+<code>—attention-backend-config format=&lt;name&gt;</code>:
+<code>bf16fp8</code>, <code>i8fp8</code>, <code>fp8</code>,
+<code>mxfp8</code>, <code>mxfp6</code>, <code>mxfp4</code> (default
+<code>fp8</code>); see <a
+href="#supported-configuration-parameters">Configuration</a> for what
+each one does.</td>
+</tr>
+<tr>
+<td><code>sla_attn</code></td>
+<td><code>SLA_ATTN</code></td>
+<td>Sparse Linear Attention. Requires <code>SpargeAttn</code>. Install
+with <code>pip install git+</code><a
+href="https://github.com/thu-ml/SpargeAttn.git" class="link"
+target="_blank"
+rel="noreferrer"><code>https://github.com/thu-ml/SpargeAttn.git</code></a><code> —no-build-isolation</code>.</td>
+</tr>
+<tr>
+<td><code>sage_sla_attn</code></td>
+<td><code>SAGE_SLA_ATTN</code></td>
+<td>SageAttention + Sparse Linear Attention. Requires
+<code>SpargeAttn</code> (same install as SLA).</td>
+</tr>
+<tr>
+<td><code>sparse_video_gen_2_attn</code></td>
+<td><code>SPARSE_VIDEO_GEN_2_ATTN</code></td>
+<td>Requires <code>svg</code>. See installation instructions at <a
+href="https://github.com/svg-project/Sparse-VideoGen" class="link"
+target="_blank"
+rel="noreferrer">https://github.com/svg-project/Sparse-VideoGen</a>.</td>
+</tr>
+<tr>
+<td><code>laser_attn</code></td>
+<td><code>LASER_ATTN</code></td>
+<td>Requires <code>attentions</code> which can be installed with
+<code>sgl_kernel_npu</code>; available only for NPU.</td>
+</tr>
+<tr>
+<td><code>block_sparse_attn</code></td>
+<td><code>BLOCK_SPARSE_ATTN</code></td>
+<td>Requires <code>attentions</code> which can be installed with
+<code>sgl_kernel_npu</code>; available only for NPU.</td>
+</tr>
+<tr>
+<td><code>rain_fusion_attn</code></td>
+<td><code>RAIN_FUSION_ATTN</code></td>
+<td>Requires <code>attentions</code> which can be installed with
+<code>sgl_kernel_npu</code>; available only for NPU.</td>
+</tr>
+<tr>
+<td><code>ascend_sparse_attn</code></td>
+<td><code>ASCEND_SPARSE_ATTN</code></td>
+<td>NPU-only <code>MindIE-SD</code> sparse attention with public Laser
+and Ascend FA dense backends. Requires compatible <code>MindIE-SD</code>
+and CANN operators.</td>
+</tr>
+<tr>
+<td><code>fp8_fa_sm120</code></td>
+<td><code>FP8_FA_SM120</code></td>
+<td>FP8 (E4M3) dense attention for SM120/SM121 GPUs (GeForce RTX 50, RTX
+PRO Blackwell, DGX Spark GB10), written in CuTe-DSL. Q/K/V are quantized
+per head on the fly; the output stays BF16. Non-causal, batch 1, head
+dim 128, BF16 inputs; other calls use <code>torch_cudnn_sdpa</code>.
+Opt-in only: outputs differ from BF16 attention by about 5% relative RMS
+per call on random normal inputs. Each new sequence length compiles once
+(about 10 s).</td>
+</tr>
+<tr>
+<td><code>amx_attn</code></td>
+<td><code>AMX_ATTN</code></td>
+<td>Intel AMX attention for CPU. Requires an AMX-capable CPU, bf16/fp16,
+and an even head size; selected automatically on CPU when usable.</td>
+</tr>
+</tbody>
+</table>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_l9crmhkd74t9_" id="selection-priority"><a
+href="#selection-priority" class="anchor-link"
+aria-label="Navigate to header: Selection priority"></a><span
+id="_R_l9crmhkd74t9_" class="cursor-pointer">Selection
+priority</span></h2>
+<span data-as="p">The selection order in
+<code>runtime/layers/attention/selector.py</code> is:</span>
+<ol>
+<li><code>global_force_attn_backend(...)</code> /
+<code>global_force_attn_backend_context_manager(...)</code></li>
+<li>Component <em>and role</em> override from
+<code>--component-attention-backends.&lt;component&gt;.&lt;role&gt;</code>
+while that component is being constructed</li>
+<li>Component override from <code>--component-attention-backends</code>
+while that component is being constructed</li>
+<li>CLI <code>--attention-backend</code>
+(<code>ServerArgs.attention_backend</code>)</li>
+<li>Layer or component default, when declared</li>
+<li>Auto selection (platform capability, dtype, and installed
+packages)</li>
+</ol>
+<span data-as="p">An explicit global backend mismatch fails for DiT
+self-attention. Auxiliary components may fall back to their declared
+default or another compatible backend. Sparse backends selected for
+self-attention similarly fall back to a compatible dense backend for
+cross-attention. Explicit component overrides are otherwise
+strict.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_t9crmhkd74t9_" id="per-role-overrides"><a
+href="#per-role-overrides" class="anchor-link"
+aria-label="Navigate to header: Per-role overrides"></a><span
+id="_R_t9crmhkd74t9_" class="cursor-pointer">Per-role
+overrides</span></h3>
+<span data-as="p">A role is the kind of attention a layer performs:
+<code>self</code> or <code>cross</code>. Appending a role to a component
+key selects a backend for just that role, which is useful when a
+quantized or otherwise expensive backend pays off for self-attention but
+not for the much lighter cross-attention:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="4" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_fkh19crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_fsh19crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3119crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --component-attention-backends.transformer.self sage_attn \
+  --component-attention-backends.transformer.cross fa</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">A role override outranks the component-wide backend
+for layers of that role and leaves the other role alone. Layers of a
+role with no override fall through to the component-wide backend as
+usual, and <code>&lt;component&gt;_2</code> inherits
+<code>&lt;component&gt;</code>’s role overrides unless it declares its
+own.</span> <span data-as="p">Role overrides are as strict as
+component-wide ones: a role override that never reaches a layer fails
+the load, including when the component builds no layers of that role at
+all. The one tolerated divergence is the shared sparse rule above — a
+sparse backend named for <code>cross</code> is replaced by a compatible
+dense backend and logged, rather than failing.</span> <span
+data-as="p">Model and layer backend sets guide automatic selection; they
+are not positive allowlists for explicit requests. A backend selected
+with <code>--attention-backend</code> or
+<code>--component-attention-backends</code> can therefore be used
+without first adding it to every model’s set. It still fails closed when
+the platform cannot resolve it or when it lacks a required operation
+such as dense cross-attention, packed variable-length attention, or
+ring-attention LSE. Model paths that require one backend for correctness
+declare it as required; those layers keep that backend even when the
+surrounding component is overridden.</span> <span data-as="p">For an
+automatic, measurement-based choice, pass
+<code>--enable-attention-backend-autotune true</code>. On each layer’s
+first sufficiently large input, the native runtime times compatible
+candidates and switches only when the output remains within its
+numerical guard and the measured gain exceeds the noise margin. The
+tuner is disabled by default and currently validated on SM90 and SM12x.
+It does not replace a backend selected explicitly through
+<code>--attention-backend</code> or
+<code>--component-attention-backends</code>, or a backend required by
+the model for correctness.</span>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1b9crmhkd74t9_" id="configuration"><a
+href="#configuration" class="anchor-link"
+aria-label="Navigate to header: Configuration"></a><span
+id="_R_1b9crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Configuration</span></h2>
+<span data-as="p">Some backends require additional configuration. You
+can pass these parameters via <code>--attention-backend-config</code>.
+This argument accepts:</span>
+<ul>
+<li>A path to a JSON or YAML configuration file.</li>
+<li>A JSON string (e.g.,
+<code>'&amp;#123;"sparsity": 0.5&amp;#125;'</code>).</li>
+<li>Key-value pairs (e.g.,
+<code>"sparsity=0.5,enable_x=true"</code>).</li>
+</ul>
+<span data-as="p">The key-value form splits on commas, so list values
+(for example Sol-Attn <code>dense_layers=0,1</code> or VSA-H3
+<code>vsa_dense_layers</code>) must use the JSON or file form, e.g.
+<code>'&amp;#123;"dense_layers": "0,1"&amp;#125;'</code> for Sol-Attn or
+<code>'&amp;#123;"vsa_dense_layers": [0, 1]&amp;#125;'</code> for VSA-H3
+(a JSON list, not a string). Sol-Attn also accepts ranges such as
+<code>dense_layers=0-1</code>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1j9crmhkd74t9_"
+id="supported-configuration-parameters"><a
+href="#supported-configuration-parameters" class="anchor-link"
+aria-label="Navigate to header: Supported Configuration Parameters"></a><span
+id="_R_1j9crmhkd74t9_" class="cursor-pointer">Supported Configuration
+Parameters</span></h3>
+<span data-as="p"><strong>Sliding Tile Attention
+(<code>sliding_tile_attn</code>)</strong></span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mask_strategy_file_path</code></td>
+<td><code>str</code></td>
+<td><strong>Required.</strong> Path to the mask strategy JSON file.</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>STA_mode</code></td>
+<td><code>str</code></td>
+<td><strong>Required.</strong> Mode of STA: <code>STA_INFERENCE</code>,
+<code>STA_SEARCHING</code>, <code>STA_TUNING</code>, or
+<code>STA_TUNING_CFG</code>.</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>skip_time_steps</code></td>
+<td><code>int</code></td>
+<td>Number of steps to use full attention before switching to sparse
+attention. Required for the <code>STA_TUNING</code> and
+<code>STA_TUNING_CFG</code> modes; ignored otherwise.</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<span data-as="p"><strong>Video Sparse Attention
+(<code>video_sparse_attn</code>)</strong></span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sparsity</code></td>
+<td><code>float</code></td>
+<td>Validation sparsity (0.0 - 1.0).</td>
+<td><code>0.0</code></td>
+</tr>
+</tbody>
+</table>
+<span data-as="p"><strong>SpargeAttention
+(<code>sparge_attn</code>)</strong></span>
+<div
+class="min-w-0 [--page-padding:20px] flex w-[calc(100%+(var(--page-padding)*2))] my-[1em] py-[1em] -mx-(--page-padding) max-w-none [contain:inline-size]"
+role="presentation" data-component-part="scroll-area"
+data-table-wrapper="true">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1v9crmhkd74t9_-viewport" tabindex="-1"
+data-component-part="scroll-area-viewport" role="region"
+aria-label="Scrollable table">
+<div class="flex" role="presentation"
+data-component-part="scroll-area-content">
+<div class="px-(--page-padding) grow max-w-none table">
+<table
+class="m-0 min-w-full w-full max-w-none table [&amp;_th]:text-left [&amp;_td[data-numeric]]:tabular-nums [&amp;_td]:min-w-[150px]">
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>topk</code></td>
+<td><code>float</code></td>
+<td>Fraction of predicted attention blocks retained per head. Higher
+values preserve more attention work and generally improve quality. Must
+be in <code>(0, 1]</code>.</td>
+<td data-numeric="true"><code>0.5</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<span data-as="p">SpargeAttention is approximate even when
+<code>topk=1</code>: the recommended upstream kernel quantizes attention
+through SageAttention2. Validate output quality and end-to-end latency
+on the target model and resolution before deployment.</span> <span
+data-as="p"><strong>Video Sparse Attention for H3
+(<code>video_sparse_attn_h3</code>)</strong></span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VSA_sparsity</code></td>
+<td><code>float</code></td>
+<td>Fraction of video tiles excluded from the top-k selection (0.0 -
+1.0). FastH3 defaults to its trained <code>0.8</code>.</td>
+<td><code>0.8</code> (FastH3), <code>0.9</code> (base H3, FastH3
+Omni)</td>
+</tr>
+<tr>
+<td><code>vsa_mode</code></td>
+<td><code>str</code></td>
+<td><code>exempt</code>: non-video keys (text/audio prefix tiles) are
+always selected. <code>compete</code>: they compete with video tiles in
+the top-k.</td>
+<td><code>exempt</code></td>
+</tr>
+<tr>
+<td><code>vsa_dense_first_n_steps</code></td>
+<td><code>int</code></td>
+<td>Use dense attention for the first N denoising steps.</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>vsa_dense_layers</code></td>
+<td><code>list[int]</code></td>
+<td>Layer indices kept dense, e.g. <code>[0, 1]</code>.</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>vsa_tile_size</code></td>
+<td><code>int</code></td>
+<td>Kernel tile size: <code>64</code> ((4, 4, 4) tiles) or
+<code>128</code> ((4, 4, 8) tiles, the FastH3 Omni default).</td>
+<td><code>64</code>, <code>128</code> (FastH3 Omni)</td>
+</tr>
+<tr>
+<td><code>vsa_ref_keep_rate</code></td>
+<td><code>float</code></td>
+<td>Fraction of reference-video tiles kept, in (0, 1]. Required when the
+layout has reference videos (Ref2VA).</td>
+<td><code>0.1</code> (FastH3 Omni), unset otherwise</td>
+</tr>
+</tbody>
+</table>
+<span data-as="p">VSA-H3 constraints:</span>
+<ul>
+<li>Only the DiT runs sparse; the token refiner, text encoder, and VAEs
+keep their dense defaults. An explicit
+<code>--component-attention-backends text_encoder=fa</code> is rejected
+because the H3 text encoder has SDPA-only layers.</li>
+<li>Uses the checkpoint’s trained <code>to_gate_compress</code>
+compression branch. Base MiniMax-H3 weights load zero gates and run pure
+sparse.</li>
+<li>Ulysses sequence parallelism is supported;
+<code>--ring-degree</code> greater than 1, <code>torch.compile</code>,
+and breakable CUDA graph execution are rejected.</li>
+</ul>
+<span data-as="p"><strong>Hybrid window attention for VDN-H3
+(<code>hybrid_window_attn_h3</code>)</strong></span> <span
+data-as="p"><a
+href="https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3#7-vdn-h3-hybrid-attention-8-step-distill"
+class="link">VDN-H3</a> replaces every DiT block’s dense self-attention
+with two branches. The softmax branch is an exact softmax over a
+chunk-aligned frame window (frame <code>t</code> belongs to chunk
+<code>t // 5</code> and attends to chunks <code>c - 1 .. c + 1</code>;
+frames 0 and F-1 are dense as rows and columns; every text / audio pair
+stays dense) scaled by a per-head sigmoid gate. The linear branch (a
+frame-wise Video Delta rule recurrence, forward and reverse over frames)
+covers exactly the window’s complement and is driven by the attention
+module. The mask is request-static, so the metadata is built once per
+request. The checkpoint’s <code>transformer/config.json</code> carries
+the window geometry; the backend reads it.</span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vdn_h3_dense_smoke</code></td>
+<td><code>bool</code></td>
+<td>Allows a dense transformer backend (<code>fa</code>) on the VDN-H3
+weights for the base-H3 + LoRA equivalence smoke. The gates and the
+linear branch are skipped: a study, not a sample.</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>vdn_max_gather_rows</code></td>
+<td><code>int</code></td>
+<td>Upper bound on the gathered K/V rows per window FlashAttention call;
+consecutive chunk groups fill one call up to it. Splitting changes no
+query’s kept key set, only the pass count and the gather’s peak
+memory.</td>
+<td><code>200000</code></td>
+</tr>
+</tbody>
+</table>
+<span data-as="p">Hybrid window attention constraints:</span>
+<ul>
+<li>VDN-H3 requires this backend for the transformer; a dense backend on
+these weights would silently skip the linear branch and the gates, so it
+is rejected unless <code>vdn_h3_dense_smoke</code> is set. The token
+refiner, text encoder, and VAEs keep dense attention.</li>
+<li>Base MiniMax-H3 and FastH3 checkpoints have no linear branch and are
+rejected by this backend.</li>
+<li>Ulysses sequence parallelism is supported (QK-norm + RoPE run after
+the all-to-all on the head shard); <code>--ring-degree</code> greater
+than 1, <code>torch.compile</code>, and breakable CUDA graph execution
+are rejected.</li>
+</ul>
+<span data-as="p"><strong>V-MoBA
+(<code>vmoba_attn</code>)</strong></span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temporal_chunk_size</code></td>
+<td><code>int</code></td>
+<td>Chunk size for temporal dimension.</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>temporal_topk</code></td>
+<td><code>int</code></td>
+<td>Top-K tokens to select in temporal dimension.</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>spatial_chunk_size</code></td>
+<td><code>list[int]</code></td>
+<td>Chunk size for spatial dimension (H, W).</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>spatial_topk</code></td>
+<td><code>int</code></td>
+<td>Top-K tokens to select in spatial dimension.</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>st_chunk_size</code></td>
+<td><code>list[int]</code></td>
+<td>Chunk size for spatiotemporal dimension (T, H, W).</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>st_topk</code></td>
+<td><code>int</code></td>
+<td>Top-K tokens to select in spatiotemporal dimension.</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>moba_select_mode</code></td>
+<td><code>str</code></td>
+<td>Selection mode (e.g., <code>threshold</code>).</td>
+<td><code>threshold</code></td>
+</tr>
+<tr>
+<td><code>moba_threshold</code></td>
+<td><code>float</code></td>
+<td>Threshold value for selection.</td>
+<td><code>0.25</code></td>
+</tr>
+<tr>
+<td><code>moba_threshold_type</code></td>
+<td><code>str</code></td>
+<td>Type of thresholding (e.g., <code>query_head</code>).</td>
+<td><code>query_head</code></td>
+</tr>
+<tr>
+<td><code>first_full_step</code></td>
+<td><code>int</code></td>
+<td>Number of initial steps to use full attention.</td>
+<td><code>12</code></td>
+</tr>
+<tr>
+<td><code>first_full_layer</code></td>
+<td><code>int</code></td>
+<td>Number of initial layers to use full attention.</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>temporal_layer</code></td>
+<td><code>int</code></td>
+<td>Number of temporal layers.</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>spatial_layer</code></td>
+<td><code>int</code></td>
+<td>Number of spatial layers.</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>st_layer</code></td>
+<td><code>int</code></td>
+<td>Number of spatiotemporal layers.</td>
+<td><code>1</code></td>
+</tr>
+</tbody>
+</table>
+<span data-as="p"><strong>Block Sparse Attention
+(<code>block_sparse_attn</code>)</strong></span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>skip_first_steps</code></td>
+<td><code>int</code></td>
+<td>Number of steps to use laser attention before switching to sparse
+attention.</td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>sparsity</code></td>
+<td><code>float</code></td>
+<td>The sparsity coefficient must be in the range (0, 1).</td>
+<td><code>0.2</code></td>
+</tr>
+</tbody>
+</table>
+<span data-as="p"><strong>Ascend sparse attention
+(<code>ascend_sparse_attn</code>)</strong></span> <span data-as="p">On
+Linux with Ascend NPUs, install the <a
+href="https://docs.sglang.io/docs/sglang-diffusion/installation#ascend-npu"
+class="link">NPU software stack</a> and a compatible <a
+href="https://gitcode.com/Ascend/MindIE-SD/tree/3.2.0" class="link"
+target="_blank" rel="noreferrer">MindIE-SD</a> build exposing
+<code>sparse_attention</code> and the native operators for your selected
+sparse mode. Backend loading reports a missing MindIE-SD dependency
+before model execution.</span> <span data-as="p">Sparse steps use
+MindIE-SD. Dense steps use the public Laser attention backend on A2/A3
+and Ascend FA backend on A5. Components with causal attention, grouped
+query attention, or head sizes unsupported by Laser use Ascend FA.
+Sparse and dense precision default to BF16.</span>
+<div
+class="min-w-0 [--page-padding:20px] flex w-[calc(100%+(var(--page-padding)*2))] my-[1em] py-[1em] -mx-(--page-padding) max-w-none [contain:inline-size]"
+role="presentation" data-component-part="scroll-area"
+data-table-wrapper="true">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_339crmhkd74t9_-viewport" tabindex="-1"
+data-component-part="scroll-area-viewport" role="region"
+aria-label="Scrollable table">
+<div class="flex" role="presentation"
+data-component-part="scroll-area-content">
+<div class="px-(--page-padding) grow max-w-none table">
+<table
+class="m-0 min-w-full w-full max-w-none table [&amp;_th]:text-left [&amp;_td[data-numeric]]:tabular-nums [&amp;_td]:min-w-[150px]">
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sparse_type</code></td>
+<td>Sparse algorithm: <code>rf_v2</code>, <code>rf_v3</code>, or
+<code>ada_bsa</code>. Use <code>--attention-backend fa</code> for
+dense-only attention; JSON <code>null</code> is rejected here.</td>
+<td><code>rf_v3</code></td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>Sparse precision: <code>bf16</code>, <code>mix</code> (INT8 Q/K and
+FP8 V), <code>fp8</code>, or <code>mxfp4</code>. Availability depends on
+the algorithm, device, and installed operators.</td>
+<td><code>bf16</code></td>
+</tr>
+<tr>
+<td><code>sparsity</code></td>
+<td>Fraction of attention blocks to discard, in <code>[0, 1]</code>.
+Zero uses the configured dense executor.</td>
+<td data-numeric="true"><code>0.6</code></td>
+</tr>
+<tr>
+<td><code>block_size</code></td>
+<td>Positive sparse Q block size. The builder resolves the default
+before execution; the native operator validates supported geometry.</td>
+<td><code>256</code> for RFv3 <code>fp8</code>/<code>mxfp4</code>;
+otherwise <code>128</code></td>
+</tr>
+<tr>
+<td><code>skip_first_steps</code></td>
+<td>Number of initial denoising steps that use dense attention.
+Non-negative integer.</td>
+<td data-numeric="true"><code>10</code></td>
+</tr>
+<tr>
+<td><code>skip_last_steps</code></td>
+<td>Number of final denoising steps that use dense attention.
+Non-negative integer. Pipelines supply <code>num_steps</code> from the
+actual timestep or sigma schedule.</td>
+<td data-numeric="true"><code>0</code></td>
+</tr>
+<tr>
+<td><code>dense_kwargs</code></td>
+<td>Dense backend configuration. A2/A3 Laser accepts only
+<code>{"precision":"bf16"}</code>. A5 Ascend FA accepts the public
+options below.</td>
+<td><code>{"precision":"bf16"}</code></td>
+</tr>
+<tr>
+<td><code>keep_sink</code></td>
+<td>Preserve attention-sink blocks in <code>ada_bsa</code> mask
+selection. Boolean.</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>keep_recent</code></td>
+<td>Preserve recent-token blocks in <code>ada_bsa</code> mask selection.
+Boolean.</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>cdf_threshold</code></td>
+<td>Cumulative attention-probability threshold for <code>ada_bsa</code>
+block selection, in <code>[0, 1]</code>.</td>
+<td data-numeric="true"><code>1.0</code></td>
+</tr>
+<tr>
+<td><code>mxfp4_dst_type_max</code></td>
+<td>Non-negative maximum-value override for MXFP4 quantization. Zero
+selects the vendor’s automatic choice.</td>
+<td data-numeric="true"><code>0.0</code></td>
+</tr>
+<tr>
+<td><code>mxfp4_scale_alg</code></td>
+<td>Non-negative MXFP4 scale-algorithm identifier. JSON
+<code>null</code> keeps the vendor default.</td>
+<td><code>null</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<span data-as="p">For RFv3, FP8 and MXFP4 use a default KV block size of
+256 in MindIE-SD. Its video-span route requires matching Q/KV blocks, so
+this adapter defaults <code>block_size</code> to 256 for those modes.
+The public sparse API does not forward a separate KV block-size
+override. On A5, MindIE-SD remaps <code>rf_v2</code> to
+<code>rf_v3</code> and rejects <code>ada_bsa</code>.</span> <span
+data-as="p">The Ascend FA dense route requires the public metadata API
+from <a href="https://github.com/sgl-project/sglang/pull/46029"
+class="link" target="_blank" rel="noreferrer">PR #46029</a>, including
+for default BF16 execution. It passes <code>dense_kwargs</code> through
+that metadata class and requires compatible native operators for the
+selected precision. Layer layout and softmax scale remain owned by the
+attention layer.</span>
+<div
+class="min-w-0 [--page-padding:20px] flex w-[calc(100%+(var(--page-padding)*2))] my-[1em] py-[1em] -mx-(--page-padding) max-w-none [contain:inline-size]"
+role="presentation" data-component-part="scroll-area"
+data-table-wrapper="true">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_399crmhkd74t9_-viewport" tabindex="-1"
+data-component-part="scroll-area-viewport" role="region"
+aria-label="Scrollable table">
+<div class="flex" role="presentation"
+data-component-part="scroll-area-content">
+<div class="px-(--page-padding) grow max-w-none table">
+<table
+class="m-0 min-w-full w-full max-w-none table [&amp;_th]:text-left [&amp;_td[data-numeric]]:tabular-nums [&amp;_td]:min-w-[150px]">
+<thead>
+<tr>
+<th>Dense option</th>
+<th>Accepted values and effect</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>precision</code></td>
+<td><code>bf16</code>, <code>fp8</code>, <code>mxfp8</code>, or
+<code>mxfp4</code>.</td>
+<td><code>bf16</code></td>
+</tr>
+<tr>
+<td><code>fp8_fa_mode</code></td>
+<td>FP8-only mode string, such as <code>HIGH_PRECISION</code> or
+<code>C8V16_TILING512</code>, or JSON <code>null</code> for vendor
+normalization.</td>
+<td><code>HIGH_PRECISION</code></td>
+</tr>
+<tr>
+<td><code>head_chunk_size</code></td>
+<td>Non-negative head chunk size passed to Ascend FA. Zero disables head
+chunking.</td>
+<td data-numeric="true"><code>4</code></td>
+</tr>
+<tr>
+<td><code>qk_rotation</code></td>
+<td>Boolean controlling online Q/K rotation for quantized dense
+attention. Omit it to retain Ascend FA’s checkpoint-aware default.</td>
+<td>Ascend FA default</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<span data-as="p">Keep causal components on a backend that preserves
+their masks. MiniMax-H3 keeps its token refiner on dense FA and defaults
+its text encoder to SDPA unless you explicitly override it. Video spans
+retain their original packed token positions and are rebased within each
+independent document. With H3’s explicit trailing-padding contract,
+attention skips the physical alignment tail and returns zeros for those
+rows, including with Ulysses sequence parallelism.</span> <span
+data-as="p"><strong>Sol-Attn (<code>sol_attn</code>)</strong></span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tau</code></td>
+<td><code>float</code></td>
+<td>Routing threshold scale. Higher values select fewer exact KV
+blocks.</td>
+<td><code>1.0</code></td>
+</tr>
+<tr>
+<td><code>thresh_type</code></td>
+<td><code>str</code></td>
+<td>Threshold mode: <code>diag</code> or <code>exact</code>.</td>
+<td><code>diag</code></td>
+</tr>
+<tr>
+<td><code>sink_tokens</code></td>
+<td><code>int</code></td>
+<td>Exact KV sink length for prefix tokens such as text/audio rows.</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>sink_start</code></td>
+<td><code>int</code></td>
+<td>Start index of the exact KV sink range.</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>dense_steps</code></td>
+<td><code>int</code></td>
+<td>Use dense attention for the first N denoising steps.</td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>dense_layers</code></td>
+<td><code>str</code></td>
+<td>Layer indices kept dense, e.g. <code>0,1</code> or
+<code>0-2</code>.</td>
+<td><code>0,1</code></td>
+</tr>
+<tr>
+<td><code>dense_backend</code></td>
+<td><code>str</code></td>
+<td>Backend used for the dense prefix: <code>fa</code> (default) or
+<code>sage_attn</code>. <code>sage_attn</code> is approximate.</td>
+<td><code>fa</code></td>
+</tr>
+<tr>
+<td><code>kv_splits</code></td>
+<td><code>int | str</code></td>
+<td>KV split factor passed to the Sol-Attn kernel. Use <code>auto</code>
+on long sequences.</td>
+<td><code>auto</code></td>
+</tr>
+</tbody>
+</table>
+<span data-as="p"><strong>AITER Quant
+(<code>aiter_quant</code>)</strong></span> <span data-as="p">The backend
+passes raw BF16 Q/K/V to <code>aiter.ops.mha_v4</code>, which applies
+the canonical quantizer for the requested operand pair and launches the
+matching ASM row. No calibration pass and no extra checkpoint weights
+are involved: the format is purely a runtime choice.</span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code></td>
+<td><code>str</code></td>
+<td>Quant format for the <code>mha_v4</code> call, one of the names in
+the table below. An unknown name, or one with no kernel row on the
+active arch, raises at construction rather than falling back.</td>
+<td><code>fp8</code></td>
+</tr>
+</tbody>
+</table>
+<span data-as="p">Variants, from widest operands to narrowest. Q and K
+always share an encoding; only V varies independently.</span>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Q/K format</th>
+<th>V format</th>
+<th>Architectures</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bf16fp8</code></td>
+<td>BF16</td>
+<td>FP8</td>
+<td>gfx950</td>
+<td>Quantizes only PV, preserving BF16 attention scores for conservative
+quality.</td>
+</tr>
+<tr>
+<td><code>i8fp8</code></td>
+<td>INT8</td>
+<td>FP8</td>
+<td>gfx950, gfx942</td>
+<td>Uniform 8-bit Q/K quantization; effective for well-conditioned
+values but sensitive to outliers.</td>
+</tr>
+<tr>
+<td><code>fp8</code></td>
+<td>FP8</td>
+<td>FP8</td>
+<td>gfx950, gfx942</td>
+<td>Default native FP8: E4M3 on gfx950 and E4M3FNUZ on gfx942.</td>
+</tr>
+<tr>
+<td><code>mxfp8</code></td>
+<td>MXFP8 E4M3</td>
+<td>FP8</td>
+<td>gfx950</td>
+<td>Per-1x32 E8M0 Q/K scales and a per-tensor V scale improve outlier
+handling.</td>
+</tr>
+<tr>
+<td><code>mxfp6</code></td>
+<td>MXFP6 E2M3</td>
+<td>FP8</td>
+<td>gfx950</td>
+<td>Block-scaled 6-bit Q/K balances compression, throughput, and
+quality.</td>
+</tr>
+<tr>
+<td><code>mxfp4</code></td>
+<td>MXFP4 E2M1</td>
+<td>MXFP4 E2M1</td>
+<td>gfx950</td>
+<td>The most compact block-scaled Q/K/V format; validate quality for the
+target workload.</td>
+</tr>
+</tbody>
+</table>
+<span data-as="p">AITER quant constraints:</span>
+<ul>
+<li>Every row targets full-MHA <code>head_dim == 128</code> and
+non-causal attention; a causal layer or another head dim raises rather
+than falling back. Varlen attention is not supported.</li>
+<li>gfx942 ships only the <code>i8fp8</code> and <code>fp8</code> kernel
+rows. Every other format is gfx950-only and is rejected at construction
+on gfx942.</li>
+<li>Requires <code>SGLANG_USE_AITER=1</code> and an <code>aiter</code>
+build that ships <code>aiter.ops.mha_v4</code>.</li>
+</ul>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_3v9crmhkd74t9_" id="platform-support-matrix"><a
+href="#platform-support-matrix" class="anchor-link"
+aria-label="Navigate to header: Platform support matrix"></a><span
+id="_R_3v9crmhkd74t9_" class="cursor-pointer">Platform support
+matrix</span></h2>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>CUDA</th>
+<th>ROCm</th>
+<th>XPU</th>
+<th>MUSA</th>
+<th>MPS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fa</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>torch_sdpa</code></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>sliding_tile_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sage_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sage_attn_3</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sparge_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sol_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>video_sparse_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>video_sparse_attn_h3</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sla_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sage_sla_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>vmoba_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>aiter</code></td>
+<td>❌</td>
+<td>✅</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>aiter_sage</code></td>
+<td>❌</td>
+<td>✅</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>aiter_quant</code></td>
+<td>❌</td>
+<td>✅</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>sparse_video_gen_2_attn</code></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>laser_attn</code></td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>block_sparse_attn</code></td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>rain_fusion_attn</code></td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>ascend_sparse_attn</code></td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>fp8_fa_sm120</code></td>
+<td>Yes</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_439crmhkd74t9_" id="usage"><a href="#usage"
+class="anchor-link" aria-label="Navigate to header: Usage"></a><span
+id="_R_439crmhkd74t9_"
+class="min-w-0 break-words cursor-pointer">Usage</span></h2>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_459crmhkd74t9_" id="select-a-backend-via-cli"><a
+href="#select-a-backend-via-cli" class="anchor-link"
+aria-label="Navigate to header: Select a backend via CLI"></a><span
+id="_R_459crmhkd74t9_" class="cursor-pointer">Select a backend via
+CLI</span></h3>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="4"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sk79crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uk79crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3479crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --prompt &quot;...&quot; \
+  --attention-backend fa</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="4"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sk99crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uk99crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3499crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --prompt &quot;...&quot; \
+  --attention-backend torch_sdpa</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_4b9crmhkd74t9_" id="override-one-component"><a
+href="#override-one-component" class="anchor-link"
+aria-label="Navigate to header: Override one component"></a><span
+id="_R_4b9crmhkd74t9_" class="cursor-pointer">Override one
+component</span></h3>
+<span data-as="p">Use component overrides when a specific module needs
+different attention semantics from the main transformer:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="5"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3skf9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ukf9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34f9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --prompt &quot;...&quot; \
+  --attention-backend fa \
+  --component-attention-backends text_encoder=torch_sdpa</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Component keys match pipeline module names from
+<code>model_index.json</code>, such as <code>text_encoder</code>,
+<code>text_encoder_2</code>, <code>transformer</code>,
+<code>transformer_2</code>, or <code>connectors</code>. Use this
+override when the fallback must be pinned: unlike the global backend, an
+incompatible component override raises an error instead of selecting
+another backend. The one role-based exception is a sparse self-attention
+backend, which uses a compatible dense backend for cross-attention
+layers in the same component. The component must construct
+SGLang-selectable attention or explicitly defer selection until first
+use; components with fixed attention reject the override. Per-component
+overrides apply only to native pipelines. The Diffusers backend accepts
+the global <code>--attention-backend</code> passthrough instead.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_4j9crmhkd74t9_"
+id="per-request-override-denoise-loop"><a
+href="#per-request-override-denoise-loop" class="anchor-link"
+aria-label="Navigate to header: Per-request override (denoise loop)"></a><span
+id="_R_4j9crmhkd74t9_" class="cursor-pointer">Per-request override
+(denoise loop)</span></h3>
+<span data-as="p">A single server can serve exact and approximate
+attention side by side: requests may switch the DiT denoise attention
+backend via the <code>attention_backend_override</code> sampling param.
+Valid values are the exact/drop-in dense kernels — <code>fa</code>,
+<code>torch_sdpa</code>, <code>sage_attn</code>,
+<code>sage_attn_3</code>. The field participates in the dynamic-batch
+signature, so requests with different backends never share a
+batch.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="4"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3skn9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ukn9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34n9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --prompt &quot;...&quot; \
+  --attention-backend-override sage_attn</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="5"
+data-language="python">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3skp9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ukp9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_34p9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="python"><code>client.images.generate(
+    model=&quot;&lt;MODEL_PATH_OR_ID&gt;&quot;,
+    prompt=&quot;...&quot;,
+    extra_body={&quot;attention_backend_override&quot;: &quot;sage_attn&quot;},
+)</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Incompatible server settings <strong>reject the
+request</strong> (with a server log) instead of silently falling back:
+breakable CUDA graphs and <code>torch.compile</code> bake the attention
+kernel into a captured/traced graph; sparse server backends
+(<code>sliding_tile_attn</code>, <code>video_sparse_attn</code>, …)
+cannot be mixed with per-request dense switching; under ring parallelism
+the target must be ring-capable. Note <code>sage_attn</code> /
+<code>sage_attn_3</code> are lossy (quantized attention) — validate
+quality on your workload.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_4t9crmhkd74t9_" id="request-scoped-skip-softmax"><a
+href="#request-scoped-skip-softmax" class="anchor-link"
+aria-label="Navigate to header: Request-scoped Skip Softmax"></a><span
+id="_R_4t9crmhkd74t9_" class="cursor-pointer">Request-scoped Skip
+Softmax</span></h3>
+<span data-as="p">Skip Softmax (BLASST) keeps the QK matmul, but skips
+the exponential, softmax-state update, V load, and PV matmul for
+attention tiles whose estimated softmax mass is below a threshold. It is
+an explicit lossy optimization backed by the FlashInfer kernels shipped
+with SGLang’s pinned dependencies. See the <a
+href="https://arxiv.org/abs/2512.12087" class="link" target="_blank"
+rel="noreferrer">BLASST paper</a> and NVIDIA’s <a
+href="https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/blogs/tech_blog/blog28_Accelerating_Video_Generation_with_GEMM_Quantization_Attention_Quantization_and_Skip_Softmax_Attention_in_TensorRT-LLM.md"
+class="link" target="_blank" rel="noreferrer">video-generation study</a>
+for the algorithm and measured quality/performance trade-offs.</span>
+<span data-as="p">Pass <code>skip_softmax_params</code> in one image or
+video request. The runtime routes compatible self-attention layers
+through the FA/FlashInfer path for that batch; cross-attention keeps its
+normal backend, and the next request restores the server default.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="10"
+data-language="python">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sl39crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ul39crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3539crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="python"><code>client.videos.create(
+    model=&quot;&lt;MODEL_PATH_OR_ID&gt;&quot;,
+    prompt=&quot;...&quot;,
+    extra_body={
+        &quot;skip_softmax_params&quot;: {
+            &quot;threshold_scale_factor&quot;: 500.0,
+            &quot;start_step&quot;: 14,
+        }
+    },
+)</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li><code>threshold_scale_factor</code> is required and must be
+positive. The kernel uses
+<code>threshold_scale_factor / context_length</code>; larger values skip
+more work and usually increase quality loss.</li>
+<li><code>start_step</code> is the zero-based denoising step at which
+sparse execution starts. It defaults to <code>0</code>; keeping early
+high-noise steps dense is generally safer.</li>
+</ul>
+<span data-as="p">There is intentionally no default threshold. Calibrate
+the threshold and start step against output-quality metrics for each
+model, resolution, step count, and deployment backend; values tuned for
+one workload are not portable.</span> <span data-as="p">Current support
+is FP16/BF16, head dimension 128 or 256, and unmasked self-attention on
+Hopper SM90 and Blackwell SM100/SM103/SM107. Ulysses sequence
+parallelism is supported because the kernel runs after its all-to-all.
+Ring Attention, attention masks, <code>torch.compile</code>, and
+breakable CUDA graphs reject the request instead of silently running
+dense attention. Models that merely offer an FA backend do not
+automatically qualify: the runtime still checks the GPU, dtype, head
+dimension, attention role, and execution mode.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5b9crmhkd74t9_" id="using-spargeattention"><a
+href="#using-spargeattention" class="anchor-link"
+aria-label="Navigate to header: Using SpargeAttention"></a><span
+id="_R_5b9crmhkd74t9_" class="cursor-pointer">Using
+SpargeAttention</span></h3>
+<span data-as="p">Install the optional CUDA extension, then select the
+backend explicitly:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="8"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3slf9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3ulf9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_35f9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>pip install ninja
+pip install git+https://github.com/thu-ml/SpargeAttn.git --no-build-isolation
+
+sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --prompt &quot;...&quot; \
+  --attention-backend sparge_attn \
+  --attention-backend-config topk=0.5</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p"><code>sparge_attn</code> applies to compatible
+self-attention layers. Cross-attention uses the existing dense fallback;
+short self-attention and asymmetric Q/KV also use dense SDPA. LTX-2,
+LTX-2.3, and LTX-2.5 have compatible video (128) and audio (64) head
+dimensions, so their sufficiently long, unmasked self-attention uses
+SpargeAttention while prompt and audio-video cross-attention remain
+dense. Ulysses sequence parallelism is supported, but ring attention is
+not because the upstream kernel does not expose the softmax LSE needed
+for ring merging. K/V-gather SP therefore follows the normal
+sparse-backend rule and uses Ulysses instead.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5j9crmhkd74t9_" id="sage-then-sol-hybrid"><a
+href="#sage-then-sol-hybrid" class="anchor-link"
+aria-label="Navigate to header: Sage then Sol hybrid"></a><span
+id="_R_5j9crmhkd74t9_" class="cursor-pointer">Sage then Sol
+hybrid</span></h3>
+<span data-as="p"><code>sol_attn</code> keeps the first
+<code>dense_steps</code> steps dense. Set
+<code>dense_backend=sage_attn</code> to run that prefix on SageAttention
+and the tail on Sol sparse attention. Keep the text encoder on
+<code>torch_sdpa</code>:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="8"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sln9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uln9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_35n9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path MiniMaxAI/MiniMax-H3 \
+  --model-variant fl2va \
+  --attention-backend sol_attn \
+  --attention-backend-config dense_backend=sage_attn,dense_steps=10 \
+  --component-attention-backends text_encoder=torch_sdpa,transformer=sol_attn \
+  --prompt &quot;A cat walking on a sunny beach, gentle waves.&quot; \
+  --save-output</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">Both <code>sage_attn</code> and <code>sol_attn</code>
+are approximate. The default DiT backend remains <code>fa</code>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_5r9crmhkd74t9_"
+id="ascend-quantized-attention-with-mindie-sd"><a
+href="#ascend-quantized-attention-with-mindie-sd" class="anchor-link"
+aria-label="Navigate to header: Ascend quantized attention with MindIE-SD"></a><span
+id="_R_5r9crmhkd74t9_" class="cursor-pointer">Ascend quantized attention
+with MindIE-SD</span></h3>
+<span data-as="p">On Ascend NPU, <code>fa</code> can use the public
+<code>mindiesd.quant_attention</code> API for FP8, MXFP8, and MXFP4
+attention. This integration targets MiniMax-H3; Wan/FLUX support is out
+of scope. Omitting <code>precision</code> preserves the existing native
+Ascend FA behavior, including its opt-in MXFP8 path. Set
+<code>precision=bf16</code> to explicitly select native floating-point
+attention. Neither requires MindIE-SD.</span> <span data-as="p">When FA
+is an internal dense fallback for another selected backend, that
+backend’s <code>precision</code> does not enable quantized FA. The
+denoising stage passes configuration through
+<code>AscendFAMetadata</code>; the FA constructor does not read global
+server arguments. Quantization applies to DiT self-attention. H3
+refiners and cross-attention do not inherit its quantized path.</span>
+<h4 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_619crmhkd74t9_" id="install-the-optional-sdk"><a
+href="#install-the-optional-sdk" class="anchor-link"
+aria-label="Navigate to header: Install the optional SDK"></a><span
+id="_R_619crmhkd74t9_" class="cursor-pointer">Install the optional
+SDK</span></h4>
+<span data-as="p">Use Linux with an Ascend 950 (A5), the CANN
+toolkit/operator packages, and a matching Torch/TorchNPU installation.
+Activate the Python environment that runs SGLang before building: the
+SDK’s native extension uses that environment’s Torch ABI. Keep the
+Torch/TorchNPU versions required by your SGLang checkout; the SDK’s root
+<code>requirements.txt</code> pins Torch/TorchNPU 2.9 and must not
+replace them.</span> <span data-as="p">Install the official <a
+href="https://pypi.org/project/mindiesd/3.2.0/#files" class="link"
+target="_blank" rel="noreferrer">3.2.0 wheel</a> if its Python,
+architecture, glibc, and Torch ABI match your environment.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="1"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sm79crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3um79crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3679crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m pip install --no-deps --only-binary=:all: &quot;mindiesd==3.2.0&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p"><code>--no-deps</code> preserves the installed
+Torch/TorchNPU versions.</span> <span data-as="p">If no compatible wheel
+is available, build the <code>3.2.0</code> release in a user-owned
+directory. The example sets <code>ASCEND_COMPUTE_UNIT=ascend950</code>
+for quantized FA on Ascend 950. For sparse attention on a supported
+910-series device, set <code>ASCEND_COMPUTE_UNIT</code> to the target
+chip or leave it unset to use the SDK defaults for your CANN
+version.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="27"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3smd9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3umd9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_36d9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code># Adjust this path to your CANN installation.
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+git clone --branch 3.2.0 --depth 1 https://gitcode.com/Ascend/MindIE-SD.git
+cd MindIE-SD
+# Release commit: 65bd01133998ab018052fdb6f55dea5a873e584f
+python3 -m pip install &quot;setuptools&gt;=65.5&quot; build wheel &quot;cmake&lt;4.1&quot;
+
+# 3.2.0 makes build/vendors read-only before the following AICPU copy.
+# Restore owner write permission between those two build steps.
+python3 - &lt;&lt;&#39;PY&#39;
+from pathlib import Path
+
+path = Path(&quot;build/build_ops.sh&quot;)
+source = path.read_text(encoding=&quot;utf-8&quot;)
+marker = &quot;    sync_aicpu_ops_to_transformer_vendor\n&quot;
+assert source.count(marker) == 1
+source = source.replace(
+    marker,
+    &#39;    chmod u+w &quot;${current_script_dir}/vendors&quot;\n&#39; + marker,
+    1,
+)
+path.write_text(source, encoding=&quot;utf-8&quot;)
+PY
+
+MINDIE_SD_VERSION_OVERRIDE=3.2.0 ASCEND_COMPUTE_UNIT=ascend950 \
+  python3 -m build --wheel --no-isolation
+python3 -m pip install --no-deps dist/mindiesd-3.2.0-*.whl</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">The release still defaults its package version to
+<code>3.1.0</code>, so the build command sets the release version
+explicitly. The permission workaround addresses the non-root
+<code>customize_transformer</code> directory creation failure in the
+release’s <a
+href="https://gitcode.com/Ascend/MindIE-SD/blob/3.2.0/build/build_ops.sh"
+class="link" target="_blank" rel="noreferrer">build script</a>. It does
+not require root or disable operator builds. You also need the CANN
+development toolchain; see the pinned <a
+href="https://gitcode.com/Ascend/MindIE-SD/blob/3.2.0/docs/en/installation.md"
+class="link" target="_blank" rel="noreferrer">installation guide</a> and
+<a
+href="https://gitcode.com/Ascend/MindIE-SD/blob/3.2.0/docs/en/developer_guide/build_guide.md"
+class="link" target="_blank" rel="noreferrer">build guide</a>.</span>
+<div
+class="min-w-0 [--page-padding:20px] flex w-[calc(100%+(var(--page-padding)*2))] my-[1em] py-[1em] -mx-(--page-padding) max-w-none [contain:inline-size]"
+role="presentation" data-component-part="scroll-area"
+data-table-wrapper="true">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_6h9crmhkd74t9_-viewport" tabindex="-1"
+data-component-part="scroll-area-viewport" role="region"
+aria-label="Scrollable table">
+<div class="flex" role="presentation"
+data-component-part="scroll-area-content">
+<div class="px-(--page-padding) grow max-w-none table">
+<table
+class="m-0 min-w-full w-full max-w-none table [&amp;_th]:text-left [&amp;_td[data-numeric]]:tabular-nums [&amp;_td]:min-w-[150px]">
+<thead>
+<tr>
+<th>Environment</th>
+<th>Validation status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ascend 950, Torch/TorchNPU 2.10.0, CANN 9.2.0-beta.2, custom SDK
+<code>3.1.0+fb774c4.c8v16</code></td>
+<td>H3 generation/performance runs for FP8, MXFP8, and MXFP4; not
+model-quality parity.</td>
+</tr>
+<tr>
+<td>Ascend 910 / 910B / 910_93</td>
+<td>These A5 quantized attention paths are not supported; use native
+FA.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<span data-as="p">On the target NPU host, activate the CANN environment
+and check the public API:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="1"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sml9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3uml9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_36l9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -c &#39;from mindiesd import quant_attention; assert callable(quant_attention)&#39;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">This import check does not verify native execution.
+Missing SDKs, incompatible libraries, and operator failures raise errors
+rather than falling back to native FA.</span>
+<h4 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_6p9crmhkd74t9_" id="configure-attention"><a
+href="#configure-attention" class="anchor-link"
+aria-label="Navigate to header: Configure attention"></a><span
+id="_R_6p9crmhkd74t9_" class="cursor-pointer">Configure
+attention</span></h4>
+<div
+class="min-w-0 [--page-padding:20px] flex w-[calc(100%+(var(--page-padding)*2))] my-[1em] py-[1em] -mx-(--page-padding) max-w-none [contain:inline-size]"
+role="presentation" data-component-part="scroll-area"
+data-table-wrapper="true">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_6r9crmhkd74t9_-viewport" tabindex="-1"
+data-component-part="scroll-area-viewport" role="region"
+aria-label="Scrollable table">
+<div class="flex" role="presentation"
+data-component-part="scroll-area-content">
+<div class="px-(--page-padding) grow max-w-none table">
+<table
+class="m-0 min-w-full w-full max-w-none table [&amp;_th]:text-left [&amp;_td[data-numeric]]:tabular-nums [&amp;_td]:min-w-[150px]">
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>precision</code></td>
+<td><code>str</code></td>
+<td><code>bf16</code> selects native floating-point FA;
+<code>fp8</code>, <code>mxfp8</code>, or <code>mxfp4</code> selects
+MindIE-SD.</td>
+<td>Unset (existing native selection)</td>
+</tr>
+<tr>
+<td><code>fp8_fa_mode</code></td>
+<td><code>str</code></td>
+<td>FP8 only; <code>HIGH_PRECISION</code> or
+<code>C8V16_TILING512</code> (head dimension 128).</td>
+<td><code>HIGH_PRECISION</code></td>
+</tr>
+<tr>
+<td><code>head_chunk_size</code></td>
+<td><code>int</code></td>
+<td>MHA heads per SD call. Use <code>0</code> to disable chunking, or
+another positive integer.</td>
+<td data-numeric="true"><code>4</code></td>
+</tr>
+<tr>
+<td><code>qk_rotation</code></td>
+<td><code>bool</code></td>
+<td>Apply online Q/K rotation before quantization. Not used by the
+native BF16 path.</td>
+<td><code>true</code>, or <code>false</code> when the checkpoint already
+includes offline Q/K rotation</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<span data-as="p"><code>C8V16_TILING512</code> is an alternative FP8
+compute/tiling mode for head dimension 128. It changes the V block
+layout and the fused kernel’s internal precision setting; Q/K/V still
+pass through SDK quantization. Compare its latency and numerical quality
+with <code>HIGH_PRECISION</code> on your workload before choosing it.
+See the <a
+href="https://gitcode.com/Ascend/MindIE-SD/blob/3.2.0/mindiesd/layers/flash_attn/fused_infer_attention_score.py"
+class="link" target="_blank" rel="noreferrer">SDK
+implementation</a>.</span> <span data-as="p">For example, run MiniMax-H3
+on two NPUs with FP8 C8V16 and the default chunk size:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="10"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3sn19crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3un19crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_3719crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>sglang generate \
+  --model-path /models/MiniMax-H3 \
+  --model-variant fl2va \
+  --performance-mode manual \
+  --num-gpus 2 --tp-size 2 \
+  --vae-config.use-parallel-tiling false \
+  --attention-backend fa \
+  --attention-backend-config &#39;{&quot;precision&quot;:&quot;fp8&quot;,&quot;fp8_fa_mode&quot;:&quot;C8V16_TILING512&quot;}&#39; \
+  --prompt &quot;A cat walking on a sunny beach, gentle waves.&quot; \
+  --save-output</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">For MXFP8 or MXFP4, use
+<code>'{"precision":"mxfp8"}'</code> or
+<code>'{"precision":"mxfp4"}'</code>. Use
+<code>'{"precision":"bf16"}'</code> for a native floating-point
+attention baseline, even when native MXFP8 is enabled in the
+environment. The text encoder keeps its normal backend selection.
+Attention precision is independent of linear-weight quantization. Add
+<code>--quantization mxfp8</code> only if online MXFP8 linear weights
+are also wanted.</span> <span data-as="p">The SD path uses
+<code>attention_backend_config</code>; it does not need the native
+<code>SGLANG_DIFFUSION_ENABLE_MXFP8_ATTENTION</code> or
+<code>SGLANG_DIFFUSION_MXFP8_FA_HEAD_CHUNK_SIZE</code> variables. Head
+chunking applies to dense and packed MHA, including a smaller final
+chunk. GQA is delegated to the SDK without head chunking. Packed
+sequences remain isolated and H3 trailing padding is zeroed. Ordinary
+Ulysses is supported; causal attention, nonzero dropout, Ring attention,
+and softmax LSE are unsupported.</span> <span data-as="p">Online
+rotation follows native Ascend FA’s deterministic rotation and is
+applied once by the SDK, before quantization. Checkpoints with offline
+Q/K rotation default to no online rotation; explicitly enabling both is
+rejected.</span>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Warning" data-callout-type="warning">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="flex-none size-5 text-yellow-800 dark:text-yellow-300">
+<use href="#mi-mint-1-CalloutWarning"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-yellow-800 dark:text-yellow-300"
+data-component-part="callout-content">
+<span data-as="p">MindIE-SD 3.2.0 pads MXFP4 sequence lengths to
+multiples of 512. The padded K/V positions participate in softmax.
+SGLang preserves this SDK behavior; validate numerical quality with the
+sequence lengths used by your workload.</span>
+</div>
+</div>
+<h4 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7b9crmhkd74t9_" id="validate-the-installation"><a
+href="#validate-the-installation" class="anchor-link"
+aria-label="Navigate to header: Validate the installation"></a><span
+id="_R_7b9crmhkd74t9_" class="cursor-pointer">Validate the
+installation</span></h4>
+<span data-as="p">Run from an installed SGLang checkout in the target
+Linux environment:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="2"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3snf9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3unf9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_37f9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code># CPU adapter tests with a mocked SDK.
+pytest python/sglang/multimodal_gen/test/unit/test_ascend_fa.py</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">These tests check adapter behavior without executing
+NPU kernels. They do not establish model-quality parity; inspect
+generated outputs for your workload.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7j9crmhkd74t9_"
+id="using-sliding-tile-attention-sta"><a
+href="#using-sliding-tile-attention-sta" class="anchor-link"
+aria-label="Navigate to header: Using Sliding Tile Attention (STA)"></a><span
+id="_R_7j9crmhkd74t9_" class="cursor-pointer">Using Sliding Tile
+Attention (STA)</span></h3>
+<span data-as="p"><code>STA_INFERENCE</code> also reads the per-layer
+STA parameters from the file named by the
+<code>SGLANG_DIFFUSION_ATTENTION_CONFIG</code> environment
+variable.</span> <span data-as="p"><code>STA_SEARCHING</code> writes one
+opaque sample name per submitted request; its positive and negative loss
+files share that name in separate directories. Repeating the same prompt
+adds a sample rather than overwriting the previous one. Existing
+calibration JSON remains readable. Use a private calibration directory;
+older files are not renamed or removed.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="7"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3snp9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3unp9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_37p9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code># Pass the mask strategy file path via config
+SGLANG_DIFFUSION_ATTENTION_CONFIG=/abs/path/to/sta_config.json \
+sglang generate \
+  --model-path &lt;MODEL_PATH_OR_ID&gt; \
+  --prompt &quot;...&quot; \
+  --attention-backend sliding_tile_attn \
+  --attention-backend-config &quot;mask_strategy_file_path=/abs/path/to/mask_strategy.json,STA_mode=STA_INFERENCE&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_7r9crmhkd74t9_"
+id="using-ascend-sparse-attention"><a
+href="#using-ascend-sparse-attention" class="anchor-link"
+aria-label="Navigate to header: Using Ascend Sparse Attention"></a><span
+id="_R_7r9crmhkd74t9_" class="cursor-pointer">Using Ascend Sparse
+Attention</span></h3>
+<span data-as="p">Use a Linux Ascend environment with the prerequisites
+above. Set <code>MODEL_PATH</code> to a supported pipeline’s local
+directory or Hugging Face repository ID. This example uses one NPU with
+Ulysses degree 1, BF16 sparse attention, and the shared BF16 FA executor
+for the first 10 and final 2 steps:</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark bg-transparent dark:bg-transparent"
+data-has-floating-buttons="" data-numberoflines="8"
+data-language="shellscript">
+<div
+class="absolute top-3 right-4 flex items-center gap-1.5 print:hidden"
+data-floating-buttons="true">
+<div id="base-ui-_R_3snv9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_3unv9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-2xl bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_37v9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>MODEL_PATH=&quot;/path/to/pipeline&quot;
+sglang generate \
+  --model-path &quot;${MODEL_PATH}&quot; \
+  --num-gpus 1 \
+  --ulysses-degree 1 \
+  --attention-backend ascend_sparse_attn \
+  --attention-backend-config &#39;{&quot;sparse_type&quot;:&quot;rf_v3&quot;,&quot;precision&quot;:&quot;bf16&quot;,&quot;sparsity&quot;:0.6,&quot;skip_first_steps&quot;:10,&quot;skip_last_steps&quot;:2,&quot;dense_kwargs&quot;:{&quot;precision&quot;:&quot;bf16&quot;}}&#39; \
+  --prompt &quot;A sailboat crossing a calm lake at sunrise&quot;</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<span data-as="p">For supported A5 operators, use
+<code>"precision":"mix"</code> for EagleQBSA sparse steps. To select FP8
+dense attention independently, set
+<code>"dense_kwargs":{"precision":"fp8","fp8_fa_mode":"HIGH_PRECISION"}</code>.
+For MXFP4 dense attention, use
+<code>"dense_kwargs":{"precision":"mxfp4"}</code> and any supported
+MXFP4-specific options; omit FP8-specific options.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_839crmhkd74t9_" id="notes-for-rocm-/-mps"><a
+href="#notes-for-rocm-/-mps" class="anchor-link"
+aria-label="Navigate to header: Notes for ROCm / MPS"></a><span
+id="_R_839crmhkd74t9_" class="cursor-pointer">Notes for ROCm /
+MPS</span></h3>
+<ul>
+<li>ROCm: Instinct (CDNA, gfx9) GPUs default to <code>aiter</code>; use
+<code>--attention-backend torch_sdpa</code> on Radeon (RDNA) GPUs or
+when AITER is unavailable (<code>fa</code> also resolves to
+<code>torch_sdpa</code> on ROCm). On gfx1151 / Strix Halo (wave32), do
+<strong>not</strong> use <code>aiter</code> — prefer
+<code>torch_sdpa</code> (image sets
+<code>SGLANG_USE_AITER=0</code>).</li>
+<li>MPS: the platform implementation always uses
+<code>torch_sdpa</code>.</li>
+</ul>
+</div>
+</body>
+</html>

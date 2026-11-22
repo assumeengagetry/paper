@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Attention Backend</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Attention Backend</h1>
+</header>
+<section id="attention-backend" class="header">
+<h1>Attention Backend</h1>
+<p>来源：<a
+href="https://docs.sglang.io/docs/advanced_features/attention_backend">https://docs.sglang.io/docs/advanced_features/attention_backend</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
+<defs><symbol id="mi-mint-1-CalloutNote" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 9 1.6714 C 13.0371 1.6714 16.3286 4.9629 16.3286 9 C 16.3286 13.0371 13.0371 16.3286 9 16.3286 C 7.0574 16.3252 5.1953 15.552 3.8217 14.1783 C 2.448 12.8047 1.6748 10.9426 1.6714 9 C 1.6714 4.9629 4.9629 1.6714 9 1.6714 Z M 9 0 C 4.0371 0 0 4.0371 0 9 C 0 13.9629 4.0371 18 9 18 C 13.9629 18 18 13.9629 18 9 C 18 4.0371 13.9629 0 9 0 Z M 10.2857 3.8571 H 7.7143 V 10.2857 H 10.2857 V 3.8571 Z M 10.2857 11.5714 H 7.7143 V 14.1429 H 10.2857 V 11.5714 Z" fill="currentColor" stroke="none" fill-rule="evenodd" clip-rule="evenodd"></path>
+</svg>
+</symbol><symbol id="mi-mint-1-CalloutTip" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 4.0216 15.9727 C 4.0216 16.1941 4.0855 16.4101 4.2074 16.5947 L 4.81 17.4979 C 4.9946 17.7747 5.4137 18 5.7467 18 H 7.9149 C 8.2468 18 8.6659 17.775 8.8505 17.4979 L 9.451 16.5951 C 9.5543 16.439 9.6391 16.1601 9.6391 15.9727 L 9.6436 14.5945 H 4.0181 L 4.0216 15.9727 Z M 6.8308 0 C 3.2453 0.0113 0.6429 2.9171 0.6429 6.1563 C 0.6429 7.7167 1.2209 9.1392 2.1744 10.2278 C 2.7556 10.8901 3.663 12.2751 4.0104 13.443 C 4.0115 13.4518 4.0137 13.4612 4.0148 13.4706 H 9.6473 C 9.6483 13.4612 9.6505 13.4524 9.6517 13.443 C 9.9988 12.2751 10.9065 10.8901 11.4877 10.2278 C 12.4422 9.1695 13.0189 7.749 13.0189 6.1563 C 13.0189 2.7705 10.2483 0.0001 6.8308 0 Z M 10.2202 9.1449 C 9.6696 9.7724 8.9882 10.7727 8.4956 11.8131 H 5.1692 C 4.6766 10.7727 3.9953 9.7724 3.445 9.1452 C 2.7257 8.3257 2.3305 7.2463 2.3305 6.1563 C 2.3305 3.9835 4.0216 1.6964 6.7992 1.6876 C 9.3131 1.6876 11.3312 3.7058 11.3312 6.1563 C 11.3312 7.2463 10.9374 8.3257 10.2202 9.1449 Z M 6.2683 2.8127 C 4.7178 2.8127 3.4556 4.0749 3.4556 5.6254 C 3.4556 5.9364 3.7072 6.188 4.0181 6.188 C 4.3291 6.188 4.5807 5.9348 4.5807 5.6254 C 4.5807 4.6948 5.3376 3.9378 6.2683 3.9378 C 6.5792 3.9378 6.8308 3.6865 6.8308 3.3756 C 6.8308 3.0647 6.5777 2.8127 6.2683 2.8127 Z" fill="currentColor" stroke="none"></path>
+</svg>
+</symbol><symbol id="mi-mint-1-CalloutWarning" overflow="visible">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewbox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="inherit" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 9 6.75 v 1.5 m 0 3 h 0.0075 m -5.2035 3 h 10.392 c 1.155 0 1.8765 -1.2503 1.299 -2.25 L 10.299 3 c -0.5775 -0.9997 -2.0205 -0.9997 -2.598 0 L 2.505 12 c -0.5775 0.9997 0.144 2.25 1.299 2.25 z" fill="none" stroke="currentColor"></path>
+</svg>
+</symbol></defs>
+</svg>
+<div id="content"
+class="mdx-content @container/columns-container relative mt-8 prose prose-gray dark:prose-invert [contain:inline-size] isolate empty:hidden mb-14"
+data-page-title="Attention Backend"
+data-page-href="/docs/advanced_features/attention_backend">
+<span data-as="p">SGLang supports a large variety of attention backends.
+Each of them has different pros and cons. You can test them according to
+your needs.</span>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Warning" data-callout-type="warning">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="flex-none size-5 text-yellow-800 dark:text-yellow-300">
+<use href="#mi-mint-1-CalloutWarning"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-yellow-800 dark:text-yellow-300"
+data-component-part="callout-content">
+<span data-as="p">Selecting an optimal attention backend is crucial for
+maximizing your performance. Different backends excel in various
+scenarios, so choose based on your model, hardware, and use case. Not
+all backends are supported on all platforms and model
+architectures.</span><span data-as="p">If you don’t specify
+<code>--attention-backend</code>, SGLang makes a best effort to
+automatically select the most performant backend based on your hardware
+and model architecture.</span>
+</div>
+</div>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_59crmhkd74t9_" id="support-matrix"><a
+href="#support-matrix" class="anchor-link"
+aria-label="Navigate to header: Support Matrix"></a><span
+id="_R_59crmhkd74t9_" class="cursor-pointer">Support Matrix</span></h2>
+<span data-as="p">The support matrix is split into two parts: MHA
+(standard attention) and MLA (multi-head latent attention). For an
+explanation of the key differences between MHA and MLA, please see the
+<a
+href="https://docs.sglang.io/cookbook/autoregressive/DeepSeek/DeepSeek-V3#4-2-4-mla-optimizations"
+class="link">SGLang documentation on DeepSeek MLA</a> and the original
+<a href="https://arxiv.org/pdf/2405.04434" class="link" target="_blank"
+rel="noreferrer">DeepSeek MLA paper</a>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_99crmhkd74t9_" id="mha-backends"><a
+href="#mha-backends" class="anchor-link"
+aria-label="Navigate to header: MHA Backends"></a><span
+id="_R_99crmhkd74t9_" class="cursor-pointer">MHA Backends</span></h3>
+<table>
+<thead>
+<tr>
+<th><strong>Backend</strong></th>
+<th><strong>Page Size &gt; 1 (native)</strong></th>
+<th><strong>FP8 KV Cache</strong></th>
+<th><strong>FP4 KV Cache</strong></th>
+<th><strong>Spec topk=1</strong></th>
+<th><strong>Spec topk&gt;1</strong></th>
+<th><strong>Sliding Window</strong></th>
+<th><strong>MultiModal</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FlashInfer</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>FA3 (FlashAttention 3)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>FA4 (FlashAttention 4)</strong></td>
+<td>128</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Triton</strong></td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Torch Native (SDPA)</strong></td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>FlexAttention (PyTorch)</strong></td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>TRTLLM MHA</strong></td>
+<td>16, 32 or 64</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Dual Chunk FlashAttention</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>HPC-Ops</strong></td>
+<td>64</td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>AITER (ROCm)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Wave (ROCm)</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Ascend (NPU)</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Intel XPU</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Intel AMX (CPU)</strong></td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_d9crmhkd74t9_" id="mla-backends"><a
+href="#mla-backends" class="anchor-link"
+aria-label="Navigate to header: MLA Backends"></a><span
+id="_R_d9crmhkd74t9_" class="cursor-pointer">MLA Backends</span></h3>
+<table>
+<thead>
+<tr>
+<th><strong>Backend</strong></th>
+<th><strong>Native Page Sizes</strong></th>
+<th><strong>FP8 KV Cache</strong></th>
+<th><strong>FP4 KV Cache</strong></th>
+<th><strong>Chunked Prefix Cache</strong></th>
+<th><strong>Spec topk=1</strong></th>
+<th><strong>Spec topk&gt;1</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FlashInfer MLA</strong></td>
+<td>1</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>FlashMLA</strong></td>
+<td>64</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Cutlass MLA</strong></td>
+<td>128</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>TRTLLM MLA (Blackwell)</strong></td>
+<td>32 or 64</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>CuteDSL MLA (Blackwell)</strong></td>
+<td>32 or 64</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>FA3 (FlashAttention 3)</strong></td>
+<td>n/a</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>⚠️ (page_size=1 only)</td>
+</tr>
+<tr>
+<td><strong>Triton</strong></td>
+<td>n/a</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>⚠️ (page_size=1 only)</td>
+</tr>
+<tr>
+<td><strong>FA4</strong></td>
+<td>1</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Ascend MLA (NPU)</strong></td>
+<td>128</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20"
+role="note" aria-label="Note" data-callout-type="note">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 text-blue-800 dark:text-blue-300">
+<use href="#mi-mint-1-CalloutNote"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-blue-800 dark:text-blue-300"
+data-component-part="callout-content">
+<span data-as="p">Multimodal attention is selected by
+<code>--mm-attention-backend</code>. The “MultiModal” column indicates
+whether a corresponding multimodal implementation exists for that
+backend family.</span>
+</div>
+</div>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20"
+role="note" aria-label="Note" data-callout-type="note">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 text-blue-800 dark:text-blue-300">
+<use href="#mi-mint-1-CalloutNote"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-blue-800 dark:text-blue-300"
+data-component-part="callout-content">
+<ul>
+<li>DSA is specifically designed for <a
+href="https://lmsys.org/blog/2025-09-29-deepseek-V32/" class="link"
+target="_blank" rel="noreferrer">DeepSeek V3.2</a>. See the <a
+href="#dsa-attention-backend" class="link">DSA Attention Backend</a>
+section and <a
+href="https://docs.sglang.io/cookbook/autoregressive/DeepSeek/DeepSeek-V3_2"
+class="link">DeepSeek V3.2 deployment guide</a> for details.</li>
+</ul>
+</div>
+</div>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20"
+role="note" aria-label="Note" data-callout-type="note">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 text-blue-800 dark:text-blue-300">
+<use href="#mi-mint-1-CalloutNote"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-blue-800 dark:text-blue-300"
+data-component-part="callout-content">
+<span data-as="p">For the KV4 FA4 scenario, FA4 requires using a
+different —decode-attention-backend to run. Except for trtllm_mha being
+incompatible with FA4, all other decode backends behave as shown in the
+table.</span>
+</div>
+</div>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Tip" data-callout-type="tip">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4.5 text-green-800 dark:text-green-300">
+<use href="#mi-mint-1-CalloutTip"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-green-800 dark:text-green-300"
+data-component-part="callout-content">
+<span data-as="p">Speculative decoding topk: <code>topk</code> is the
+number of draft tokens sampled per step from the draft model.
+<code>topk = 1</code> follows classic EAGLE; <code>topk &gt; 1</code>
+explores multiple branches and requires backend support in both draft
+and verification paths.</span>
+</div>
+</div>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Tip" data-callout-type="tip">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4.5 text-green-800 dark:text-green-300">
+<use href="#mi-mint-1-CalloutTip"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-green-800 dark:text-green-300"
+data-component-part="callout-content">
+<span data-as="p">Page size controls how many tokens are grouped into a
+KV cache block. For the prefix cache to take effect, the number of
+tokens must fill at least one complete page. For example, if your prompt
+is only 32 tokens and <code>page_size = 64</code>, it won’t fill a
+complete page and cannot be matched in the prefix cache (pages cannot be
+padded). With 65 tokens and <code>page_size = 64</code>, only the first
+page of 64 tokens will be cached and matched; the remaining 1 token is
+discarded. Use <code>page_size = 1</code> for maximum prefix reuse
+(token-level matching). Note that higher page sizes generally improve
+attention kernel performance, so prefer <code>page_size &gt; 1</code>
+when prefix cache reuse is not critical.</span>
+</div>
+</div>
+<span data-as="p">Many backends that do not natively operate on pages
+can emulate <code>page_size &gt; 1</code> at the wrapper layer by
+expanding page tables to per-token indices. The “Page Size &gt; 1
+(native)” column indicates true in-kernel paging. Some backends require
+fixed native page sizes and cannot be reduced/emulated differently:
+TRTLLM MHA (16/32/64), TRTLLM MLA (32/64), CuteDSL MLA (32/64), FlashMLA
+(64), Cutlass MLA (128), Ascend (128), HPC-Ops (64).</span> <span
+data-as="p">MLA page-size constraints:</span>
+<ul>
+<li>FlashInfer MLA: page_size = 1.</li>
+<li>FlashMLA: page_size = 64.</li>
+<li>Cutlass MLA: page_size = 128.</li>
+<li>TRTLLM MLA: page_size ∈ {32, 64}.</li>
+<li>CuteDSL MLA: page_size ∈ {32, 64} (decode-only; prefill falls back
+to <code>trtllm_mla</code> when unset).</li>
+</ul>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_119crmhkd74t9_" id="gdn-attention-backends"><a
+href="#gdn-attention-backends" class="anchor-link"
+aria-label="Navigate to header: GDN Attention Backends"></a><span
+id="_R_119crmhkd74t9_" class="cursor-pointer">GDN Attention
+Backends</span></h3>
+<span data-as="p">GDN (Gated Delta Network) is a linear attention
+mechanism with O(n) complexity, used in hybrid models that alternate GDN
+linear attention layers with standard full attention layers. GDN is
+<strong>not</strong> selected via <code>--attention-backend</code>; it
+is automatically activated when the model architecture requires it
+(e.g., Qwen 3.5, Qwen 3 Next, Jet Nemotron, Jet VLM).</span> <span
+data-as="p">The GDN linear attention layers have their own kernel
+backends, selected via <code>--linear-attn-backend</code> (default:
+<code>triton</code>). You can override the kernel per phase with
+<code>--linear-attn-decode-backend</code> and
+<code>--linear-attn-prefill-backend</code>.</span> <span data-as="p">On
+SM100/SM103 with CUDA 13+, SGLang automatically selects FlashInfer for
+GDN prefill when the per-phase override is unset, the base
+linear-attention backend is Triton, recurrent state is BF16, key/value
+head dimensions are 128, dynamic chunking and page-major KV layout are
+disabled, and <code>--chunked-prefill-size</code> is between 1 and 8192.
+Radix caching may be disabled or use <code>no_buffer</code>,
+<code>extra_buffer</code>, or <code>extra_buffer_lazy</code>; the
+extra-buffer paths use state checkpoints.</span>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Decode</th>
+<th>Prefill / Extend</th>
+<th>Spec Decoding (Target Verify)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Triton (CUDA)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Triton (AMD/ROCm)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Triton (NPU)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Triton (CPU)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>CuTe DSL (CUDA only)</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>FlashInfer (CUDA, SM90/SM100/SM103)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ linear chain; tree falls back to Triton</td>
+</tr>
+</tbody>
+</table>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Warning" data-callout-type="warning">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="flex-none size-5 text-yellow-800 dark:text-yellow-300">
+<use href="#mi-mint-1-CalloutWarning"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-yellow-800 dark:text-yellow-300"
+data-component-part="callout-content">
+<span data-as="p">GDN models are hybrid: the full-attention layers still
+require a standard <code>--attention-backend</code>. Platform
+constraints for the full-attention backend on hybrid GDN models:</span>
+<ul>
+<li><strong>Blackwell SM120 (e.g., RTX PRO 6000 Blackwell)</strong>:
+<code>triton</code> or <code>flashinfer</code> for prefill/full
+attention; <code>trtllm_mha</code> is supported for
+<code>--decode-attention-backend</code> only.</li>
+<li><strong>Other Blackwell variants (including SM100
+B200/GB200)</strong>: <code>triton</code>, <code>trtllm_mha</code>, or
+<code>fa4</code> only.</li>
+<li><strong>NPU (Ascend)</strong>: <code>ascend</code> only.</li>
+<li><strong>AMD (ROCm)</strong>: <code>triton</code> recommended.</li>
+<li><strong>Other CUDA (Hopper, Ampere, etc.)</strong>: auto-selection
+works; no special constraints.</li>
+</ul>
+</div>
+</div>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1d9crmhkd74t9_" id="dsa-attention-backend"><a
+href="#dsa-attention-backend" class="anchor-link"
+aria-label="Navigate to header: DSA Attention Backend"></a><span
+id="_R_1d9crmhkd74t9_" class="cursor-pointer">DSA Attention
+Backend</span></h3>
+<span data-as="p">DSA (DeepSeek Sparse Attention) is a native sparse
+attention mechanism used by <a
+href="https://lmsys.org/blog/2025-09-29-deepseek-V32/" class="link"
+target="_blank" rel="noreferrer">DeepSeek V3.2</a>. It is activated
+automatically when the model architecture requires it and is selected
+via <code>--attention-backend dsa</code> (deprecated alias:
+<code>nsa</code>).</span> <span data-as="p">Internally, the DSA backend
+dispatches to different sub-backends for prefill and decode phases. You
+can override these with <code>--dsa-prefill-backend</code> and
+<code>--dsa-decode-backend</code>:</span>
+<table>
+<thead>
+<tr>
+<th>Sub-backend</th>
+<th>Prefill</th>
+<th>Decode</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>flashmla_sparse</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>Default prefill on Hopper and Blackwell (BF16)</td>
+</tr>
+<tr>
+<td><strong>flashmla_sparse_q8</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>Native FP8 (q8×kv8) sparse prefill on Hopper (SM90); BF16 or FP8 KV
+cache</td>
+</tr>
+<tr>
+<td><strong>triton_sparse_mla</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>Fused Triton sparse prefill that works on the post-TP head count
+instead of padding heads to 64/128; opt-in. CUDA SM90+ (tiles tuned on
+SM90 and SM120; other architectures run an untuned tile and log a
+warning at startup), at most 32 query heads per rank, not with
+<code>index_kpool</code>. <code>—dsa-triton-union 2|4</code> lets
+adjacent query tokens share one gathered index set (exact;
+<code>num_q_heads * union</code> must be a power of two in [16,
+32])</td>
+</tr>
+<tr>
+<td><strong>flashmla_kv</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>Default for FP8 on Hopper (prefill + decode)</td>
+</tr>
+<tr>
+<td><strong>flashmla_auto</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>Picks flashmla_sparse or flashmla_kv by KV cache dtype</td>
+</tr>
+<tr>
+<td><strong>fa3</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>Default decode on Hopper (BF16)</td>
+</tr>
+<tr>
+<td><strong>trtllm</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>Default decode on Blackwell (BF16); default for FP8 on Blackwell
+(prefill + decode)</td>
+</tr>
+<tr>
+<td><strong>prims_ts</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>FlashInfer Prims-TS sparse MLA on the <code>trtllm</code> route
+(same raw FP8 KV layout, no head padding); opt-in. SM100/SM103/SM107,
+D576 MLA, <code>—kv-cache-dtype fp8_e4m3</code>; <code>—dcp-size</code>
+&gt; 1 only with Kimi-K3.1’s sharded index-K. Kimi-K3.1 needs it for
+both phases (an unset phase follows the set one); other models can pair
+it with <code>trtllm</code></td>
+</tr>
+<tr>
+<td><strong>tilelang</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>Default on AMD (ROCm)</td>
+</tr>
+<tr>
+<td><strong>aiter</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>AMD-specific kernel library (requires aiter package)</td>
+</tr>
+</tbody>
+</table>
+<h4 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1l9crmhkd74t9_" id="gemma-4-on-aiter-rocm"><a
+href="#gemma-4-on-aiter-rocm" class="anchor-link"
+aria-label="Navigate to header: Gemma 4 on aiter (ROCm)"></a><span
+id="_R_1l9crmhkd74t9_" class="cursor-pointer">Gemma 4 on
+<code>aiter</code> (ROCm)</span></h4>
+<span data-as="p">Gemma 4’s hybrid attention mixes sliding-window layers
+(<code>head_dim</code> 256) with full-attention layers
+(<code>head_dim</code> 512) and shares KV across layers. The
+<code>aiter</code> backend supports this and is allow-listed for Gemma
+4, so you can serve it with <code>--attention-backend aiter</code> on
+MI300X/MI350X. Under the hood <code>aiter</code> routes the
+<code>head_dim</code>-512 prefill through the Triton
+<code>unified_attention</code> kernel (the CK batch-prefill path caps
+<code>head_dim</code> at 256), honors each layer’s softmax scale, and
+resolves the sliding-window KV pool for speculative-decode draft
+workers. Non–sliding-window models (<code>head_dim</code> ≤ 256) are
+unaffected and keep using the CK path.</span>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Warning" data-callout-type="warning">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="flex-none size-5 text-yellow-800 dark:text-yellow-300">
+<use href="#mi-mint-1-CalloutWarning"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-yellow-800 dark:text-yellow-300"
+data-component-part="callout-content">
+<span data-as="p">For Gemma 4 on <code>aiter</code>, use bf16 KV cache
+(<code>--kv-cache-dtype auto</code>). Do <strong>not</strong> use
+<code>--kv-cache-dtype fp8_e4m3</code>: batched decode currently returns
+incorrect output under fp8 KV on this path (a pre-existing aiter
+fp8-decode issue, tracked separately). bf16 KV is correct at every batch
+size.</span>
+</div>
+</div>
+<span data-as="p">For deployment examples, see the <a
+href="https://docs.sglang.io/cookbook/autoregressive/DeepSeek/DeepSeek-V3_2"
+class="link">DeepSeek V3.2 deployment guide</a>.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_1t9crmhkd74t9_"
+id="hybrid-attention-different-backends-for-prefill-vs-decode-experimental"><a
+href="#hybrid-attention-different-backends-for-prefill-vs-decode-experimental"
+class="anchor-link"
+aria-label="Navigate to header: Hybrid attention (different backends for prefill vs decode) (Experimental)"></a><span
+id="_R_1t9crmhkd74t9_" class="cursor-pointer">Hybrid attention
+(different backends for prefill vs decode) (Experimental)</span></h3>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Warning" data-callout-type="warning">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="flex-none size-5 text-yellow-800 dark:text-yellow-300">
+<use href="#mi-mint-1-CalloutWarning"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-yellow-800 dark:text-yellow-300"
+data-component-part="callout-content">
+<span data-as="p">Hybrid attention is an experimental feature.</span>
+</div>
+</div>
+<span data-as="p">You can mix-and-match attention backends for prefill
+and decode. This is useful when one backend excels at prefill and
+another excels at decode. For the implementation details, please see
+<code>python/sglang/srt/layers/attention/hybrid_attn_backend.py</code>.</span>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="8" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qa39crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ua39crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1i39crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code># Example: Prefill with FA4, Decode with TRTLLM MLA (Blackwell)
+python3 -m sglang.launch_server \
+  --model-path nvidia/DeepSeek-R1-FP4 \
+  --tp 8 \
+  --attention-backend trtllm_mla \
+  --moe-runner-backend flashinfer_trtllm \
+  --quantization modelopt_fp4 \
+  --prefill-attention-backend fa4</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h4 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_259crmhkd74t9_"
+id="speculative-decoding-with-hybrid-attention"><a
+href="#speculative-decoding-with-hybrid-attention" class="anchor-link"
+aria-label="Navigate to header: Speculative decoding with hybrid attention"></a><span
+id="_R_259crmhkd74t9_" class="cursor-pointer">Speculative decoding with
+hybrid attention</span></h4>
+<span data-as="p">Hybrid attention also works with speculative decoding.
+The backend used for draft decoding and target verification depends on
+<code>--speculative-attention-mode</code>:</span>
+<ul>
+<li><code>--speculative-attention-mode decode</code> (recommended):
+draft/verify use the decode backend.</li>
+<li><code>--speculative-attention-mode prefill</code> (default):
+draft/verify use the prefill backend.</li>
+</ul>
+<span data-as="p">Constraints when combining hybrid attention with
+speculative decoding:</span>
+<ul>
+<li>If any attention backend is <code>trtllm_mha</code>, speculative
+decoding supports only <code>--speculative-eagle-topk 1</code>.</li>
+<li>For paged MHA backends with <code>--page-size &gt; 1</code> and
+<code>--speculative-eagle-topk &gt; 1</code>, only
+<code>flashinfer</code> is supported.</li>
+<li>CUDA Graph: the decode backend is always captured; the prefill
+backend is captured only when
+<code>--speculative-attention-mode prefill</code>.</li>
+</ul>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-600/20 [&amp;_[data-component-part=&#39;callout-icon&#39;]]:mt-px"
+role="note" aria-label="Tip" data-callout-type="tip">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4.5 text-green-800 dark:text-green-300">
+<use href="#mi-mint-1-CalloutTip"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-green-800 dark:text-green-300"
+data-component-part="callout-content">
+<span data-as="p">If you set only one of
+<code>--prefill-attention-backend</code> or
+<code>--decode-attention-backend</code>, the unspecified phase inherits
+<code>--attention-backend</code>. If both are specified and differ,
+SGLang automatically enables a hybrid wrapper to dispatch to the chosen
+backend per phase.</span>
+</div>
+</div>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_2h9crmhkd74t9_"
+id="attention-backend-selection-guide-cuda"><a
+href="#attention-backend-selection-guide-cuda" class="anchor-link"
+aria-label="Navigate to header: Attention Backend Selection Guide (CUDA)"></a><span
+id="_R_2h9crmhkd74t9_" class="cursor-pointer">Attention Backend
+Selection Guide (CUDA)</span></h2>
+<span data-as="p">If the <code>--attention-backend</code> argument is
+not specified, SGLang automatically selects the best backend based on
+the hardware (CUDA) and model architecture.</span>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_2l9crmhkd74t9_" id="automatic-selection-logic"><a
+href="#automatic-selection-logic" class="anchor-link"
+aria-label="Navigate to header: Automatic Selection Logic"></a><span
+id="_R_2l9crmhkd74t9_" class="cursor-pointer">Automatic Selection
+Logic</span></h3>
+<span data-as="p"><strong>1. MHA Models (e.g., Llama,
+Qwen)</strong></span>
+<ul>
+<li><strong>Hopper (e.g., H100, H200)</strong>: Defaults to
+<code>fa3</code> if using CUDA 12.3+ and the model configuration is
+supported.</li>
+<li><strong>Blackwell (e.g., B200)</strong>: Defaults to
+<code>trtllm_mha</code>, unless using speculative decoding with
+<code>topk &gt; 1</code>.</li>
+<li><strong>Other Architectures (Ampere, Ada, etc.)</strong>: Defaults
+to <code>flashinfer</code> if available; otherwise falls back to
+<code>triton</code>.</li>
+</ul>
+<span data-as="p"><strong>2. MLA Models (e.g., DeepSeek
+V3)</strong></span>
+<ul>
+<li><strong>Hopper</strong>: Defaults to <code>fa3</code> (requires CUDA
+12.3+).</li>
+<li><strong>Blackwell</strong>: Defaults to <code>flashinfer</code>;
+<code>trtllm_mla</code> is auto-selected for DeepSeek V3 models
+specifically.</li>
+<li><strong>Other Architectures</strong>: Defaults to
+<code>triton</code>.</li>
+</ul>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_2v9crmhkd74t9_" id="user-guide"><a
+href="#user-guide" class="anchor-link"
+aria-label="Navigate to header: User Guide"></a><span
+id="_R_2v9crmhkd74t9_" class="cursor-pointer">User Guide</span></h2>
+<h3 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_319crmhkd74t9_"
+id="launch-command-for-different-attention-backends"><a
+href="#launch-command-for-different-attention-backends"
+class="anchor-link"
+aria-label="Navigate to header: Launch Command for Different Attention Backends"></a><span
+id="_R_319crmhkd74t9_" class="cursor-pointer">Launch Command for
+Different Attention Backends</span></h3>
+<ul>
+<li>FlashInfer (Default for Non-Hopper Machines, e.g., A100, A40)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="8" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qb59crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ub59crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1j59crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend flashinfer
+python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-V3 \
+  --attention-backend flashinfer \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>FlashAttention 3 (Default for Hopper Machines, e.g., H100, H200,
+H20)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="8" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qb99crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ub99crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1j99crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend fa3
+python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-V3 \
+  --trust-remote-code \
+  --attention-backend fa3</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Triton</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="8" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qbd9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ubd9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1jd9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend triton
+python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-V3 \
+  --attention-backend triton \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>FlashMLA</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="11" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qbh9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ubh9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1jh9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-R1 \
+  --attention-backend flashmla \
+  --trust-remote-code
+python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-R1 \
+  --attention-backend flashmla \
+  --kv-cache-dtype fp8_e4m3 \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>TRTLLM MLA (Optimized for Blackwell Architecture, e.g., B200)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="5" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qbl9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ubl9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1jl9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-R1 \
+  --attention-backend trtllm_mla \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>TRTLLM MLA with FP8 KV Cache (Higher concurrency, lower memory
+footprint)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="6" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qbp9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ubp9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1jp9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-R1 \
+  --attention-backend trtllm_mla \
+  --kv-cache-dtype fp8_e4m3 \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>TRTLLM MHA (Optimized for Blackwell Architecture, e.g., B200)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="5" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qbt9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ubt9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1jt9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --tp 4 \
+  --model Qwen/Qwen3.5-35B-A3B-FP8 \
+  --attention-backend trtllm_mha \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>TRTLLM MHA (XQA backend) (Optimized for SM90 and SM120, e.g., H20,
+H200, 5090) Note that TRTLLM XQA backend only works well for pagesize
+64.</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="5" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qc19crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7uc19crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1k19crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --tp 4 \
+  --model Qwen/Qwen3.5-35B-A3B-FP8 \
+  --decode-attention-backend trtllm_mha \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>HPC-Ops (MHA kernels from <a
+href="https://github.com/Tencent/hpc-ops" class="link" target="_blank"
+rel="noreferrer">HPC-Ops</a> by the Tencent Hunyuan AI Infra team;
+Hopper (SM90) only, requires installing the <code>hpc</code> package
+from source, page size 64, bf16 or fp8_e4m3 KV cache, head_dim 128, q/kv
+head group 4 or 8)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="17" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qc59crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7uc59crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1k59crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
+  --attention-backend hpc_ops \
+  --page-size 64 \
+  --trust-remote-code
+
+# FP8 models should also set --kv-cache-dtype fp8_e4m3 to run the FP8 attention
+# kernels. This enables the fused QKNorm+RoPE+FP8-quant+StoreKV op, which is
+# currently wired for Hunyuan V3 and requires per-rank (q_heads, kv_heads) of
+# (64, 8) or (8, 1), e.g. --tp 1 or --tp 8 for Hy3.
+python3 -m sglang.launch_server \
+  --tp 8 \
+  --model tencent/Hy3-FP8 \
+  --attention-backend hpc_ops \
+  --kv-cache-dtype fp8_e4m3 \
+  --page-size 64 \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>FlashAttention 4 (MHA &amp; MLA)</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="12" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qc99crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7uc99crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1k99crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code># FA4 for both prefill and decode on SM90/SM100
+python3 -m sglang.launch_server \
+  --model-path Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
+  --attention-backend fa4 \
+  --page-size 128 \
+  --trust-remote-code
+
+python3 -m sglang.launch_server \
+  --tp 8 \
+  --model deepseek-ai/DeepSeek-R1 \
+  --prefill-attention-backend fa4 \
+  --trust-remote-code</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Ascend</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="3" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qcd9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ucd9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1kd9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend ascend</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Intel XPU</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="3" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qch9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7uch9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1kh9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend intel_xpu</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Wave</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="3" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qcl9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ucl9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1kl9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend wave</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>FlexAttention</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="3" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qcp9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7ucp9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1kp9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend flex_attention</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<ul>
+<li>Torch Native</li>
+</ul>
+<div
+class="code-block mt-5 mb-8 not-prose rounded-2xl relative group min-w-0 print:print-color-exact text-gray-950 bg-gray-50 dark:bg-white/5 dark:text-gray-50 codeblock-light border border-gray-950/10 dark:border-white/10 dark:twoslash-dark p-0.5"
+data-has-header="" data-numberoflines="3" data-language="shellscript">
+<div
+class="flex text-gray-400 text-xs rounded-t-[14px] leading-6 font-medium pl-4 pr-2.5 py-1"
+data-component-part="code-block-header">
+<div
+class="grow-0 flex items-center gap-1.5 text-gray-700 dark:text-gray-300 min-w-0"
+data-component-part="code-block-header-filename">
+<span class="truncate min-w-0" title="Command">Command</span>
+</div>
+<div class="flex-1 flex items-center justify-end gap-1.5 print:hidden">
+<div id="base-ui-_R_7qct9crmhkd74t9_"
+class="code-block-copy-button z-10 select-none"
+data-base-ui-tooltip-trigger="">
+<span class="sr-only" role="status"></span>
+</div>
+<div id="base-ui-_R_7uct9crmhkd74t9_" class="z-10 select-none"
+data-base-ui-tooltip-trigger="">
+
+</div>
+</div>
+</div>
+<div
+class="w-0 min-w-full max-w-full h-full dark:bg-codeblock text-sm leading-6 transition-[height] duration-300 ease-in-out code-block-background **:ring-0 **:outline-0 **:focus:ring-0 **:focus:outline-0 rounded-xt bg-white"
+role="presentation" data-component-part="code-block-root">
+<div
+class="size-full rounded-[inherit] [--scroll-area-fade-size:32px] py-3.5 px-4 focus-visible:outline-1! focus-visible:-outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-light overflow-y-hidden! base-ui-disable-scrollbar"
+data-id="base-ui-_R_1kt9crmhkd74t9_-viewport" tabindex="0"
+data-component-part="scroll-area-viewport">
+<div
+class="min-w-full! h-full children:my-0! children:shadow-none! children:bg-transparent!"
+role="presentation" data-component-part="scroll-area-content">
+<div class="font-mono whitespace-pre leading-6">
+<pre class="shiki shiki-themes github-light-default dark-plus"
+data-language="shellscript"><code>python3 -m sglang.launch_server \
+  --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --attention-backend torch_native</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="code-block-fade-overlay print:hidden"
+data-fade-overlay="true" aria-hidden="true">
+
+</div>
+</div>
+<h2 class="flex whitespace-pre-wrap group font-semibold"
+aria-labelledby="_R_4v9crmhkd74t9_"
+id="steps-to-add-a-new-attention-backend"><a
+href="#steps-to-add-a-new-attention-backend" class="anchor-link"
+aria-label="Navigate to header: Steps to add a new attention backend"></a><span
+id="_R_4v9crmhkd74t9_" class="cursor-pointer">Steps to add a new
+attention backend</span></h2>
+<span data-as="p">To add a new attention backend, you can learn from the
+existing backends
+(<code>python/sglang/srt/layers/attention/triton_backend.py</code>,
+<code>python/sglang/srt/layers/attention/flashattention_backend.py</code>)
+and follow the steps below.</span>
+<div
+class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20"
+role="note" aria-label="Note" data-callout-type="note">
+<div class="mt-0.5 w-4" data-component-part="callout-icon">
+<svg aria-hidden="true" width="18" height="18" stroke-width="1.5" class="size-4 text-blue-800 dark:text-blue-300">
+<use href="#mi-mint-1-CalloutNote"></use>
+</svg>
+</div>
+<div
+class="text-sm prose dark:prose-invert min-w-0 w-full [&amp;_kbd]:bg-background-light dark:[&amp;_kbd]:bg-background-dark [&amp;_code]:text-current! [&amp;_kbd]:text-current! [&amp;_a]:text-current! [&amp;_a]:border-current [&amp;_strong]:text-current! text-blue-800 dark:text-blue-300"
+data-component-part="callout-content">
+<span data-as="p">Linear attention kernel backends (GDN, KDA) follow a
+different pattern. They implement <code>LinearAttnKernelBase</code> in
+<code>python/sglang/srt/layers/attention/linear/kernels/</code> and are
+dispatched by <code>GDNKernelDispatcher</code> /
+<code>KDAKernelDispatcher</code> rather than registered via
+<code>@register_attention_backend</code>.</span>
+</div>
+</div>
+<ol>
+<li>Run without cuda graph. Support the two forward functions
+<ul>
+<li>forward_extend
+<ul>
+<li>Will be used for prefill, prefill with KV cache, and target
+verification</li>
+<li>It will be called once per layer</li>
+</ul></li>
+<li>forward_decode
+<ul>
+<li>Will be used for normal decode, and draft decode</li>
+<li>It will be called once per layer</li>
+</ul></li>
+<li>init_forward_metadata
+<ul>
+<li>Initialize the class and common metadata shared by all layers</li>
+<li>Call the plan function for optimizations like split_kv</li>
+<li>It will be called once per forward</li>
+</ul></li>
+</ul></li>
+<li>Run with cuda graph. It has two phases (capture and replay) and you
+need to implement three functions
+<ul>
+<li>init_cuda_graph_state
+<ul>
+<li>It will be called once during life time</li>
+<li>Create all common shared buffers</li>
+</ul></li>
+<li>init_forward_metadata_capture_cuda_graph
+<ul>
+<li>It will be called before capturing a cuda graph</li>
+<li>It is similar to init_forward_metadata but write the medatada to
+some pre-defined buffers</li>
+</ul></li>
+<li>init_forward_metadata_replay_cuda_graph
+<ul>
+<li>It will be called before replaying a cuda graph</li>
+<li>This function is in the critical path and needs to be fast</li>
+</ul></li>
+</ul></li>
+</ol>
+</div>
+</body>
+</html>

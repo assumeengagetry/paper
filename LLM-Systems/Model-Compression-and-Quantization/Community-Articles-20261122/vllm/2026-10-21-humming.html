@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Announcing Humming: Fast, Flexible Kernels for Quantized Inference</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Announcing Humming: Fast, Flexible Kernels for
+Quantized Inference</h1>
+</header>
+<section
+id="announcing-humming-fast-flexible-kernels-for-quantized-inference"
+class="header">
+<h1>Announcing Humming: Fast, Flexible Kernels for Quantized
+Inference</h1>
+<p>来源：<a
+href="https://vllm.ai/blog/2026-10-21-humming">https://vllm.ai/blog/2026-10-21-humming</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="max-w-3xl">
+<section
+id="announcing-humming-fast-flexible-kernels-for-quantized-inference-1"
+class="text-3xl md:text-4xl font-bold leading-tight mb-4 header mb-8">
+<h1 class="text-3xl md:text-4xl font-bold leading-tight mb-4">Announcing
+Humming: Fast, Flexible Kernels for Quantized Inference</h1>
+<div
+class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+<time datetime="2026-10-21">October 21, 2026</time><span>19 min
+read</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+<span class="text-foreground">Ant Group and the vLLM Community</span>
+</div>
+<div class="flex flex-wrap gap-2 mt-4">
+<a href="https://vllm.ai/blog/tags/quantization"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#quantization</a><a
+href="https://vllm.ai/blog/tags/performance"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#performance</a><a
+href="https://vllm.ai/blog/tags/kernels"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#kernels</a><a
+href="https://vllm.ai/blog/tags/moe"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#moe</a>
+</div>
+</section>
+<div class="lg:hidden">
+<div class="lg:hidden rounded-xl border bg-muted/30 p-4 my-6">
+
+</div>
+</div>
+<div>
+<p>Ant Group and the vLLM community are open-sourcing Humming, a
+general-purpose, high-performance kernel library for quantized
+inference. Humming offers the following features:</p>
+<ul>
+<li><strong>Broad device support</strong>: Supports NVIDIA GPU
+architectures from Turing onward, along with CUDA-compatible devices
+such as T-Head's Zhenwu 810E.</li>
+<li><strong>Extensive quantization support</strong>: A unified
+architecture supports diverse combinations of weight and activation
+formats for dense and MoE workloads, covering a wide range of integer
+and floating-point types, bit widths, and scaling schemes.</li>
+<li><strong>Strong execution performance</strong>: Significantly
+outperforms existing implementations from vLLM Marlin, FlashInfer, and
+DeepGEMM across many representative workloads.</li>
+</ul>
+<p>Repository: <a href="https://github.com/vllm-project/humming"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">github.com/vllm-project/humming</a></p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="background">Background</h2>
+<p>As models and inference workloads grow, memory capacity, memory
+bandwidth, and compute costs increasingly constrain deployment. This is
+especially apparent in MoE models: each token activates only a subset of
+experts, but the full set of weights still needs to be stored.
+DeepSeek-V3, for example, has 671 billion parameters, with 37 billion
+activated per token. Quantization lowers the precision of weights and
+activations to reduce memory usage and data movement, and can also
+improve compute efficiency.</p>
+<p>Quantization requirements vary across models and GPU generations.
+Common configurations include WNA16, W8A8, W4A8, and W4A4, where W and A
+specify weight and activation bit widths, and N denotes a variable
+weight bit width. Even at the same precision, schemes such as INT4 and
+NVFP4 differ in numeric format and scaling. Scaling granularity, scale
+representation, group size, and symmetric or asymmetric quantization
+further expand the configuration space.</p>
+<p>These storage and compute savings only translate into lower latency
+and higher throughput with efficient kernels. Prefill, decode, and
+varying MoE expert loads place different demands on compute and memory.
+Kernels must adapt to these workloads while keeping conversion,
+dequantization, and scheduling overhead low.</p>
+<p>Developing and integrating a dedicated kernel for every combination
+creates a growing maintenance burden. Each addition can require its own
+weight preprocessing, kernel selection, framework adapters, and tests.
+Optimizations must then be carried across multiple implementations.</p>
+<p>Humming addresses this problem by separating quantization
+descriptions from execution choices and composing kernels from shared
+components.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="general-purpose-architecture">General-Purpose Architecture</h2>
+<p>Humming's execution path has three parts: represent the quantized
+computation, select configurations for the hardware and workload, and
+compile a kernel from CUDA components.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="a-unified-quantization-representation">A Unified Quantization
+Representation</h3>
+<p>Models exported by different quantization tools vary in numeric
+format, parameter organization, and weight layout. Humming converts
+supported export formats into the Humming standard format: a common
+quantization description with consistently organized weights, scales,
+zero points, and other tensors.</p>
+<figure class="my-6">
+<img
+src="assets/71b07a993330706d7ba11de9c11d2a7b32aa386f5a33bbb9259a06530459d704.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>This representation preserves each scheme's quantization semantics
+while describing weight format, scaling granularity, scale data type,
+zero points, and secondary scales as separate parameters. Activations
+have their own numeric format and quantization settings. These
+parameters can be combined subject to format and hardware
+constraints.</p>
+<p>For example, groupwise INT4 weights can be paired with BF16
+activations. Low-precision floating-point weights with different scaling
+schemes use the same parameter system. This gives inference frameworks a
+common interface for models from different sources.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="tuning-and-jit-compilation-for-each-workload">Tuning and JIT
+Compilation for Each Workload</h3>
+<p>The standard format provides a common representation across export
+formats. Preprocessing then validates parameters, pads dimensions, and
+repacks these tensors into layouts suited to the target kernel. Humming
+combines the quantization description with the weight shape, GEMM type,
+target GPU, and compute options to configure execution.</p>
+<figure class="my-6">
+<img
+src="assets/aed6ae34cdd93a2f0049468f353a8ce213985e873e248aa56b99183f2330c0c7.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>Three configurations describe the kernel:</p>
+<ul>
+<li><strong>Layer Config</strong> describes tensor shapes, data types,
+quantization parameters, and the target architecture.</li>
+<li><strong>Compute Config</strong> specifies the GEMM type and
+computation options, such as batch invariance and input scale
+layout.</li>
+<li><strong>Tuning Config</strong> selects tile shapes, pipeline stage
+counts, warp specialization, memory access, and MMA instructions. It
+also controls concurrency and scheduling; TMA can be configured per
+tensor.</li>
+</ul>
+<p>By default, Humming selects tuning configurations using
+device-specific heuristics. It can prepare different configurations for
+ranges of input sizes and dispatch to the appropriate kernel at
+runtime.</p>
+<p>Humming’s unified architecture makes it straightforward to tune
+execution parameters and select pipelines for different workloads. At
+small batch sizes, a multistage pipeline using asynchronous copies
+(<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">cp.async</code>)
+and MMA can outperform a pipeline built around TMA and UMMA. At larger
+batch sizes, TMA and UMMA can offer better throughput. Humming
+accommodates both execution paths within the same configuration and
+component framework, allowing it to select the more effective strategy
+for each workload.</p>
+<p>Together, the three configurations specialize kernels compiled with
+NVRTC or NVCC. Compiled kernels are cached for reuse. Inference combines
+the selected kernel with the preprocessed weights and runtime
+activations.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="shared-cuda-components-across-formats-and-architectures">Shared CUDA
+Components Across Formats and Architectures</h3>
+<p>At the CUDA level, Humming organizes task scheduling, data movement,
+dequantization and scaling, Tensor Core computation, and output
+processing into reusable components. It provides standard,
+warp-specialized, and dedicated UMMA pipelines. These pipelines share
+compatible components while using the dataflow and synchronization
+required by each execution strategy.</p>
+<figure class="my-6">
+<img
+src="assets/159a95c6be8ebb21e24174f10dd29808e64a9948960bc7c0e3cb084f4f7049c8.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>Each group of components handles a different source of variation:</p>
+<ul>
+<li><strong>Numeric processing handles quantization formats.</strong>
+Decoding and arithmetic components account for bit width, integer or
+floating-point representation, scales, and zero points. Dequantization
+and scaling are integrated into the kernel's computation.</li>
+<li><strong>Memory and compute backends handle GPU
+architectures.</strong> Humming selects data movement and Tensor Core
+implementations for the target architecture, using asynchronous copies,
+TMA, and multicast where supported.</li>
+<li><strong>Task mapping and scheduling handle dense and MoE
+workloads.</strong> Each GEMM type uses the appropriate scheduling
+logic. Scaling and bias addition can also be fused into the output
+stage.</li>
+</ul>
+<p>JIT compilation combines these components according to the three
+configurations and eliminates unused implementation branches. A new
+format or architecture can therefore be supported by extending the
+relevant components. Improvements to a shared component benefit
+compatible configurations, reducing the duplicated development and
+maintenance of separate specialized kernels.</p>
+<p>This CUDA implementation is lightweight and avoids heavyweight kernel
+framework dependencies, keeping JIT compilation fast as well. In our
+single W4A16 kernel compilation test on an H200 server with CUDA 13.4,
+compilation time dropped from <strong>23.35 seconds for CUTLASS with
+NVCC</strong> to <strong>1.82 seconds for Humming with NVCC</strong> or
+<strong>1.88 seconds with NVRTC</strong>, with compilation caches
+disabled. This reduces the cost of preparing kernels for new workloads
+and makes iterative tuning more practical. Humming also compiles kernels
+in parallel during model warmup. In our tests, compiling and loading the
+kernels covering all supported M sizes for a single layer's GEMM takes
+only <strong>about 2–4 seconds</strong>, making it practical to prepare
+multiple specialized kernels before inference.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="performance-tuning-based-on-device-parameters">Performance Tuning
+Based on Device Parameters</h3>
+<p>Humming deeply optimizes kernels using both the GEMM configuration
+and device parameters. Quantization formats, matrix shapes, GPU
+instruction support, SM count, shared memory, and register resources all
+inform execution choices, turning the benefits of low-bit storage into
+practical inference performance.</p>
+<p><strong>Efficient W4A8-MXFP4 inference on existing GPUs.</strong>
+Architectures before Blackwell lack native MXFP4 Tensor Core support,
+and conventional W4A8-MXFP4 kernels can be limited by dequantization and
+scaling overhead at larger M. Humming addresses this with a fast
+MXFP4-to-INT8/FP8 dequantization path that converts MXFP4 weights into a
+supported compute format within the kernel. In this setting, the path
+substantially outperforms conventional W4A8 implementations at small M
+and approaches W8A8 performance at large M. GPUs such as H200 can
+therefore run high-performance W4A8-MXFP4 kernels while retaining the
+storage benefits of 4-bit weights.</p>
+<p><strong>Dequantization paths matched to each device.</strong> The
+same quantization format can benefit from different implementations
+across GPUs. Humming selects decoding, numeric conversion, and scaling
+paths for the device, pairing them with suitable memory access and
+compute pipelines to reduce instruction and data movement overhead.
+Shared components make these optimizations reusable across compatible
+dense and MoE kernels.</p>
+<p><strong>Extensive tuning controls with device-specific
+heuristics.</strong> Humming exposes tile shapes, pipeline stage counts,
+warp specialization, TMA, MMA instructions, CTA concurrency, and
+Stream-K scheduling. Device-specific heuristics combine GEMM shapes with
+resource constraints to balance parallelism, data reuse, and pipeline
+overhead, selecting different execution strategies as input sizes
+change. Developers can use the default configurations directly or refine
+them for particular models and deployment scenarios.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="results">Results</h2>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="broad-device-support">Broad Device Support</h3>
+<p>Humming's unified architecture enables broad GPU support. For NVIDIA
+GPUs, Humming fully supports every architecture from Turing onward,
+bringing a common quantized computing framework to multiple generations
+of hardware.</p>
+<p>The unified JIT architecture also makes it straightforward to extend
+Humming to other GPUs compatible with CUDA programming. Humming already
+fully supports T-Head's Zhenwu 810E, bringing its shared kernels and
+tuning capabilities to more hardware platforms.</p>
+<p>The figure below shows the high-performance activation types
+supported by Humming on each device: types that can take full advantage
+of the device's peak compute capabilities. Some types omitted from the
+figure can still run through other instruction paths. For example, UMMA
+instructions on the B300 (SM103) no longer support INT8 computation, but
+earlier MMA instructions can still execute INT8 GEMM, with substantially
+lower performance.</p>
+<figure class="my-6">
+<img
+src="assets/e46cf3d2216a3cf35d13a1136d53ef42dcb5e3620c78e3a8202c3b1b6168c673.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="quantization-support">Quantization Support</h3>
+<p>Humming's support for quantization types depends primarily on
+compatibility between activation and weight types. Its unified
+quantization representation and kernel architecture allow a wide range
+of integer and floating-point weight formats to work with activations at
+different precisions, providing flexible choices for model precision and
+deployment performance.</p>
+<p>The figure below shows the weight and activation type combinations
+supported by Humming. Rows represent weight types, columns represent
+activation types, and checks indicate supported combinations. Together
+with the device support matrix above, it outlines the high-performance
+quantized computation paths available on each hardware architecture.</p>
+<figure class="my-6">
+<img
+src="assets/a09cf2a76a714d56be5f188a7b9cda13a8fdaace0223f979333daf97cf6cfdf7.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>Humming also supports a special floating-point format with zero
+exponent bits, whose representable values match those of symmetric
+integers at the same bit width. For example, INT8 excluding <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">-128</code>
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">float8e0m7</code>
+both represent integers from <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">-127</code>
+to <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">127</code>.
+Weights in this format have the same activation type compatibility as
+INT weights of the same bit width. Humming automatically converts
+eligible symmetric integer weights to this format for faster
+dequantization.</p>
+<p>The community has also uncovered <a
+href="https://zhuanlan.zhihu.com/p/2059376150565089368"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">two hidden capabilities in Blackwell Tensor
+Cores</a>: native support for <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">float4e0m3</code>
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">float8e3m4</code>,
+two special floating-point formats that are not exposed in the PTX type
+system. Humming supports these features across all Blackwell
+architectures, including datacenter SM100/SM103 and SM120/SM121 devices
+for workstations and personal computing. Both formats are integrated
+into its unified quantization and compute framework, providing more
+native compute options for low-precision inference. Rubin does not
+support these two hidden Tensor Core formats, so support for these
+native compute paths does not extend to Rubin.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="performance">Performance</h3>
+<p>The kernel microbenchmarks below, run by the vLLM community, measure
+GEMM performance with M covering every power of two from 1 to 8192.
+Kernels are fully warmed up and timed independently with a cold L2
+cache, with a brief pause between samples. MoE speedups use the sum of
+Gateup and Down GEMM latencies. Each figure identifies its baseline,
+quantization formats, matrix dimensions, and software versions.</p>
+<h4 class="text-lg font-semibold mt-5 mb-2 scroll-mt-24"
+id="wna16">WnA16</h4>
+<p>WnA16 is one of the most versatile and widely used approaches to
+quantized inference. It combines low-bit weights with FP16/BF16
+activations, reducing weight storage and memory traffic while making use
+of widely available 16-bit compute capabilities. This makes it suitable
+for many GPU generations and model deployment scenarios. The W4A16
+family has attracted particular interest from the community and is a
+major focus of Humming's optimization work.</p>
+<p>For dense W4A16, Humming matches or outperforms vLLM Marlin in most
+tested configurations, with substantial gains on several Hopper and
+Blackwell workloads. The figure below uses cuBLAS as a common baseline.
+At small batch sizes, Humming delivers roughly 3–4× speedups on several
+devices. As batch size grows, it continues to use the hardware
+efficiently, reaching approximately twice Marlin's performance on
+large-batch H200 workloads and more than three times its performance in
+some B300 cases.</p>
+<figure class="my-6">
+<img
+src="assets/5333876d16b7b609fc2281f95abe9953560182bffeb4a6c795862511472a454f.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>These gains extend to MoE. Humming provides efficient Indexed and
+Grouped paths for workloads where tokens are distributed across experts
+and the amount of work per expert changes with the load. In the figure
+below, MXFP4 W4A16 on H20 and H200 reaches roughly twice Marlin's
+performance in several medium-to-large batch cases. On B300, the MXINT4
+and NVFP4 paths achieve even larger gains at large batch sizes, with the
+Grouped path reaching approximately 5×. Results on SM120 and SM121 also
+show Humming outperforming Marlin and the corresponding FlashInfer
+implementations across a range of workloads.</p>
+<figure class="my-6">
+<img
+src="assets/a9881bdd22af96dc6eff8703459ed46095bd0147a21305c5b4919e25f6103e8c.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>Humming's optimizations also extend beyond W4A16 to other WnA16
+combinations. Its shared dequantization and compute paths deliver strong
+performance for integer and floating-point weights at different bit
+widths, including INT1, INT2, INT3, and FP4 through FP8. The following
+figure shows broad gains across these formats at small and medium batch
+sizes, with the lowest-bit configurations on SM120 exceeding 5× the
+performance of BF16 cuBLAS. At large batch sizes on H20, multiple bit
+widths maintain compute efficiency close to BF16 cuBLAS. This gives
+models finer-grained choices among precision, storage, and
+throughput.</p>
+<figure class="my-6">
+<img
+src="assets/e4b0f337bebf5c9e6a7616d4eacaf27a41972dd69f3cfa3d5cccf10e5f23895c.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<h4 class="text-lg font-semibold mt-5 mb-2 scroll-mt-24"
+id="w8a8--w4a8--w4a4">W8A8 / W4A8 / W4A4</h4>
+<p>With Hopper, FP8 W8A8 with blockwise scaling became a mainstream
+approach to high-performance quantized inference. Humming further
+improves this established compute path by optimizing data movement,
+scaling, and expert scheduling together. The left column below shows
+W8A8 results on H20 and H200. At small and medium batch sizes, Humming
+reaches approximately 2.6× and 2.5× the performance of DeepGEMM
+Contiguous, respectively, with competitive performance from both Indexed
+and Grouped layouts.</p>
+<figure class="my-6">
+<img
+src="assets/54114fe79dfa06cefb56c2304969a8b95da1b5a06f47990be9b596cfff337a17.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>As more models adopt native MXFP4 weight quantization, converting the
+smaller weight footprint into practical inference gains becomes
+increasingly valuable. Humming addresses this with an efficient W4A8
+path that rapidly dequantizes MXFP4 weights as they are loaded and uses
+FP8 Tensor Cores for computation, enabling efficient W4A8-MXFP4
+execution on Hopper. The right column above keeps DeepGEMM W8A8 as the
+baseline. At small and medium batch sizes, Humming's W4A8 reaches
+approximately 4.2× baseline performance on H20 and 4.5× on H200, also
+substantially outperforming Humming's W8A8 results in the same figure.
+Reduced weight traffic translates into lower GEMM latency. FlashInfer
+CUTLASS W4A8 is also an implementation based on Humming's approach,
+while Humming's current implementation achieves better performance in
+the benchmarks shown here.</p>
+<p>Blackwell adds native Tensor Core support for microscaling formats
+such as MXFP8 and MXFP4. From datacenter SM100/SM103 devices to
+SM120/SM121 devices for workstations and personal computing, Humming
+uses each architecture's low-precision compute capabilities to support
+W8A8, W4A8, and W4A4 within one kernel and tuning framework.</p>
+<p>On B300 (SM103), Humming demonstrates substantial performance gains
+across all three MX format combinations. Each panel below uses DeepGEMM
+Contiguous at the corresponding precision as its baseline. At small and
+medium batch sizes, W8A8, W4A8, and W4A4 reach approximately 1.25×,
+1.6×, and 1.4× baseline performance, respectively, and outperform the
+corresponding FlashInfer implementations across many workloads. Both
+Indexed and Grouped paths benefit from native low-precision computation,
+providing efficient options for different expert layouts.</p>
+<figure class="my-6">
+<img
+src="assets/d15d5c92e13f7d7c3268142e3bb284102711c77d4fae4df1734bb6176dfffd2c.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<p>These gains also extend to SM120 and SM121. In the results below,
+Humming's MXFP4 × MXFP8 W4A8 and NVFP4 × NVFP4 W4A4 outperform
+FlashInfer CUTLASS at most tested points. On SM121 at small batch sizes,
+performance gains reach approximately 19% for W4A8 and 9% for W4A4; on
+SM120, Humming also leads across most tested sizes. The unified
+architecture brings these low-precision inference optimizations to more
+devices, extending efficient quantized computation beyond the
+datacenter.</p>
+<figure class="my-6">
+<img
+src="assets/5d7eaca220abf8ecda6b56bd938702558c9857d9916bf60aa1fab43e8c690019.svg"
+class="rounded-lg max-w-full cursor-zoom-in" />
+</figure>
+<h4 class="text-lg font-semibold mt-5 mb-2 scroll-mt-24"
+id="end-to-end-inference-performance">End-to-End Inference
+Performance</h4>
+<p>Humming's W4A8 gains extend to model serving. In our
+DeepSeek-V4.1-Flash test on eight H20 GPUs with TP=8, keeping the
+model's MXFP4 weights unchanged and switching MoE execution from Marlin
+W4A16 (BF16 activations) to Humming W4A8 (tokenwise FP8 activations)
+improves end-to-end throughput by approximately <strong>14%–43%</strong>
+and reduces mean time to first token (TTFT) by approximately
+<strong>25%–32%</strong>. The throughput advantage grows with
+concurrency: at concurrency 64, output throughput rises from 442.37 to
+633.94 tokens/s, while mean time per output token (TPOT) falls by
+approximately <strong>31%</strong>.</p>
+<div class="overflow-x-auto my-6">
+<table class="w-full text-sm border-collapse">
+<thead>
+<tr>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Concurrency</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">MoE
+backend</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Input
+throughput (tokens/s) ↑</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">Output
+throughput (tokens/s) ↑</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">TTFT
+(ms) ↓</th>
+<th
+class="border-b-2 border-border px-4 py-2 text-left font-semibold">TPOT
+(ms) ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="border-b border-border px-4 py-2">1</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">2827.15</td>
+<td class="border-b border-border px-4 py-2">88.30</td>
+<td class="border-b border-border px-4 py-2">543.13</td>
+<td class="border-b border-border px-4 py-2">9.24</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">1</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">3226.23 (+14.1%)</td>
+<td class="border-b border-border px-4 py-2">100.77 (+14.1%)</td>
+<td class="border-b border-border px-4 py-2">383.80 (-29.3%)</td>
+<td class="border-b border-border px-4 py-2">8.46 (-8.5%)</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">2</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">4781.06</td>
+<td class="border-b border-border px-4 py-2">149.33</td>
+<td class="border-b border-border px-4 py-2">794.31</td>
+<td class="border-b border-border px-4 py-2">10.33</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">2</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">5646.98 (+18.1%)</td>
+<td class="border-b border-border px-4 py-2">176.38 (+18.1%)</td>
+<td class="border-b border-border px-4 py-2">555.66 (-30.0%)</td>
+<td class="border-b border-border px-4 py-2">9.20 (-10.9%)</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">4</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">7427.64</td>
+<td class="border-b border-border px-4 py-2">231.99</td>
+<td class="border-b border-border px-4 py-2">1422.32</td>
+<td class="border-b border-border px-4 py-2">11.72</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">4</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">9160.81 (+23.3%)</td>
+<td class="border-b border-border px-4 py-2">286.12 (+23.3%)</td>
+<td class="border-b border-border px-4 py-2">971.74 (-31.7%)</td>
+<td class="border-b border-border px-4 py-2">10.22 (-12.9%)</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">8</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">9190.03</td>
+<td class="border-b border-border px-4 py-2">287.04</td>
+<td class="border-b border-border px-4 py-2">2049.81</td>
+<td class="border-b border-border px-4 py-2">19.90</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">8</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">12263.89 (+33.4%)</td>
+<td class="border-b border-border px-4 py-2">383.04 (+33.4%)</td>
+<td class="border-b border-border px-4 py-2">1386.91 (-32.3%)</td>
+<td class="border-b border-border px-4 py-2">15.49 (-22.2%)</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">16</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">11124.67</td>
+<td class="border-b border-border px-4 py-2">348.96</td>
+<td class="border-b border-border px-4 py-2">2463.69</td>
+<td class="border-b border-border px-4 py-2">36.28</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">16</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">15171.00 (+36.4%)</td>
+<td class="border-b border-border px-4 py-2">475.89 (+36.4%)</td>
+<td class="border-b border-border px-4 py-2">1844.71 (-25.1%)</td>
+<td class="border-b border-border px-4 py-2">26.44 (-27.1%)</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">32</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">12669.43</td>
+<td class="border-b border-border px-4 py-2">398.83</td>
+<td class="border-b border-border px-4 py-2">3546.74</td>
+<td class="border-b border-border px-4 py-2">66.44</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">32</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">17804.79 (+40.5%)</td>
+<td class="border-b border-border px-4 py-2">560.49 (+40.5%)</td>
+<td class="border-b border-border px-4 py-2">2465.47 (-30.5%)</td>
+<td class="border-b border-border px-4 py-2">47.48 (-28.5%)</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">64</td>
+<td class="border-b border-border px-4 py-2">vLLM Marlin W4A16</td>
+<td class="border-b border-border px-4 py-2">13937.42</td>
+<td class="border-b border-border px-4 py-2">442.37</td>
+<td class="border-b border-border px-4 py-2">5467.35</td>
+<td class="border-b border-border px-4 py-2">123.25</td>
+</tr>
+<tr>
+<td class="border-b border-border px-4 py-2">64</td>
+<td class="border-b border-border px-4 py-2"><strong>Humming
+W4A8</strong></td>
+<td class="border-b border-border px-4 py-2">19973.00 (+43.3%)</td>
+<td class="border-b border-border px-4 py-2">633.94 (+43.3%)</td>
+<td class="border-b border-border px-4 py-2">3882.94 (-29.0%)</td>
+<td class="border-b border-border px-4 py-2">85.70 (-30.5%)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="usage">Usage</h2>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="installation">Installation</h3>
+<p>Install Humming with pip:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>pip install humming-kernels</code></pre>
+</div>
+</figure>
+<p>Humming uses a CUDA compiler to generate kernels on demand. If no
+CUDA compiler is available on the system, choose one of the following
+installation options to include the compilation dependencies for your
+environment's CUDA major version:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>pip install &quot;humming-kernels[cu12]&quot;  # CUDA 12
+pip install &quot;humming-kernels[cu13]&quot;  # CUDA 13</code></pre>
+</div>
+</figure>
+<p>Humming itself is extremely lightweight, with simple dependencies and
+a wheel package of only about 500 KB. On-demand compilation avoids
+bundling a large collection of precompiled kernels. In principle, any
+environment capable of running PyTorch 2.7 can also run Humming, making
+it easy to integrate into existing inference environments.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="using-humming-in-vllm">Using Humming in vLLM</h3>
+<p>Humming is deeply integrated into vLLM. Starting with vLLM 0.22.0,
+CUDA installations include Humming as a dependency, so no separate
+Humming installation is needed. Humming supports NVIDIA GPUs across all
+architectures from Turing onward (SM75 and above).</p>
+<p>The <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--linear-backend</code>
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--moe-backend</code>
+options select Humming as the compute backend for dense GEMM and MoE
+GEMM, respectively. For example, enable Humming for both with tensor
+parallel size 8:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>vllm serve deepseek-ai/DeepSeek-V4.1-Flash-1017 \
+    --tensor-parallel-size 8 \
+    --linear-backend humming --moe-backend humming</code></pre>
+</div>
+</figure>
+<p>The <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--quantization humming</code>
+option is intended only as a compatibility path for formats that Humming
+supports but vLLM no longer supports or does not yet support natively,
+such as GPTQ INT3. For example, load a GPTQ INT3 checkpoint through this
+compatibility path:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>vllm serve hfl/Qwen2.5-VL-3B-Instruct-GPTQ-Int3 --quantization humming</code></pre>
+</div>
+</figure>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="selecting-activation-types">Selecting Activation Types</h3>
+<p>By default, Humming uses the activation type specified in the
+checkpoint and adapts execution to the device. If the GPU does not
+support that compute type, Humming falls back to a supported
+higher-precision type. For example, devices without native MXFP4 support
+can automatically use FP8, BF16, or FP16 compute paths, allowing the
+same quantized checkpoint to run across GPU generations.</p>
+<p>Users can override the default through vLLM's quantization
+configuration interface to select an activation type for their
+deployment. The following example sets the activation type for MoE
+layers to MXFP8:</p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code>vllm serve openai/gpt-oss-20b --moe-backend humming --quantization-config.moe.activation mxfp8</code></pre>
+</div>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="future-plans">Future Plans</h2>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="broader-and-deeper-device-support">Broader and Deeper Device
+Support</h3>
+<p>Humming will continue expanding hardware coverage while adapting to
+the compute and memory capabilities of new devices, helping more
+platforms realize the performance potential of quantized inference.
+Priorities include:</p>
+<ul>
+<li>Supporting more Rubin architecture features, including Locality
+Domains, to further optimize task mapping and data access.</li>
+<li>Extending support to more T-Head PPU devices, including the Zhenwu
+M890.</li>
+<li>Supporting more devices compatible with CUDA programming, bringing
+existing quantization formats, kernel components, and tuning
+capabilities to additional hardware platforms.</li>
+</ul>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="adding-autotune">Adding Autotune</h3>
+<p>With targeted tuning, Humming can already achieve state-of-the-art
+performance in most scenarios. However, the wide range of model shapes,
+quantization configurations, and device resources makes it difficult for
+heuristics to select the optimal configuration in every case.</p>
+<p>Humming therefore plans to introduce autotune, benchmarking candidate
+configurations on the target device to find better execution parameters
+for each workload. Autotune will complement existing heuristics,
+reducing manual configuration search and helping more workloads approach
+the kernels' best achievable performance.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="deeper-integration-with-inference-frameworks">Deeper Integration
+with Inference Frameworks</h3>
+<p>Humming will continue deepening its integration with inference
+frameworks such as vLLM, expanding support across quantized model
+loading, backend selection, parallel inference, runtime scheduling, and
+device adaptation. We aim to make more quantization methods work with
+the full range of framework capabilities, including optimizations such
+as quantized All-to-All (A2A) communication for expert parallelism (EP).
+These efforts will make high-performance quantized kernels easier to use
+across diverse deployment scenarios and help translate kernel
+performance gains into end-to-end inference benefits.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="acknowledgments">Acknowledgments</h2>
+<p>We thank Jinzhen Lin, Zekai Gu, and Zhilin Huang from Ant Group, as
+well as Michael Goin, Roberto L. Castro, Chauncey Jiang, and other
+members of the vLLM community, for their contributions and support
+throughout Humming's development.</p>
+<p>We also thank the vLLM community for providing development, testing,
+and CI resources that made it possible to validate and improve Humming
+across a wide range of hardware and workloads.</p>
+<p>Humming's design and optimization draw inspiration from Marlin, vLLM
+Marlin, LMDeploy, DeepGEMM, FlashInfer, CUTLASS, and other open-source
+projects. We are grateful to their authors and contributors for sharing
+their ideas and implementations, helping advance high-performance
+quantized inference for the entire community.</p>
+</div>
+</article>
+</body>
+</html>

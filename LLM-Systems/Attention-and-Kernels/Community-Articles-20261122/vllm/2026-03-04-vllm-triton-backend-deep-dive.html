@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>vLLM Triton Attention Backend Deep Dive</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">vLLM Triton Attention Backend Deep Dive</h1>
+</header>
+<section id="vllm-triton-attention-backend-deep-dive" class="header">
+<h1>vLLM Triton Attention Backend Deep Dive</h1>
+<p>来源：<a
+href="https://vllm.ai/blog/2026-03-04-vllm-triton-backend-deep-dive">https://vllm.ai/blog/2026-03-04-vllm-triton-backend-deep-dive</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="max-w-3xl">
+<section id="vllm-triton-attention-backend-deep-dive-1"
+class="text-3xl md:text-4xl font-bold leading-tight mb-4 header mb-8">
+<h1 class="text-3xl md:text-4xl font-bold leading-tight mb-4">vLLM
+Triton Attention Backend Deep Dive</h1>
+<div
+class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+<time datetime="2026-03-04">March 4, 2026</time><span>10 min read</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+<span class="text-foreground">vLLM Team at IBM Research</span>
+</div>
+<div class="flex flex-wrap gap-2 mt-4">
+<a href="https://vllm.ai/blog/tags/performance"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#performance</a><a
+href="https://vllm.ai/blog/tags/triton"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#triton</a><a
+href="https://vllm.ai/blog/tags/attention"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#attention</a>
+</div>
+</section>
+<div class="lg:hidden">
+<div class="lg:hidden rounded-xl border bg-muted/30 p-4 my-6">
+
+</div>
+</div>
+<div>
+<p>This article is adapted from a Red Hat hosted <a
+href="https://www.youtube.com/watch?v=8QiM-i9ifFo&amp;list=PLbMP1JcGBmSHxp4-lubU5WYmJ9YgAQcf3&amp;index=1"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vLLM Office Hours</a> session with Burkhard
+Ringlein from IBM Research, featuring a deep technical walkthrough of
+the vLLM Triton attention backend. <a
+href="https://www.youtube.com/playlist?list=PLbMP1JcGBmSHxp4-lubU5WYmJ9YgAQcf3"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Explore past topics</a> and join future office
+hours <a href="https://red.ht/office-hours"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">here</a>.</p>
+<p>Over the past year, teams across IBM Research, Red Hat and AMD have
+developed and upstreamed a Triton-based attention backend for vLLM,
+aiming for state-of-the-art performance with strong portability across
+GPU vendors. This work was driven by the growing diversity of
+accelerator hardware and the rising cost of maintaining large numbers of
+highly specialized kernels.</p>
+<p>This article provides a deep technical walkthrough of that effort. We
+explain why <a href="https://github.com/triton-lang/triton"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Triton</a> is a good fit for <a
+href="https://github.com/vllm-project/vllm"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vLLM</a>, describe the Triton attention
+backend and when it is used, and then dive into the implementation of a
+high-performance paged attention kernel. Along the way, we cover
+kernel-level optimizations, parallelization strategies, CUDA graph
+interactions, and benchmarking results, before concluding with a brief
+look at Helion.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="why-triton-helps-vllm"><strong>Why Triton Helps vLLM</strong></h2>
+<p>vLLM aims to deliver the best possible inference performance across
+platforms, models, and execution strategies. In practice, this means
+supporting multiple accelerators and generations, a wide range of model
+architectures, and diverse workload characteristics such as varying
+batch sizes, sequence lengths, and attention patterns.</p>
+<p>One approach is to write many highly specialized kernels, each tuned
+for a specific model and GPU architecture. While effective, this
+approach does not scale. Maintaining hundreds of kernels across multiple
+GPU platforms, e.g. NVIDIA Hopper and Blackwell, AMD MI300, Intel, or
+any future platforms quickly becomes impractical.</p>
+<p>Instead, we favor performance-portable kernels that adapt
+automatically to the hardware they run on. The Triton backend follows
+this approach.</p>
+<p>Triton is a domain-specific language that allows developers to write
+GPU kernels, such as matrix multiplication or attention, in Python.
+These kernels are compiled into efficient GPU code for multiple
+platforms. Triton’s tiled programming model strikes a balance: it is
+low-level enough to express hardware-relevant optimizations, yet
+high-level enough to remain largely hardware agnostic.</p>
+<p>As shown in Figure 1, developers express computation in terms of
+logical tiles. The Triton compiler and autotuner determine how these
+tiles are mapped onto the underlying hardware. Tile shapes and execution
+layouts can differ significantly across GPUs, but these decisions are
+made automatically, often guided by autotuning (more details can be
+found in our paper <a href="https://arxiv.org/abs/2505.03780"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">GPU Performance Portability needs Autotuning
+(arxiv.org)</a>).</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/4a1c83a8ffde936f30ddbd326c28da36f8bd3d702907fac5856f81cfdfd5d2f8.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 1" />
+<figcaption aria-hidden="true">Figure 1</figcaption>
+</figure>
+<figcaption>Figure 1: Triton’s tiled programming model, where logical
+tiles are mapped to hardware-specific execution layouts by the compiler
+and autotuner.</figcaption>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="the-triton-attention-backend-in-vllm"><strong>The Triton Attention
+Backend in vLLM</strong></h2>
+<p>Attention is typically the most performance-critical operation in
+large language models. To manage complexity, vLLM introduced an
+abstraction layer called attention backends, which isolates attention
+implementations behind a common API and separates them from simpler
+components such as linear layers or layer normalization.</p>
+<p>Within this abstraction, vLLM supports multiple attention backends,
+including FlashAttention and FlashInfer on CUDA platforms, ROCm-based
+attention backends, and specialized backends for MLA-style attention
+(see full list <a
+href="https://github.com/vllm-project/vllm/tree/main/vllm/v1/attention/backends"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">here</a>) . The <a
+href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/triton_attn.py"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Triton attention backend</a> is implemented
+entirely in Triton and is native to vLLM.</p>
+<p>This backend was introduced to address performance portability and
+dependency concerns. It runs the same source code on NVIDIA, AMD, and
+Intel GPUs, depends only on PyTorch and Triton, and is always available
+as part of vLLM. Although initially developed by IBM Research and Red
+Hat AI, it is now maintained and extended by the broader community.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="when-the-triton-attention-backend-is-used"><strong>When the Triton
+Attention Backend Is Used</strong></h2>
+<p>The Triton attention backend is the default on AMD GPUs running on
+ROCm and is used on Intel XPU, when running float32, vLLM falls back to
+Triton Attention because Flash Attention does not support fp32 there. It
+also supports models requiring specific features, such as ALiBi sqrt
+used by StepFun audio models, or sink tokens and GPT-OSS behavior,
+particularly on pre-Hopper NVIDIA GPUs, like A100s.</p>
+<p>In addition, it supports models with small head sizes, encoder and
+decoder attention, and multimodal prefix attention. Since the Triton
+attention backend is always present, it also serves as a fallback
+backend, if FlashAttention, FlashInfer, or other dependencies are
+unavailable or fail to import,. Features such as batch invariance are
+also supported.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="writing-a-high-performance-portable-paged-attention-kernel-in-triton"><strong>Writing
+a High-Performance Portable Paged Attention Kernel in
+Triton</strong></h2>
+<p>When development of the Triton attention backend began, the kernel
+was first implemented outside of vLLM and evaluated using extensive
+microbenchmarks. The kernel API was designed to match vLLM’s
+requirements, but performance tuning was performed in isolation before
+end-to-end integration.</p>
+<p><a
+href="https://github.com/foundation-model-stack/vllm-triton-backend"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Microbenchmarks</a> were essential for
+understanding performance behavior across prefill-heavy, decode-heavy,
+and mixed workloads, as well as across different batch sizes and context
+lengths.</p>
+<p>Figure 2 shows representative microbenchmark results. The x-axis
+represents the total number of tokens, while the y-axis shows latency.
+Separate subplots distinguish prefill-only, mixed, and decode-only
+workloads. These results show that different kernel variants excel in
+different regimes, and that no single configuration dominates across all
+scenarios.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/c24b00aee935e506f02e06e06f5f501fc5a4d5875efe8b1f7b8ce83833038651.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 2" />
+<figcaption aria-hidden="true">Figure 2</figcaption>
+</figure>
+<figcaption>Figure 2: Microbenchmark comparison of multiple Triton paged
+attention kernel variants across prefill, decode, and mixed
+workloads.</figcaption>
+</figure>
+<p>Microbenchmarks complement end-to-end benchmarks by exposing
+kernel-level behavior that may otherwise be hidden by system-level
+effects.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="reminder-what-the-paged-attention-kernel-does"><strong>Reminder:
+What the Paged Attention Kernel Does</strong></h2>
+<p>Paged attention implements attention in a memory-efficient way by
+paging the KV cache. For each query in a batch, the kernel processes
+each query token. For each token, it iterates over query heads and
+corresponding KV heads, and then traverses the paged KV cache to compute
+attention scores and apply value vectors.</p>
+<p>This structure is illustrated in Figure 3. Query tokens are laid out
+along the x-axis, query heads along the y-axis, and the paged KV cache
+traversal forms the innermost loop. Details such as causal masking and
+sliding windows are omitted for clarity.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/febafec7ca63ef9aafd7afa5caf16190b60134023accf643b816c5bb6a9bd90a.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 3" />
+<figcaption aria-hidden="true">Figure 3</figcaption>
+</figure>
+<figcaption>Figure 3: Conceptual view of paged attention showing query
+tokens, query heads, and traversal of the paged KV cache.</figcaption>
+</figure>
+<p>For a detailed explanation of the low-level optimizations of the
+kernel, we recommend the corresponding pytorch blog by the kernel
+authors: <a
+href="https://pytorch.org/blog/enabling-vllm-v1-on-amd-gpus-with-triton/"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">https://pytorch.org/blog/enabling-vllm-v1-on-amd-gpus-with-triton/</a></p>
+<p>The code can be found here: <a
+href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/ops/triton%5C_unified%5C_attention.py"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/ops/triton\_unified\_attention.py</a></p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="optimizing-tile-sizes-for-tldot-using-q-blocks"><strong>Optimizing
+Tile Sizes for tl.dot Using Q Blocks</strong></h2>
+<p>The core computation in attention is matrix multiplication,
+implemented in Triton using tl.dot. However, high performance requires
+sufficiently large tiles to fully utilize the hardware and simply
+loading the paged KV cache did not lead to good results.</p>
+<p>Tile sizes on the KV side are constrained by the page size of the KV
+cache, so optimization focuses on the query side. For group query
+attention, cache reuse can be increased by processing all query heads
+associated with a single KV head together. To further increase
+parallelism, multiple query tokens are grouped into a single work item,
+referred to as a Q block.</p>
+<p>Figure 4 illustrates this approach. The launch grid spans batch size
+and KV heads, while Q blocks determine how many query tokens and heads
+are processed per kernel instance. Autotuning selects appropriate block
+sizes for each platform.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/4db36fef15df07368cca7c2ae48e5b9b70db500980c07600a8af3cf7a5fdd2f9.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 4" />
+<figcaption aria-hidden="true">Figure 4</figcaption>
+</figure>
+<figcaption>Figure 4: Q blocks combine multiple query heads and query
+tokens into a single work item to improve tl.dot utilization and cache
+reuse.</figcaption>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="adding-parallelization-with-parallel-tiled-softmax"><strong>Adding
+Parallelization With Parallel Tiled Softmax</strong></h2>
+<p>Processing multiple query tokens at once works well for prefill
+workloads but provides no benefit for decode workloads, where only a
+single query token is processed. To address this, additional
+parallelization is introduced through parallel tiled softmax, the
+so-called “3D kernel”.</p>
+<p>This approach splits the traversal of the KV cache across multiple
+kernel instances. Each instance computes partial results, which are
+later reduced to produce the final output. Because Triton does not
+provide a global barrier, this reduction requires launching a second
+kernel, introducing a trade-off between additional parallelism and
+launch overhead. Heuristics are used to determine when this approach is
+beneficial.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="cuda-graphs-launch-grids-and-gpu-execution-waves"><strong>CUDA
+Graphs, Launch Grids, and GPU Execution Waves</strong></h2>
+<p>CUDA graphs reduce kernel launch overhead by recording and replaying
+fixed execution graphs. However, attention kernels present challenges
+because their launch grids often depend on batch size and sequence
+length.</p>
+<p>GPUs execute kernels using a fixed number of streaming
+multiprocessors (SMs). When more threads are launched than there are
+SMs, execution proceeds in waves. Figure 5 illustrates this behavior,
+where a second wave leads to underutilization.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/5a738f4f216a7869e4e28a4a28f2f4f80c67e0a82ededef24c34cebbe772f637.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 5" />
+<figcaption aria-hidden="true">Figure 5</figcaption>
+</figure>
+<figcaption>Figure 5: GPU execution waves when the number of launched
+threads exceeds available streaming multiprocessors. In this example,
+the GPU has 8 SMs and we want to execute 12 threads.</figcaption>
+</figure>
+<p>When captured in a CUDA graph, this inefficiency is replayed even if
+the effective workload size decreases. Figure 6 shows how fixed launch
+grids can lead to additional wasted work and increased latency.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/14aa818c8ebc6ef75b45f7a7544581b3c61655d61c538aa0077f278965e2da6f.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 6" />
+<figcaption aria-hidden="true">Figure 6</figcaption>
+</figure>
+<figcaption>Figure 6: Additional wasted work when replaying fixed launch
+grids via CUDA graphs.</figcaption>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="from-variable-launch-grids-to-persistent-kernels"><strong>From
+Variable Launch Grids to Persistent Kernels</strong></h2>
+<p>Early versions of the paged attention kernel used variable launch
+grids that scaled with workload size, as shown in Figure 7. While
+flexible, this approach interacts poorly with CUDA graphs.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/6ac4531cf850171c6e9eb695176134fa1f07f2848f85cb7250a08ebb8261fa61.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 7" />
+<figcaption aria-hidden="true">Figure 7</figcaption>
+</figure>
+<figcaption>Figure 7: Variable launch grids used in earlier paged
+attention kernels.</figcaption>
+</figure>
+<p>To address this, we designed persistent kernels (PRs to vLLM
+pending). A fixed number of kernel instances is launched, equal to the
+available compute resources. Each instance dynamically determines how
+much work to process by reading metadata from GPU memory. This keeps
+launch grids constant and allows CUDA graphs to be reused
+efficiently.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/18466db3f55adefc045b0696d41d553a999247a1e4de5b6834f76a8c26f8f11f.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 8" />
+<figcaption aria-hidden="true">Figure 8</figcaption>
+</figure>
+<figcaption>Figure 8: Persistent kernel approach with fixed launch grids
+and dynamic work assignment.</figcaption>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="benchmarking-results"><strong>Benchmarking Results</strong></h2>
+<p>Benchmarking results from late 2025 demonstrate the effectiveness of
+this approach. Figure 9 shows end-to-end latency results for Llama 3.1
+8B with batch size one and an input length of 500 tokens on NVIDIA H100
+and AMD MI300, the output length is denoted at the x-axis.</p>
+<p>On H100, the Triton attention backend achieved 100.7% of the
+performance of FlashAttention 3 for long decode requests. On MI300, it
+achieved a speedup of approximately 5.8× over earlier implementations.
+Importantly, the same Triton kernel source code was used on both
+platforms. Please note, the paged attention implementation in Triton has
+roughly 800 lines of code, while FlashAttention3 has around 70 '000
+lines of code.</p>
+<figure>
+<figure class="my-6">
+<img
+src="assets/8b242e4dd75652694bd41c1a7fbb6f59cb224e27b1503e86822d8bf41ca54d9c.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 9" />
+<figcaption aria-hidden="true">Figure 9</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/f4b35e015e1bf2c084938eb772133ba86ffa33e100e24346f26638018a7f81e3.png"
+class="rounded-lg max-w-full cursor-zoom-in" alt="Figure 9" />
+<figcaption aria-hidden="true">Figure 9</figcaption>
+</figure>
+<figcaption>Figure 9: End-to-end latency comparison of Triton paged
+attention and FlashAttention 3 on NVIDIA H100 and AMD MI300. The results
+are normalized with the left-most baseline.</figcaption>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="preview-paged-attention-in-helion"><strong>Preview: Paged Attention
+in Helion</strong></h2>
+<p><a href="https://github.com/pytorch/helion"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">Helion</a> is a new domain-specific language
+from the PyTorch team that can be viewed as a higher-level Triton or
+tiled PyTorch. A simplified paged attention kernel was implemented in
+Helion as an experiment, with promising early results. The work was
+published on the <a
+href="../pytorch/portable-paged-attention-in-helion.html"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">PyTorch blog</a>, and the code is available as
+a <a href="https://github.com/vllm-project/vllm/pull/27293"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">draft pull request</a> in the vLLM
+repository.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="conclusion"><strong>Conclusion</strong></h2>
+<p>As models, inference optimizations, and hardware platforms continue
+to progress, performance portability has become increasingly important.
+The Triton attention backend in vLLM demonstrates that it is possible to
+achieve state-of-the-art attention performance using a single, portable
+kernel implementation.</p>
+<p>Through careful kernel design, extensive microbenchmarking, and
+system-level optimizations such as persistent kernels and CUDA graphs,
+the Triton backend matches or exceeds highly specialized implementations
+while remaining portable across GPU vendors. Today, it is the default
+attention backend on AMD and runs efficiently on NVIDIA and Intel
+platforms using the same source code.</p>
+<p>While this blog post gave an overview of the most important
+optimizations in the Triton Attention backend, you could find all
+details and more benchmark results in our related paper <a
+href="https://arxiv.org/abs/2511.11581"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">The Anatomy of a Triton Attention Kernel
+(arxiv.org)</a>.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="acknowledgments">Acknowledgments</h2>
+<p>This work was carried out by the AI platform team at IBM Research –
+thank you to everyone involved: Burkhard Ringlein, Jan van Lunteren,
+Chih-Chieh Yang, Sara Kokkila Schumacher, Thomas Parnell, Mudhakar
+Srivatsa, Raghu Ganti.</p>
+</div>
+</article>
+</body>
+</html>

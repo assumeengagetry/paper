@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Fast and Expressive LLM Inference with RadixAttention and SGLang</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Fast and Expressive LLM Inference with RadixAttention
+and SGLang</h1>
+</header>
+<section
+id="fast-and-expressive-llm-inference-with-radixattention-and-sglang"
+class="header">
+<h1>Fast and Expressive LLM Inference with RadixAttention and
+SGLang</h1>
+<p>来源：<a
+href="https://www.lmsys.org/blog/2024-01-17-sglang">https://www.lmsys.org/blog/2024-01-17-sglang</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="blog-post-content">
+<section
+id="fast-and-expressive-llm-inference-with-radixattention-and-sglang-1"
+class="blog-post-title header post-header">
+<h1 class="blog-post-title">Fast and Expressive LLM Inference with
+RadixAttention and SGLang</h1>
+<div class="blog-post-meta">
+<span class="post-author">Lianmin Zheng*, Liangsheng Yin, Zhiqiang Xie,
+Jeff Huang, Chuyue Sun, Cody Hao Yu, Shiyi Cao, Christos Kozyrakis, Ion
+Stoica, Joseph E. Gonzalez, Clark Barrett, Ying Sheng*</span><span
+class="post-meta-item">Jan 17, 2024</span>
+</div>
+</section>
+<details class="toc-mobile">
+<summary>
+<p><span>On this page</span></p>
+<svg width="14" height="14" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<p><path d="m6 9 6 6 6-6"></path></p>
+</svg>
+</summary>
+<ul>
+<li><a
+href="#backend-automatic-kv-cache-reuse-with-radixattention">Backend:
+Automatic KV Cache Reuse with RadixAttention</a></li>
+<li><a href="#frontend-easy-llm-programming-with-sglang">Frontend: Easy
+LLM Programming with SGLang</a></li>
+<li><a href="#benchmark">Benchmark</a></li>
+<li><a href="#adoption">Adoption</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#links">Links</a></li>
+<li><a href="#acknowledgement">Acknowledgement</a></li>
+<li><a href="#citation">Citation</a></li>
+</ul>
+</details>
+<div class="post-prose">
+<p>Large Language Models (LLMs) are increasingly utilized for complex
+tasks that require multiple chained generation calls, advanced prompting
+techniques, control flow, and interaction with external environments.
+However, there is a notable deficiency in efficient systems for
+programming and executing these applications. To address this gap, we
+introduce SGLang, a <u>S</u>tructured <u>G</u>eneration <u>Lang</u>uage
+for LLMs. SGLang enhances interactions with LLMs, making them faster and
+more controllable by co-designing the backend runtime system and the
+frontend languages.</p>
+<ul>
+<li>On the backend, we propose RadixAttention, a technique for automatic
+and efficient KV cache reuse across multiple LLM generation calls.</li>
+<li>On the frontend, we develop a flexible domain-specific language
+embedded in Python to control the generation process. This language can
+be executed in either interpreter mode or compiler mode.</li>
+</ul>
+<p>These components work synergistically to enhance the execution and
+programming efficiency of complex LLM programs.</p>
+<p>We use SGLang to implement common LLM workloads, including agent,
+reasoning, extraction, chat, and few-shot learning tasks, employing the
+Llama-7B and Mixtral-8x7B models on NVIDIA A10G GPUs. Figures 1 and 2
+below demonstrate that SGLang achieves up to 5 times higher throughput
+compared to existing systems, namely Guidance and vLLM. We have released
+the <a href="https://github.com/sgl-project/sglang/">code</a> and a <a
+href="../../Zheng%20%E7%AD%89%20-%202024%20-%20SGLang%20Efficient%20Execution%20of%20Structured%20Language%20Model%20Programs.pdf">tech report</a>.</p>
+<p><img src="assets/805869ca8f082b01a26cde291a391a340ad3cc87fd4f3a8bed74f6b458f7b0cb.jpg"
+class="fig-full fig-wide" /></p>
+<p><strong>Figure 1:</strong> Throughput of Different Systems on LLM
+Tasks (Llama-7B on A10G, FP16, Tensor Parallelism=1)</p>
+<p><img src="assets/76ca53c91e1bff7371ac74e67d6a9217bf66e77a1245313ed57f5f1230d84783.jpg"
+class="fig-full fig-wide" /></p>
+<p><strong>Figure 2:</strong> Throughput of Different Systems on LLM
+Tasks (Mixtral-8x7B on A10G, FP16, Tensor Parallelism=8)</p>
+<br />
+
+<p>In this blog post, we will begin by introducing the key optimizations
+we implemented in the backend, then move on to explaining the frontend
+APIs.</p>
+<h2 id="backend-automatic-kv-cache-reuse-with-radixattention">Backend:
+Automatic KV Cache Reuse with RadixAttention</h2>
+<p>During the development of the SGLang runtime, we identified a crucial
+optimization opportunity for complex LLM programs, which are poorly
+handled by current systems: KV cache reuse. KV cache reuse means
+different prompts with the same prefix can share the intermediate KV
+cache and avoid redundant memory and computation. In a complex program
+that involves multiple LLM calls, there can be various KV cache reuse
+patterns. Figure 3 below illustrates four such patterns, which are
+common in LLM workloads. While some systems are capable of handling KV
+cache reuse in certain scenarios, this often necessitates manual
+configurations and ad-hoc adjustments. Moreover, no existing system can
+automatically accommodate all scenarios, even with manual
+configurations, due to the diversity of possible reuse patterns.</p>
+<p><img src="assets/10309577cc86bd813dc4342f15c0b8667b832fe01bd22ad48b76460e8e189ccd.jpg"
+class="fig-full" /></p>
+<p><strong>Figure 3:</strong> KV cache sharing examples. Blue boxes are
+shareable prompt parts, green boxes are non-shareable parts, and yellow
+boxes are non-shareable model outputs. Shareable parts include few-shot
+learning examples, questions in self-consistency, chat history in
+multi-turn chat, and search history in tree-of-thought.</p>
+<p>To systematically exploit these reuse opportunities, we introduce
+RadixAttention, a novel technique for automatic KV cache reuse during
+runtime. Instead of discarding the KV cache after finishing a generation
+request, our approach retains the KV cache for both prompts and
+generation results in a radix tree. This data structure enables
+efficient prefix search, insertion, and eviction. We implement a Least
+Recently Used (LRU) eviction policy, complemented by a cache-aware
+scheduling policy, to enhance the cache hit rate.</p>
+<p>A radix tree is a data structure that serves as a space-efficient
+alternative to a trie (prefix tree). Unlike typical trees, the edges of
+a radix tree can be labeled with not just single elements, but also with
+sequences of elements of varying lengths. This feature boosts the
+efficiency of radix trees. In our system, we utilize a radix tree to
+manage a mapping. This mapping is between sequences of tokens, which act
+as the keys, and their corresponding KV cache tensors, which serve as
+the values. These KV cache tensors are stored on the GPU in a paged
+layout, where the size of each page is equivalent to one token.
+Considering the limited capacity of GPU memory, we cannot retain
+infinite KV cache tensors, which necessitates an eviction policy. To
+tackle this, we implement an LRU eviction policy that recursively evicts
+leaf nodes. Furthermore, RadixAttention is compatible with existing
+techniques like continuous batching and paged attention. For multi-modal
+models, the RadixAttention can be easily extended to handle image
+tokens.</p>
+<p>The figure below illustrates how the radix tree is maintained when
+processing several incoming requests. The front end always sends full
+prompts to the runtime and the runtime will automatically do prefix
+matching, reuse, and caching. The tree structure is stored on the CPU
+and the maintenance overhead is small.</p>
+<p><img src="assets/6fdab756a9ebc87cd88c13ce172f15a83fc72acc5ea22e8ab5f8e1d0b183e354.jpg"
+class="fig-full" /></p>
+<p><strong>Figure 4.</strong> Examples of RadixAttention operations with
+an LRU eviction policy, illustrated across nine steps.</p>
+<p>Figure 4 demonstrates the dynamic evolution of the radix tree in
+response to various requests. These requests include two chat sessions,
+a batch of few-shot learning inquiries, and a self-consistency sampling.
+Each tree edge carries a label denoting a substring or a sequence of
+tokens. The nodes are color-coded to reflect different states: green for
+newly added nodes, blue for cached nodes accessed during the time point,
+and red for nodes that have been evicted.</p>
+<p>In step (1), the radix tree is initially empty. In step (2), the
+server processes an incoming user message “Hello” and responds with the
+LLM output “Hi”. The system prompt “You are a helpful assistant”, the
+user message “Hello!”, and the LLM reply “Hi!” are consolidated into the
+tree as a single edge linked to a new node. In step (3), a new prompt
+arrives and the server finds the prefix of the prompt (i.e., the first
+turn of the conversation) in the radix tree and reuses its KV cache. The
+new turn is appended to the tree as a new node. In step (4), a new chat
+session begins. The node ``b’’ from (3) is split into two nodes to allow
+the two chat sessions to share the system prompt. In step (5), the
+second chat session continues. However, due to the memory limit, node
+“c” from (4) must be evicted. The new turn is appended after node “d” in
+(4). In step (6), the server receives a few-shot learning query,
+processes it, and inserts it into the tree. The root node is split
+because the new query does not share any prefix with existing nodes. In
+step (7), the server receives a batch of additional few-shot learning
+queries. These queries share the same set of few-shot examples, so we
+split node ‘e’ from (6) to enable sharing. In step (8), the server
+receives a new message from the first chat session. It evicts all nodes
+from the second chat session (node “g” and “h”) as they are least
+recently used. In step (9), the server receives a request to sample more
+answers for the questions in node “j” from (8), likely for
+self-consistency prompting. To make space for these requests, we evict
+node “i”, “k”, and “l” in (8).</p>
+<p>In the future, we envision advanced multi-layer storage strategies
+and eviction policies can be developed.</p>
+<h2 id="frontend-easy-llm-programming-with-sglang">Frontend: Easy LLM
+Programming with SGLang</h2>
+<p>On the frontend, we introduce SGLang, a domain-specific language
+embedded in Python. It allows you to express advanced prompting
+techniques, control flow, multi-modality, decoding constraints, and
+external interaction easily. A SGLang function can be run through
+various backends, such as OpenAI, Anthropic, Gemini, and local
+models.</p>
+<p><img src="assets/cedd7292372ac3c24c4be383c08a36c6b3727a328f59ced0b2e3a672024b7fba.jpg"
+class="fig-full" /></p>
+<p><strong>Figure 5.</strong> The implementation of a multi-dimensional
+essay judge in SGLang.</p>
+<p>Figure 5 shows a concrete example. It implements a multi-dimensional
+essay judge utilizing the <a
+href="https://arxiv.org/abs/2310.15123">branch-solve-merge</a> prompting
+technique. This function uses LLMs to evaluate the quality of an essay
+from multiple dimensions, merges the judgments, generates a summary, and
+assigns a final grade. The highlighted regions illustrate the use of
+SGLang APIs. (1) <code>fork</code> creates multiple parallel copies of a
+prompt. (2) <code>gen</code> invokes an LLM generation and stores the
+result in a variable. The call is non-blocking so it allows multiple
+generation calls to run simultaneously in the background. (3)
+<code>[variable_name]</code> retrieves the result of the generation. (4)
+<code>choices</code> imposes constraints on the generation. (5)
+<code>run</code> executes a SGLang function with its arguments.</p>
+<p>Given such an SGLang program, we can either execute it eagerly
+through an interpreter, or we can trace it as a dataflow graph and run
+it with a graph executor. The latter case opens room for some potential
+compiler optimizations, such as code movement, instruction selection,
+and auto-tuning. You can find more code examples in our GitHub repo and
+the details of compiler optimizations in our tech report.</p>
+<p>The syntax of SGLang is largely inspired by <a
+href="https://github.com/guidance-ai/guidance">Guidance</a>. However, we
+additionally introduce new primitives and handle intra-program
+parallelism and batching. All of these new features contribute to the
+great performance of SGLang. You can find more examples at our Github <a
+href="https://github.com/sgl-project/sglang/tree/main?tab=readme-ov-file#quick-start">repo</a>.</p>
+<h2 id="benchmark">Benchmark</h2>
+<p>We tested our system on the following common LLM workloads and
+reported the achieved throughput:</p>
+<ul>
+<li><strong><a
+href="https://arxiv.org/abs/2009.03300">MMLU</a></strong>: A 5-shot,
+multi-choice, multi-task benchmark.</li>
+<li><strong><a
+href="https://arxiv.org/abs/1905.07830">HellaSwag</a></strong>: A
+20-shot, multi-choice sentence completion benchmark.</li>
+<li><strong><a href="https://arxiv.org/abs/2210.03629">ReAct
+Agent</a></strong>: An agent task using prompt traces collected from the
+original ReAct paper.</li>
+<li><strong><a
+href="https://arxiv.org/pdf/2305.10601.pdf">Tree-of-Thought</a></strong>:
+A custom tree search-based prompt for solving GSM-8K problems.</li>
+<li><strong>JSON Decode</strong>: Extracting information from a
+Wikipedia page and outputting it in JSON format.</li>
+<li><strong>Chat (short)</strong>: A synthetic chat benchmark where each
+conversation includes 4 turns with short LLM outputs.</li>
+<li><strong>Chat (long)</strong>: A synthetic chat benchmark where each
+conversation includes 4 turns with long LLM outputs.</li>
+<li><strong><a href="https://github.com/stanfordnlp/dspy">DSPy
+RAG</a></strong>: A retrieval-augmented generation pipeline in the DSPy
+tutorial.</li>
+<li><strong><a href="https://github.com/haotian-liu/LLaVA">LLaVA
+Bench</a></strong>: Running LLaVA v1.5, a vision language model on the
+LLaVA-in-the-wild benchmark.</li>
+</ul>
+<p>We tested both Llama-7B on one NVIDIA A10G GPU (24GB) and
+Mixtral-8x7B on 8 NVIDIA A10G GPUs with tensor parallelism, using FP16
+precision. We used vllm v0.2.5, guidance v0.1.8, and Hugging Face TGI
+v1.3.0 as baseline systems.</p>
+<p>As shown in Figures 1 and 2, SGLang outperformed the baseline systems
+in all benchmarks, <strong>achieving up to 5 times higher
+throughput</strong>. It also excelled in terms of latency, particularly
+for the first token latency, where a prefix cache hit can be
+significantly beneficial. These improvements are attributed to the
+automatic KV cache reuse with RadixAttention, the intra-program
+parallelism enabled by the interpreter, and the co-design of the
+frontend and backend systems. Additionally, our ablation study revealed
+no noticeable overhead even in the absence of cache hits, leading us to
+always enable the RadixAttention feature in the runtime.</p>
+<p>The benchmark code is available <a
+href="https://github.com/sgl-project/sglang/tree/main/benchmark">here</a>.</p>
+<h2 id="adoption">Adoption</h2>
+<p>SGLang has been used to power the serving of <a
+href="https://llava.hliu.cc/">LLaVA online demo</a>. It also also been
+integrated as a backend in <a
+href="https://github.com/stanfordnlp/dspy/pull/263">DSPy</a>. Please let
+us know if you have any interesting use cases!</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>As LLMs continue to evolve, they have the potential to be seamlessly
+integrated into complex software stacks, revolutionizing software
+development practices. LLMs can effectively function as intelligent
+library functions. To ensure their speed, flexibility, reliability, and
+controllability, it is crucial to co-design both the programming
+interfaces and the runtime systems for LLM-based functions and programs.
+SGLang represents our initial step towards achieving this goal. We
+invite the community to try SGLang and provide us with feedback.</p>
+<h2 id="links">Links</h2>
+<p>Code: <a
+href="https://github.com/sgl-project/sglang/">https://github.com/sgl-project/sglang/</a><br />
+Paper: <a
+href="../../Zheng%20%E7%AD%89%20-%202024%20-%20SGLang%20Efficient%20Execution%20of%20Structured%20Language%20Model%20Programs.pdf">https://arxiv.org/abs/2312.07104</a></p>
+<h2 id="acknowledgement">Acknowledgement</h2>
+<p>This project would not have been possible without the incredible
+open-source community. We gained insights from the designs and even
+reused some code from the following projects: <a
+href="https://github.com/guidance-ai/guidance">Guidance</a>, <a
+href="https://github.com/vllm-project/vllm">vLLM</a>, <a
+href="https://github.com/ModelTC/lightllm">LightLLM</a>, <a
+href="https://github.com/flashinfer-ai/flashinfer">FlashInfer</a>, <a
+href="https://github.com/outlines-dev/outlines">Outlines</a>, <a
+href="https://github.com/eth-sri/lmql">LMQL</a>.</p>
+<p>We thank Zihao Ye, Haotian Liu, Omar Khattab, Christopher Chou, and
+Wei-Lin Chiang for their early feedback.</p>
+<h2 id="citation">Citation</h2>
+<div class="code-block">
+<pre><code>@misc{zheng2023efficiently,
+      title={Efficiently Programming Large Language Models using SGLang},
+      author={Lianmin Zheng and Liangsheng Yin and Zhiqiang Xie and Jeff Huang and Chuyue Sun and Cody Hao Yu and Shiyi Cao and Christos Kozyrakis and Ion Stoica and Joseph E. Gonzalez and Clark Barrett and Ying Sheng},
+      year={2023},
+      eprint={2312.07104},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI}
+}</code></pre>
+</div>
+</div>
+</article>
+</body>
+</html>

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FlexAttention Part II: FlexAttention for Inference</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FlexAttention Part II: FlexAttention for
+Inference</h1>
+</header>
+<section id="flexattention-part-ii-flexattention-for-inference"
+class="header">
+<h1>FlexAttention Part II: FlexAttention for Inference</h1>
+<p>来源：<a
+href="https://pytorch.org/blog/flexattention-for-inference/">https://pytorch.org/blog/flexattention-for-inference/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content" data-hide-featured-media="1">
+<div class="content-inner">
+<h2 id="overview">Overview</h2>
+<p>In PyTorch 2.5.0 release, we introduced <a
+href="../../../../ML-Systems-and-Hardware/GPU-Programming/Community-Articles-20261122/pytorch/flexattention.html">FlexAttention</a> <code
+class="language-plaintext highlighter-rouge">torch.nn.attention.flex_attention</code>
+for ML researchers who’d like to customize their attention kernels
+without writing kernel code. This blog introduces our decoding backend
+optimized for inference, supporting GQA and PagedAttention, along with
+feature updates including performance tuning guides and trainable biases
+support.</p>
+<p>If you’re looking for an easy way to play around with FlexAttention
+in your post-training / inference pipeline, PyTorch native post-training
+library <a href="https://github.com/pytorch/torchtune" target="_blank"
+rel="noopener">torchtune</a> and inference codebase <a
+href="https://github.com/pytorch-labs/gpt-fast" target="_blank"
+rel="noopener">gpt-fast</a> already have FlexAttention integrated. Try
+it out!</p>
+<p>We are excited to share that our paper on FlexAttention has been
+accepted for presentation at the MLSys2025 Conference held from May
+12-15th in Santa Clara, California.</p>
+<p>Title: <strong>FlexAttention: A Programming Model for Generating
+Optimized Attention Kernels.</strong> <a
+href="https://mlsys.org/virtual/2025/poster/3007" target="_blank"
+rel="noopener">Poster</a></p>
+<h2 id="flexattention-for-inference">FlexAttention for Inference</h2>
+<p>TL;DR: <code
+class="language-plaintext highlighter-rouge">torch.compile</code> lowers <code
+class="language-plaintext highlighter-rouge">flex_attention</code> to a
+fused <a
+href="https://pytorch.org/blog/flash-decoding/">FlashDecoding</a> kernel
+when it runs on a very short query.</p>
+<p>One fused attention kernel does not suit all – especially in
+long-context LLM inference.</p>
+<p>The decoding phase of LLM inference is an iterative process: tokens
+are generated one at a time, requiring <code
+class="language-plaintext highlighter-rouge">N</code> forward passes to
+generate an <code
+class="language-plaintext highlighter-rouge">N</code>-token sentence.
+Fortunately, each iteration doesn’t need to recompute self-attention
+over the full sentence — previously calculated tokens are cached,
+therefore we only need to attend the newly generated token to the cached
+context.</p>
+<p><img src="assets/1b71c711c2e4f330f9f47e5c571e7d68ec52e08cac73bc166b550072eaa378d2.png"
+class="alignnone size-full wp-image-3461" width="1600"
+height="705" /></p>
+<p>This results in a unique attention pattern where a short query
+sequence (1 token) attends to a long key-value cache (context length up
+to 128k). Traditional optimizations for square attention kernels (<code
+class="language-plaintext highlighter-rouge">q_len ≈ kv_len</code>)
+don’t directly apply here. This pattern poses new challenges for GPU
+memory utilization and occupancy. We build a dedicated FlexDecoding
+backend optimized for long-context LLM inference incorporating
+decoding-specific techniques from <a
+href="https://pytorch.org/blog/flash-decoding/">FlashDecoding</a>.</p>
+<p>FlexDecoding is implemented as an alternative backend for the <code
+class="language-plaintext highlighter-rouge">torch.nn.attention.flex_attention </code>operator. <code
+class="language-plaintext highlighter-rouge">flex_attention</code> automatically
+switches to the FlexDecoding backend for its JIT compilation when given
+a short query and a long KV cache. If the input shape changes
+significantly, for example transitioning from the prefill phase to
+decoding, JIT recompilation generates a separate kernel for each
+scenario.</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>flex_attention = torch.compile(flex_attention)
+
+k_cache = torch.random(B, H, 16384, D) 
+v_cache = torch.random(B, H, 16384, D)
+
+...
+
+# Prefill Phase: query shape = [B, H, 8000, D]
+flex_attention(q_prefill, k_cache, v_cache, ...) # Uses FlexAttention backend optimized for prefill &amp; training
+
+# Decoding Phase: q_last_token shape = [B, H, 1, D]
+flex_attention(q_last_token  , k_cache, v_cache, ...) # Recompiles with the FlexDecoding backend 
+
+# decode 2 tokens at the same time: q_last_2_tokens shape = [B, H, 2, D]
+flex_attention(q_last_2_tokens, k_cache, v_cache, ...) # No recompilation needed! Runs the decoding kernel again.</code></pre>
+</div>
+</div>
+<h2 id="working-with-kv-cache">Working with KV Cache</h2>
+<p>One of the key optimizations for efficient inference is maintaining a
+preallocated KV cache that updates <strong>in place</strong> as new
+tokens are generated. Instead of enforcing a specific KV cache policy
+with a dedicated API, FlexDecoding allows users to define and manage the
+KV cache themselves.</p>
+<p>Similar to FlexAttention, FlexDecoding takes user-defined <code
+class="language-plaintext highlighter-rouge">mask_mod</code> and <code
+class="language-plaintext highlighter-rouge">score_mod</code> functions.
+These functions modify attention scores before the softmax
+operation.</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>score_mod(score, b, h, q_idx, kv_idx) -&gt; tensor # return updated score</code></pre>
+</div>
+</div>
+<p>Score is a scalar pytorch tensor that represents the dot product of a
+query token and a key token. The rest of the arguments specify which
+score is being computed:</p>
+<ul>
+<li><code class="language-plaintext highlighter-rouge">b</code> batch
+index</li>
+<li><code
+class="language-plaintext highlighter-rouge">h</code> attention head
+index</li>
+<li><code
+class="language-plaintext highlighter-rouge">q_idx</code> token position
+in query tensor</li>
+<li><code
+class="language-plaintext highlighter-rouge">kv_idx</code> token
+position in key/value tensor</li>
+</ul>
+<p>In the decoding phase, previously calculated tokens are cached, and
+only the latest generated token (i-th) is used as the query. A naive
+causal mask on this one token query looks like this:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>def causal(score, b, h, q_idx, kv_idx):
+    return torch.where(q_idx &gt;= kv_idx, score, -float(&quot;inf&quot;))</code></pre>
+</div>
+</div>
+<p><img src="assets/4cb35044ae43eef08f2777e248255ed0551bd00abcbec1f2145f4611732c9578.png"
+class="alignnone size-full wp-image-3463" width="1600"
+height="248" />This is problematic: the new token “<em>saw</em>” should
+attend to all previously generated tokens i.e. “<em>The cat sat on the
+mat and saw</em>”, not just the first entry in the kv cache. To correct
+this, the <code
+class="language-plaintext highlighter-rouge">score_mod</code> needs
+to <strong>offset <code>q_idx</code></strong> <strong>by <code>i </code></strong>for
+accurate decoding.</p>
+<p><img src="assets/6afd6f494f240817de129546cd65c44456ca82070839c0344651cb1b322f2165.png"
+class="alignnone size-full wp-image-3464" width="1600"
+height="227" />Creating a new <code
+class="language-plaintext highlighter-rouge">score_mod</code> for each
+token to accommodate the offset is slow since it means FlexAttention
+needs to be recompiled every iteration for a different <code
+class="language-plaintext highlighter-rouge">score_mod</code>.
+Instead,</p>
+<p>We define this <code
+class="language-plaintext highlighter-rouge">offset</code> as a tensor
+and increment its value at each iteration:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>offset = torch.tensor(i, &quot;cuda&quot;)
+def causal_w_offset(score, b, h, q_idx, kv_idx):
+    return torch.where(q_idx + offset &gt;= kv_idx, score, -float(&quot;inf&quot;))
+
+# Attend the i-th token
+flex_attention(..., score_mod=causal_w_offset  ) # Compiles the kernel here 
+...
+# Attend the i+1-th token
+offset = offset + 1 # Increment offset
+flex_attention(..., score_mod=causal_w_offset ) # Doesn&#39;t need to recompile! </code></pre>
+</div>
+</div>
+<p>Notably, here <code
+class="language-plaintext highlighter-rouge">offset</code> becomes a
+captured tensor and it does not need to recompile if <code
+class="language-plaintext highlighter-rouge">offset</code> changes
+values.</p>
+<p>Manually rewriting your <code
+class="language-plaintext highlighter-rouge">score_mod</code> and <code
+class="language-plaintext highlighter-rouge">mask_mod</code> for offset
+handling isn’t necessary. We can automate this process with a generic
+rewriter:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>offset = torch.tensor(i, &quot;cuda&quot;)
+
+def get_score_mod_w_offset(score_mod: _score_mod_signature, _offset: tensor):
+    def _score_mod(score, b, h, q, kv):
+        return score_mod(score, b, h, q + _offset, kv)
+    return _score_mod
+
+def get_mask_mod_w_offset(mask_mod: _mask_mod_signature, _offset: tensor):
+    def _mask_mod(b, h, q, kv):
+        return mask_mod(b, h, q + _offset, kv)
+    return _mask_mod
+
+causal_w_offset = get_score_mod_w_offset(causal, offset)</code></pre>
+</div>
+</div>
+<h2 id="blockmask-for-inference">BlockMask for Inference</h2>
+<p>We can also use BlockMask with inference to leverage mask sparsity.
+The idea is to precompute the BlockMask once during model setup and use
+slices of it during decoding</p>
+<h3 id="precomputing-blockmask">Precomputing BlockMask</h3>
+<p>During setup, we create a squared BlockMask for <code
+class="language-plaintext highlighter-rouge">MAX_SEQ_LEN x MAX_SEQ_LEN</code>:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>from torch.nn.attention.flex_attention import create_block_mask
+
+def causal_mask(b, h, q_idx, kv_idx):
+    return q_idx &gt;= kv_idx
+
+block_mask = create_block_mask(causal_mask, B=None, H=None, Q_LEN=MAX_SEQ_LEN,KV_LEN=MAX_SEQ_LEN)</code></pre>
+</div>
+</div>
+<h3 id="using-blockmask-during-decoding"><img
+src="assets/2ca9fc042d63d2a2a6831fc52ac9c256e8cfbad40e80f3293dc48e93cb324a65.png"
+class="alignnone size-full wp-image-3465" width="1600"
+height="1153" />Using BlockMask During Decoding</h3>
+<p>For the i-th token, we use a slice of the mask:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>block_offset = i // block_mask.BLOCK_SIZE[0]
+block_mask_slice = block_mask[:, :, block_offset]
+
+# don&#39;t forget to use the mask_mod with offset! 
+block_mask_slice.mask_mod = get_mask_mod_w_offset(causal_mask)</code></pre>
+</div>
+</div>
+<h2 id="performance"><img
+src="assets/a2b4504ea1f76d2362db7354e1a969669ae7e3479cad7cae8ff381ed63126277.png"
+class="alignnone size-full wp-image-3466" width="1600"
+height="1024" />Performance</h2>
+<p><img src="assets/6fe703ab26828eb593d243c25f8a5adcc049962fa9dcdc1e9f875fc142701b08.png"
+class="alignnone size-full wp-image-3467" width="1464"
+height="629" />FlexDecoding kernel performs on par with FlashDecoding
+(FAKV) and significantly outperforms pytorch
+scaled_dot_product_attention (<a
+href="https://github.com/pytorch/pytorch/blob/main/benchmarks/transformer/score_mod.py"
+target="_blank" rel="noopener">code</a>).</p>
+<p><img src="assets/98a02078a1441535b50901e6fa76c31113a23875d2ed89409f648a4627a1a431.png"
+class="alignnone size-full wp-image-3468" width="905"
+height="452" /></p>
+<p>FlexDecoding boosts LLaMa3.1-8B serving performance by 1.22x-2.04x,
+and LLaMa3.1-70B performance by 0.99x – 1.66x compared to SDPA in
+gpt-fast. (<a href="https://github.com/pytorch-labs/gpt-fast"
+target="_blank" rel="noopener">code</a>)</p>
+<h2 id="paged-attention">Paged Attention</h2>
+<p><a href="https://blog.vllm.ai/2023/06/20/vllm.html" target="_blank"
+rel="noopener">vLLM</a> is one of the popular LLM serving engines,
+powered by the efficient memory management from PagedAttention.
+Existing <a
+href="https://github.com/vllm-project/vllm/blob/main/csrc/attention/paged_attention_v2.cu"
+target="_blank" rel="noopener">PagedAttention</a> implementation
+requires dedicated CUDA kernels and shows limited flexibility on
+supporting emerging attention variants. In this section, we present a
+PT2-native PagedAttention implementation that is enabled by flex
+attention and torch.compile.</p>
+<p>PagedAttention scatters KV cache to reduce memory fragmentation and
+support higher batch sizes. Without PagedAttention, KV cache from the
+same request are stored in a contiguous memory, requiring 2 tensor of
+shape <em>B x H x KV LEN x D</em>. We call it a logical KV cache. Here,
+KV_LEN is the maximum sequence length over all requests in a batch.
+Considering the Figure 1(a), KV_LEN is 9 thus all requests must be
+padded to 9 tokens, leading to large memory waste. With PagedAttention,
+we can chunk each request into multiple pages of the same size page_size
+and scatter these pages into a physical KV cache of shape <em>1 x H x
+max seq len x D</em>, where max_seq_len=n_pages x page_size. This avoids
+padding requests to the same length and saves memory. Specifically, we
+provide an <code
+class="language-plaintext highlighter-rouge">assign</code> API to update
+KV cache via index computations:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>def assign(
+    batch_idx: torch.Tensor,
+    input_pos: torch.Tensor,
+    k_val: torch.Tensor,
+    v_val: torch.Tensor,
+    k_cache: torch.Tensor,
+    v_cache: torch.Tensor,
+) -&gt; None</code></pre>
+</div>
+</div>
+<p>Behind this <code
+class="language-plaintext highlighter-rouge">assign</code> API is a page
+table, a tensor mapping logical KV cache to physical KV cache:</p>
+[batch_idx, logical_page_idx] -&gt; physical_page_idx
+<p><code
+class="language-plaintext highlighter-rouge">assign</code> takes <code
+class="language-plaintext highlighter-rouge">k_val</code> and <code
+class="language-plaintext highlighter-rouge">v_val</code> and scatters
+to physical KV cache guided by the mapping from the page table.</p>
+<p><strong><img
+src="assets/1ddceb3da9aca20cc0a67e0cde9b819e3e8fb22a4971fad92f4b6af938b670af.png"
+class="alignnone size-full wp-image-3469" width="722"
+height="251" /></strong></p>
+<p><strong>Paged Attention with Page Table</strong></p>
+<p>A natural question is, how to integrate PagedAttention with flex
+attention to support diverse attention variants? A naive idea is to
+materialize the logical KV cache before computing with flex attention.
+But this leads to redundant memory copy and bad performance. Another
+idea is to build a dedicated CUDA or Triton kernel for paged attention,
+similar to <a
+href="https://github.com/vllm-project/vllm/blob/main/csrc/attention/paged_attention_v2.cu"
+target="_blank" rel="noopener">existing PagedAttention
+implementation</a>. However, this adds much manual effort and code
+complexity.</p>
+<p>Instead, we design a fused indirect memory access by converting a
+logical block mask according to the page table. In FlexAttention, we
+exploit BlockMask to identify logical blocks and skip redundant
+computation. While Paged Attention adds an extra layer of indirect
+memory access, we can further convert the logical block mask to the
+physical block mask corresponding to the page table, as illustrated in
+Figure 2. Our PagedAttention implementation provides a <code
+class="language-plaintext highlighter-rouge">convert_logical_block_mask</code> via
+torch.gather calls:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>def convert_logical_block_mask(
+    block_mask: BlockMask,
+    batch_idx: Optional[torch.Tensor] = None,
+) -&gt; BlockMask</code></pre>
+</div>
+</div>
+<p><strong><img
+src="assets/0f2c1e1b0466fca65b722f0b5090060db7fa9cbda7d798ea1360b143349305a8.png"
+class="alignnone size-full wp-image-3470" width="1600"
+height="580" />Paged Attention via Block Mask Conversion</strong></p>
+<p>One remaining question is how to rewrite user-specified <code
+class="language-plaintext highlighter-rouge">mask_mod</code> and <code
+class="language-plaintext highlighter-rouge">score_mod</code> for
+PagedAttention. When users specify these modifications, they write with
+logical indices without the knowledge of the page table maintained at
+runtime. The following code shows an automated conversion at runtime
+which is necessary to rewrite user-specified modifications with physical
+kv indices. The <code
+class="language-plaintext highlighter-rouge">new_mask_mod</code> would
+take the physical_kv_idx and convert it back to the logical_kv_idx and
+apply user-specified <code
+class="language-plaintext highlighter-rouge">mask_mod</code> on the
+logical_kv_idx for the correct mask. For efficiency, we maintain
+physical_to_logical as a mapping from physical_kv_block to
+logical_kv_block to facilitate the conversion. For correctness, we mask
+out-of-boundary blocks as False with a <code
+class="language-plaintext highlighter-rouge">torch.where</code> call.
+After batching logical KV caches from multiple requests into the same
+physical KV cache, there are much more physical blocks than the number
+of logical blocks for each request. Thus, a physical block may not have
+a corresponding logical block for a specific request during block mask
+conversion. By masking as False with <code
+class="language-plaintext highlighter-rouge">torch.where</code>, we can
+ensure the correctness that data from different requests do not
+interfere with each other. Similarly, we can convert the <a
+href="https://github.com/pytorch/pytorch/blob/main/torch/nn/attention/experimental/_paged_attention.py#L308-L338"
+target="_blank" rel="noopener">score_mod</a> automatically.</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>def get_mask_mod(mask_mod: Optional[_mask_mod_signature]) -&gt; _mask_mod_signature:
+    if mask_mod is None:
+        mask_mod = noop_mask
+
+    def new_mask_mod(
+        b: torch.Tensor,
+        h: torch.Tensor,
+        q_idx: torch.Tensor,
+        physical_kv_idx: torch.Tensor,
+    ):
+        physical_kv_block = physical_kv_idx // page_size
+        physical_kv_offset = physical_kv_idx % page_size
+        logical_block_idx = physical_to_logical[b, physical_kv_block]
+        logical_kv_idx = logical_block_idx * page_size + physical_kv_offset
+        return torch.where(
+            logical_block_idx &gt;= 0, mask_mod(b, h, q_idx, logical_kv_idx), False
+        )
+
+    return new_mask_mod</code></pre>
+</div>
+</div>
+<p>Figure 3 demonstrates the latency from Paged Attention (<a
+href="https://github.com/pytorch-labs/attention-gym/blob/main/attn_gym/paged_attention/latency.py"
+target="_blank" rel="noopener">code</a>). Overall, there is less than 5%
+overhead from Flex Attention with Paged Attention, compared with Flex
+Attention only. We also observe an on-par performance with Flash
+Attention v2. A <a
+href="https://github.com/pytorch-labs/attention-gym/blob/main/attn_gym/paged_attention/throughput.py"
+target="_blank" rel="noopener">minimal serving example</a> further shows
+that PagedAttention can support 76x higher batch size when evaluating
+on <a href="https://huggingface.co/datasets/Open-Orca/OpenOrca"
+target="_blank" rel="noopener">OpenOrca dataset</a> which includes 1M
+GPT-4 completions and 3.2M GPT-3.5 completions.</p>
+<p><strong><img
+src="assets/e4fbaa471a15f8f08f4c04bac4799cffff2ebca24cfab4defddf98401b096fda.png"
+class="alignnone size-full wp-image-3471" width="1600"
+height="575" />Paged Attention: Latency under diverse sequence
+length</strong></p>
+<h2 id="trainable-biases">Trainable Biases</h2>
+<p>FlexAttention now supports trainable parameters in <code
+class="language-plaintext highlighter-rouge">score_mod functions.</code> This
+feature enables users to reference tensors that require gradients within
+their <code
+class="language-plaintext highlighter-rouge">score_mod</code> implementations,
+with gradients automatically backpropagating through these parameters
+during training.</p>
+<h3 id="memory-efficient-gradient-accumulation">Memory-Efficient
+Gradient Accumulation</h3>
+<p>Instead of materializing the full attention scores matrix,
+FlexAttention uses atomic additions (<code
+class="language-plaintext highlighter-rouge">tl.atomic_add</code>) to
+accumulate gradients. This approach significantly reduces memory usage
+at the cost of introducing some non-determinism in gradient
+calculations.</p>
+<h3 id="handling-broadcasted-operations">Handling Broadcasted
+Operations</h3>
+<p>Broadcasting operations in the forward pass (e.g., <code
+class="language-plaintext highlighter-rouge">score + bias[h]</code>)
+require special consideration in the backward pass. When broadcasting a
+tensor across multiple attention scores within a head or other
+dimensions, we need to reduce these gradients back to the original
+tensor shape. Rather than materializing the full attention score matrix
+to perform this reduction, we use atomic operations. While this incurs
+some runtime overhead, it allows us to maintain memory efficiency by
+avoiding the materialization of large intermediate tensors.</p>
+<h3 id="current-limitations">Current Limitations</h3>
+<p>The implementation currently allows only a single read from each
+input tensor in the <code
+class="language-plaintext highlighter-rouge">score_mod</code> function.
+For example, <code
+class="language-plaintext highlighter-rouge">bias[q_idx] + bias[kv_idx]</code> would
+not be supported as it reads from the same tensor twice. We hope to
+remove this restriction in the future.</p>
+<h3 id="simple-example">Simple Example:</h3>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>bias = torch.randn(num_heads, requires_grad=True)
+def score_mod(score, b, h, q_idx, kv_idx):
+    return score + bias[h]  </code></pre>
+</div>
+</div>
+<h2 id="performance-tuning-for-flexattention">Performance Tuning for
+FlexAttention</h2>
+<h3 id="tldr">TL;DR</h3>
+<p>For optimal performance, compile FlexAttention using <code
+class="language-plaintext highlighter-rouge">max-autotune</code>,
+especially when dealing with complex <code
+class="language-plaintext highlighter-rouge">score_mods</code> and <code
+class="language-plaintext highlighter-rouge">mask_mods</code>:</p>
+<p>flex_attention = torch.compile(flex_attention, dynamic=True,
+mode=’max-autotune’)</p>
+<h3 id="what-is-max-autotune">What is <code
+class="language-plaintext highlighter-rouge">max-autotune</code>?</h3>
+<p><code
+class="language-plaintext highlighter-rouge">max-autotune</code> is
+a <code
+class="language-plaintext highlighter-rouge">torch.compile</code> mode
+in which TorchInductor sweeps many kernel parameters (e.g., tile
+size, <code
+class="language-plaintext highlighter-rouge">num_stages</code>) and
+selects the best-performing configuration. This process allows kernels
+to test both successful and failing configurations without issues, and
+find the best viable configuration.</p>
+<p>While compilation takes longer with <code
+class="language-plaintext highlighter-rouge">max-autotune</code>, the
+optimal configuration is cached for future kernel executions.</p>
+<p>Here’s an example of FlexAttention compiled with <code
+class="language-plaintext highlighter-rouge">max-autotune</code>:</p>
+<div class="language-plaintext highlighter-rouge">
+<div class="highlight">
+<pre class="highlight"><code>triton_flex_attention_backward_7 0.2528 ms 100.0% BLOCKS_ARE_CONTIGUOUS=False, BLOCK_M1=32, BLOCK_M2=32, BLOCK_N1=32, BLOCK_N2=32, FLOAT32_PRECISION=&quot;&#39;ieee&#39;&quot;, GQA_SHARED_HEADS=7, HAS_FULL_BLOCKS=False, IS_DIVISIBLE=False, OUTPUT_LOGSUMEXP=True, PRESCALE_QK=False, QK_HEAD_DIM=128, ROWS_GUARANTEED_SAFE=False, SM_SCALE=0.08838834764831843, SPARSE_KV_BLOCK_SIZE=1073741824, SPARSE_Q_BLOCK_SIZE=1073741824, V_HEAD_DIM=128, num_stages=4, num_warps=4</code></pre>
+</div>
+</div>
+<h3 id="why-use-max-autotune-for-flexattention">Why Use <code
+class="language-plaintext highlighter-rouge">max-autotune</code> for
+FlexAttention?</h3>
+<p>The amount of shared memory utilized in FlexAttention depends
+on <code
+class="language-plaintext highlighter-rouge">score_mod</code> and <code
+class="language-plaintext highlighter-rouge">mask_mod</code> methods.
+This variability means that the preconfigured default kernel parameters
+may lead to performance cliffs or even out of shared memory** **errors
+on certain hardware for some masks/mods.</p>
+<p>For instance, with document masks, default configurations can halve
+GPU occupancy, reducing performance to ~75% of its potential on some
+GPUs. To avoid such issues, we strongly recommend enabling <code
+class="language-plaintext highlighter-rouge">max-autotune</code>.</p>
+<h2 id="updates-and-enhancements">Updates and Enhancements</h2>
+<ul>
+<li>Now available as a prototype feature in PyTorch 2.5.0</li>
+<li>Fixed critical correctness issues, including a bug affecting
+multiple calls to FlexAttention within the same call to
+torch.compile</li>
+</ul>
+<h2 id="expanded-architecture-support">Expanded Architecture
+Support</h2>
+<ul>
+<li>Arbitrary sequence length support – no longer requires multiples of
+128</li>
+<li>Added native grouped-query attention (GQA) support via <code
+class="language-plaintext highlighter-rouge">is_gqa=True</code></li>
+<li>Enhanced dimension flexibility:
+<ul>
+<li>Different QK and V head dimensions</li>
+<li>Non-power-of-two head dimensions</li>
+</ul></li>
+<li>Trainable attention biases (prototype)</li>
+</ul>
+<h2 id="under-the-hood">Under the Hood</h2>
+<ul>
+<li>New fused CPU backend</li>
+<li>Improved TF32 handling for float32 inputs</li>
+<li>Resolved various dynamic shape issues</li>
+<li>Output layout matching query strides</li>
+</ul>
+<p>These updates make FlexAttention more robust and flexible while
+maintaining its core promise of combining PyTorch’s ease of use with
+FlashAttention’s performance benefits.</p>
+</div>
+</div>
+</body>
+</html>

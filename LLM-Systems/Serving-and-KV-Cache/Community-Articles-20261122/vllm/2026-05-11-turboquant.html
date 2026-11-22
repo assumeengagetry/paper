@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>A First Comprehensive Study of TurboQuant: Accuracy and Performance</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">A First Comprehensive Study of TurboQuant: Accuracy
+and Performance</h1>
+</header>
+<section
+id="a-first-comprehensive-study-of-turboquant-accuracy-and-performance"
+class="header">
+<h1>A First Comprehensive Study of TurboQuant: Accuracy and
+Performance</h1>
+<p>来源：<a
+href="https://vllm.ai/blog/2026-05-11-turboquant">https://vllm.ai/blog/2026-05-11-turboquant</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<article class="max-w-3xl">
+<section
+id="a-first-comprehensive-study-of-turboquant-accuracy-and-performance-1"
+class="text-3xl md:text-4xl font-bold leading-tight mb-4 header mb-8">
+<h1 class="text-3xl md:text-4xl font-bold leading-tight mb-4">A First
+Comprehensive Study of TurboQuant: Accuracy and Performance</h1>
+<div
+class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+<time datetime="2026-05-11">May 11, 2026</time><span>12 min read</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+<span class="text-foreground">Eldar Kurtić, Michael Goin, Alexandre
+Marques (Red Hat AI)</span>
+</div>
+<div class="flex flex-wrap gap-2 mt-4">
+<a href="https://vllm.ai/blog/tags/quantization"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#quantization</a><a
+href="https://vllm.ai/blog/tags/kv_cache"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#kv_cache</a><a
+href="https://vllm.ai/blog/tags/turboquant"
+class="text-xs text-muted-foreground hover:text-vllm-blue transition-colors">#turboquant</a>
+</div>
+</section>
+<div class="lg:hidden">
+<div class="lg:hidden rounded-xl border bg-muted/30 p-4 my-6">
+
+</div>
+</div>
+<div>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="introduction">Introduction</h2>
+<p><a href="../../../../Machine-Learning-Foundations/Quantization-and-Compression/Zandieh%20%E7%AD%89%20-%202025%20-%20TurboQuant%20Online%20Vector%20Quantization%20with%20Near-optimal%20Distortion%20Rate.pdf"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">TurboQuant</a>, a method for KV-cache
+quantization, recently gained significant traction in the community due
+to the large advertised savings in GPU memory from very low bit-width
+quantization of a model's KV-cache. Unlike <a
+href="https://vllm.ai/blog/fp8-kvcache"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">FP8 KV-cache quantization</a>, which quantizes
+both the KV-cache storage and the attention computation itself using
+hardware-native FP8 Tensor Core operations, TurboQuant compresses only
+the KV-cache storage to 3-4 bits and dequantizes back to BF16 for the
+attention computation. This architectural difference has significant
+implications for both accuracy and performance.</p>
+<p>However, most of the reported results were based on small models
+evaluated on short-context benchmarks that do not stress-test KV-cache
+quantization. To provide the community with more actionable data, we
+conducted a comprehensive study spanning four models (both dense-only
+and MoEs), from 30B to 200B+ parameters, and five benchmarks including
+both prefill-heavy long-context retrieval and decode-heavy reasoning
+workloads.</p>
+<figure class="my-6">
+<img
+src="assets/4e4bf5998a6d1484e690a5b5be26ce9cd1ff6865a5366d68b5d7c2076a64c8de.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 1: Pareto frontier for Llama-3.3-70B-Instruct on 4xH100. FP8 dominates with 2.6x higher burst throughput than BF16 and 2x KV-cache capacity. All TurboQuant variants trade throughput for additional memory savings." />
+<figcaption aria-hidden="true">Figure 1: Pareto frontier for
+Llama-3.3-70B-Instruct on 4xH100. FP8 dominates with 2.6x higher burst
+throughput than BF16 and 2x KV-cache capacity. All TurboQuant variants
+trade throughput for additional memory savings.</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/627aaaaa76069b541064875c83287205fbdf34d5490a400944c19ca4cac1caf9.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 2: Pareto frontier for Qwen3-30B-A3B-Instruct-2507 on 2xH100. FP8 matches BF16 throughput at 2x capacity. TurboQuant variants extend capacity to 2.3-3.7x but at 40-52% throughput reduction." />
+<figcaption aria-hidden="true">Figure 2: Pareto frontier for
+Qwen3-30B-A3B-Instruct-2507 on 2xH100. FP8 matches BF16 throughput at 2x
+capacity. TurboQuant variants extend capacity to 2.3-3.7x but at 40-52%
+throughput reduction.</figcaption>
+</figure>
+<p><strong>TL;DR</strong></p>
+<ul>
+<li>FP8 via <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype fp8</code>
+remains the best default for KV-cache quantization: it provides 2x
+KV-cache capacity with negligible accuracy loss, while matching BF16 on
+most performance metrics and substantially improving them in
+memory-constrained serving scenarios.</li>
+<li>TurboQuant <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">k8v4</code>
+does not provide any significant advantage over FP8: it only provides
+modest KV-cache savings (2.4x vs 2x) which are not worth the consistent
+negative impact on throughput and latency metrics.</li>
+<li>TurboQuant <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">4bit-nc</code>
+is likely the most practical TurboQuant variant: it helps under KV-cache
+memory pressure, but trades the extra capacity for moderate accuracy,
+latency, and throughput costs. It may still be viable for edge
+deployments where memory is the dominant constraint.</li>
+<li>TurboQuant <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">k3v4-nc</code>
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">3bit-nc</code>
+show meaningful accuracy drops, especially on reasoning and very
+long-context tasks, while also substantially degrading latency and
+throughput. This makes them poor candidates for production
+deployments.</li>
+</ul>
+<p><strong>Table of Contents</strong></p>
+<ul>
+<li><a href="#experimental-setup"
+class="text-vllm-blue hover:underline">Experimental Setup</a></li>
+<li><a href="#accuracy-results"
+class="text-vllm-blue hover:underline">Accuracy Results</a>
+<ul>
+<li><a href="#long-context-retrieval"
+class="text-vllm-blue hover:underline">Long-context Retrieval</a></li>
+<li><a href="#reasoning"
+class="text-vllm-blue hover:underline">Reasoning</a></li>
+</ul></li>
+<li><a href="#performance-results"
+class="text-vllm-blue hover:underline">Performance Results</a>
+<ul>
+<li><a href="#latency"
+class="text-vllm-blue hover:underline">Latency</a></li>
+<li><a href="#throughput"
+class="text-vllm-blue hover:underline">Throughput</a></li>
+<li><a href="#serving-speed"
+class="text-vllm-blue hover:underline">Serving Speed</a></li>
+</ul></li>
+<li><a href="#key-findings-and-recommendations"
+class="text-vllm-blue hover:underline">Key Findings and
+Recommendations</a></li>
+</ul>
+<p><strong>Quick start:</strong></p>
+<figure data-rehype-pretty-code-figure="">
+<div class="relative group my-4 rounded-lg border bg-muted/50">
+<pre
+class="overflow-x-auto p-4 text-sm [&amp;&gt;code]:block [&amp;&gt;code]:w-fit [&amp;&gt;code]:min-w-full font-mono"
+tabindex="0" data-language="bash"
+data-theme="github-dark-default github-light-default"><code># FP8 KV-cache for all layers
+vllm serve MiniMaxAI/MiniMax-M2.7 --kv-cache-dtype fp8
+ 
+# TurboQuant KV-cache, skipping the first and last two layers
+vllm serve MiniMaxAI/MiniMax-M2.7 --kv-cache-dtype turboquant_4bit_nc</code></pre>
+</div>
+</figure>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="experimental-setup">Experimental Setup</h2>
+<p><strong>Quantization Schemes:</strong> We benchmark four TurboQuant
+variants (<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype turboquant_{k8v4, 4bit_nc, k3v4_nc, 3bit_nc}</code>)
+against unquantized BF16 and FP8 KV-cache baselines. <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">turboquant_k8v4</code>
+uses 8-bit keys and 4-bit values; <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">turboquant_4bit_nc</code>
+uses 4-bit keys and values with norm correction; <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">turboquant_k3v4_nc</code>
+uses 3-bit keys and 4-bit values with norm correction; and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">turboquant_3bit_nc</code>
+uses 3-bit keys and values with norm correction. The FP8 baseline (<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype fp8</code>)
+stores queries, keys, and values in FP8 precision, and also quantizes
+the attention computation itself — a key difference from TurboQuant,
+which only compresses storage. For more details on each TurboQuant
+variant, please refer to the <a href="../../../../Machine-Learning-Foundations/Quantization-and-Compression/Zandieh%20%E7%AD%89%20-%202025%20-%20TurboQuant%20Online%20Vector%20Quantization%20with%20Near-optimal%20Distortion%20Rate.pdf"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">paper</a> and <a
+href="https://docs.vllm.ai/en/latest/api/vllm/model_executor/layers/quantization/turboquant/"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">vLLM documentation</a>. For more details on
+FP8 KV-cache quantization, please refer to the <a
+href="https://vllm.ai/blog/fp8-kvcache"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">FP8 KV-cache blog post</a>.</p>
+<p><strong>Benchmarks:</strong> We evaluate on five benchmarks designed
+to stress-test KV-cache quantization across both prefill-heavy and
+decode-heavy workloads. For long-context retrieval (prefill-heavy), we
+use <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">openai/mrcr</code>
+— a challenging multi-round context retrieval task testing sequence
+lengths up to each model's maximum supported length. For reasoning
+(decode-heavy), we use AIME25, GPQA:Diamond, MATH500, and
+LiveCodeBench-v6. All evaluations adopt the default non-greedy sampling
+parameters suggested by model creators to mimic real-world
+deployment.</p>
+<p><strong>Models:</strong> We focus on four models spanning both small
+and large scale, and both dense-only and MoE architectures: <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Llama-3.3-70B-Instruct</code>,
+<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Qwen3-30B-A3B-Instruct-2507</code>,
+<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Qwen3-30B-A3B-Thinking-2507</code>,
+and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">MiniMax-M2.7</code>.
+At the time of writing, TurboQuant supports only models with standard
+attention mechanisms (e.g. GQA) — models with sliding-window or hybrid
+attention are not yet supported.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="accuracy-results">Accuracy Results</h2>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="long-context-retrieval">Long-context Retrieval</h3>
+<p>For long-context evaluation, we use the <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">openai/mrcr</code>
+task, testing sequence lengths up to each model's maximum supported
+length. We report the average pass@1 score for each sequence-length
+bucket over 5 repetitions, and the Area-Under-Curve (AUC) as an
+aggregate metric across all tested lengths (<a
+href="https://contextarena.ai/" class="text-vllm-blue hover:underline"
+target="_blank" rel="noopener noreferrer">Context Arena</a>).</p>
+<figure class="my-6">
+<img
+src="assets/21ed5fce618d44be8f3bd73914ff868cb1ee0f4e023cab9dce9abbd75b1c981c.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 3: Long-context retrieval results for Llama-3.3-70B-Instruct up to 64k context. At 128k, the model&#39;s maximum supported context length, the BF16 baseline collapses to &lt;10%." />
+<figcaption aria-hidden="true">Figure 3: Long-context retrieval results
+for Llama-3.3-70B-Instruct up to 64k context. At 128k, the model's
+maximum supported context length, the BF16 baseline collapses to
+&lt;10%.</figcaption>
+</figure>
+<p>On Llama-3.3-70B-Instruct (Figure 3), the higher-bit TurboQuant
+variants (k8v4 and 4bit-nc) preserve long-context retrieval well and
+maintain competitive AUC (~52%). However, TQ k3v4-nc (48.6%) and 3bit-nc
+(50.3%) show noticeable and consistent degradation across all sequence
+lengths, with the gap widening at 64k context where the accuracy drop is
+up to 8 points.</p>
+<figure class="my-6">
+<img
+src="assets/6530bcbaea1b551780a2fa222562dd5146ef924eda3a0862f8e34eb9b8e53a2c.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 4: Long-context retrieval results for Qwen3-30B-A3B-Instruct-2507 up to 256k context." />
+<figcaption aria-hidden="true">Figure 4: Long-context retrieval results
+for Qwen3-30B-A3B-Instruct-2507 up to 256k context.</figcaption>
+</figure>
+<p>On Qwen3-30B-A3B-Instruct-2507 (Figure 4), which supports longer
+contexts up to 256k, discrepancies are more pronounced. BF16 (45.8%),
+FP8 (43.1%), and TQ k8v4 (43.0%) remain within the standard deviation of
+each other. TQ 4bit-nc (42.3%) is also competitive. But the aggressive
+variants degrade substantially: TQ k3v4-nc drops to 33.5% AUC and TQ
+3bit-nc to 31.2% — a ~30% relative degradation from BF16. The
+degradation is concentrated at the longest context lengths (128k-256k),
+suggesting that low-bit KV-cache quantization errors accumulate with
+sequence length.</p>
+<p><strong>Takeaway:</strong> TQ k8v4 and 4bit-nc are safe for
+long-context retrieval. TQ k3v4-nc and 3bit-nc show meaningful accuracy
+degradation, especially at very long contexts. FP8 matches the
+higher-bit TQ variants while providing better inference performance
+(shown later).</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="reasoning">Reasoning</h3>
+<p>For decode-heavy reasoning benchmarks, we use AIME25, GPQA:Diamond,
+MATH500, and LiveCodeBench-v6. We report the average pass@1 score: over
+10 repetitions for AIME25 and LiveCodeBench-v6, and over 5 repetitions
+for GPQA:Diamond and MATH500.</p>
+<figure class="my-6">
+<img
+src="assets/b966a7bb03972ab1507384f8655c181fa56b820400ee1d023a44fca4dda308b3.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 5: Reasoning results for Qwen3-30B-A3B-Thinking-2507. Aggressive TQ variants (k3v4-nc, 3bit-nc) show very large drops on AIME25 and LiveCodeBench-v6." />
+<figcaption aria-hidden="true">Figure 5: Reasoning results for
+Qwen3-30B-A3B-Thinking-2507. Aggressive TQ variants (k3v4-nc, 3bit-nc)
+show very large drops on AIME25 and LiveCodeBench-v6.</figcaption>
+</figure>
+<p>On Qwen3-30B-A3B-Thinking-2507 (Figure 5), we see a clear accuracy
+hierarchy. FP8 and TQ k8v4 are close to the BF16 baseline with &gt;98%
+average accuracy recovery. TQ 4bit-nc shows a slightly larger drop with
+96% recovery, whereas TQ k3v4-nc and 3bit-nc show drastic accuracy drops
+of ~20 points. Even on the relatively easy MATH500 benchmark, the
+accuracy drop is ~4 points, indicating that aggressive TurboQuant
+variants are not suitable for long-generation reasoning tasks.</p>
+<figure class="my-6">
+<img
+src="assets/c9f6a5ff1a39fc24de4e30be531d3de26c813b9a719f5ecdca790d86d731fc42.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 6: Reasoning results for MiniMax-M2.7. Despite the fact that larger models tend to be more robust to quantization, aggressive TurboQuant variants still show significant accuracy degradation, specifically on AIME25 and LiveCodeBench-v6." />
+<figcaption aria-hidden="true">Figure 6: Reasoning results for
+MiniMax-M2.7. Despite the fact that larger models tend to be more robust
+to quantization, aggressive TurboQuant variants still show significant
+accuracy degradation, specifically on AIME25 and
+LiveCodeBench-v6.</figcaption>
+</figure>
+<p>On MiniMax-M2.7 (Figure 6), a much larger 200B+ parameter model, we
+observe similar patterns. FP8 and TQ k8v4 maintain &gt;99% accuracy
+recovery, whereas TQ 4bit-nc shows a modest drop. Just like with the
+smaller Qwen model, aggressive TQ variants (k3v4-nc, 3bit-nc) show
+significant accuracy degradation, especially on AIME25 and
+LiveCodeBench-v6 with accuracy drops of up to ~8 points.</p>
+<p><strong>Takeaway:</strong> Aggressive TurboQuant variants (k3v4-nc,
+3bit-nc) show significant accuracy degradation, especially on hard math
+and coding tasks like AIME25 and LiveCodeBench-v6. TQ 4bit-nc shows a
+modest accuracy drop, whereas TQ k8v4 performs on par with the
+unquantized BF16 baseline. FP8 also matches the unquantized baseline;
+however, it provides significantly better inference performance than any
+of the TurboQuant variants (shown later).</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="performance-results">Performance Results</h2>
+<p>For performance benchmarking, we focus on <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Qwen3-30B-A3B-Instruct-2507</code>
+(2xH100) and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">Llama-3.3-70B-Instruct</code>
+(4xH100). We measure latency, offline throughput, and online serving
+metrics (TPOT and TTFT) under various request rates. We deploy models
+with vLLM version <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">0.20.2</code>
+(commit <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">6ec9bbec3</code>).</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="latency">Latency</h3>
+<p>We measure latency with <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">vllm bench latency</code>
+using fixed synthetic requests with input length 1024 and output length
+256, sweeping batch sizes 1, 8, 32, and 64. Each configuration used 10
+warmup iterations followed by 30 measured iterations. Results are shown
+as slowdown relative to BF16 (lower is better).</p>
+<figure class="my-6">
+<img
+src="assets/731ca6ebe19fef66e670dd11a2efca2e0e6c54cf64c858c63aae08dac7890d30.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 7: Latency overhead relative to BF16 for Qwen3-30B-A3B-Instruct-2507. FP8 has negligible overhead which disappears with batching; TurboQuant (TQ) adds up to 60% slowdown depending on the variant and batch size." />
+<figcaption aria-hidden="true">Figure 7: Latency overhead relative to
+BF16 for Qwen3-30B-A3B-Instruct-2507. FP8 has negligible overhead which
+disappears with batching; TurboQuant (TQ) adds up to 60% slowdown
+depending on the variant and batch size.</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/c03e0a6ea6b22ce76bc4cd9bdc5ba134bf104b001b0c4cc096caad2fcb08ca3b.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 8: Latency overhead relative to BF16 for Llama-3.3-70B-Instruct. FP8 has negligible overhead, whereas TQ overhead ranges from 10% to 68%." />
+<figcaption aria-hidden="true">Figure 8: Latency overhead relative to
+BF16 for Llama-3.3-70B-Instruct. FP8 has negligible overhead, whereas TQ
+overhead ranges from 10% to 68%.</figcaption>
+</figure>
+<p>FP8 consistently runs at negligible or no latency overhead across
+both models and all batch sizes — this is expected since FP8 quantizes
+the attention computation itself using hardware-native FP8 Tensor Core
+operations, avoiding dequantization overhead. All TurboQuant variants
+add measurable latency: on Qwen3-30B (Figure 7), overheads range from
+~10% to ~60%; on Llama-3.3-70B (Figure 8), overheads are higher overall,
+ranging from ~10% to ~68%. Notably, for the larger Llama-70B model, the
+TQ overhead tends to <em>increase</em> with batch size — the opposite of
+what we'd want for this use case. This is because TurboQuant has to
+dequantize the KV-cache from low-bit storage back to BF16 before
+computing attention, and this dequantization cost grows with the amount
+of KV-cache being accessed.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="throughput">Throughput</h3>
+<p>We measure offline throughput with <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">vllm bench throughput</code>
+using 200 prompts across three input/output length pairs: 256/256,
+1024/512, and 4096/256. Results are shown as a percentage of BF16
+throughput (higher is better).</p>
+<figure class="my-6">
+<img
+src="assets/b969f7dcf48034eb16be85b1acd4c1204d27a28e89c337d336020f0057b9a7e0.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 9: Average throughput relative to BF16 for Qwen3-30B-A3B-Instruct-2507. FP8 preserves BF16 throughput, while all TurboQuant variants reduce throughput, indicating that lower KV-cache storage cost does not directly translate into faster serving." />
+<figcaption aria-hidden="true">Figure 9: Average throughput relative to
+BF16 for Qwen3-30B-A3B-Instruct-2507. FP8 preserves BF16 throughput,
+while all TurboQuant variants reduce throughput, indicating that lower
+KV-cache storage cost does not directly translate into faster
+serving.</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/7d6efedfe2fd5e45b827fe317dc47e0ea71fc95e4f6bd7ba66c4dda0531ef9f4.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 10: Average throughput relative to BF16 for Llama-3.3-70B-Instruct. FP8 preserves BF16 throughput, while all TurboQuant variants reduce throughput, indicating that lower KV-cache storage cost does not directly translate into faster serving." />
+<figcaption aria-hidden="true">Figure 10: Average throughput relative to
+BF16 for Llama-3.3-70B-Instruct. FP8 preserves BF16 throughput, while
+all TurboQuant variants reduce throughput, indicating that lower
+KV-cache storage cost does not directly translate into faster
+serving.</figcaption>
+</figure>
+<p>The throughput results reinforce the latency findings. FP8 matches
+BF16 throughput on both models. All TurboQuant variants are strictly
+below BF16: on Qwen3-30B (Figure 9), ranging from 80% (k8v4) to 73%
+(3bit-nc); on Llama-70B (Figure 10), from 75% (k8v4 and 4bit-nc) to 66%
+(3bit-nc). More aggressive quantization consistently yields lower
+throughput — the dequantization overhead grows with the complexity of
+the packing format.</p>
+<h3 class="text-xl font-semibold mt-6 mb-2 scroll-mt-24"
+id="serving-speed">Serving Speed</h3>
+<p>We measure serving performance with <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">vllm bench serve</code>
+by using synthetic requests with input length 1024 and output length
+512, 300 measured prompts, and 5 warmup requests. We test request rates
+2, 8, and <code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">inf</code>
+(send requests as fast as possible). We report both TPOT (Time Per
+Output Token — measures decode speed) and P99 TTFT (Time To First Token
+— measures how quickly a request starts generating).</p>
+<figure class="my-6">
+<img
+src="assets/cfc26f06de2e137de1a99c5a2d27f0d8e0b0eb10ce2db5224eba41f41b6891fb.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 11: Serving time per output token (TPOT) for Qwen3-30B-A3B-Instruct-2507." />
+<figcaption aria-hidden="true">Figure 11: Serving time per output token
+(TPOT) for Qwen3-30B-A3B-Instruct-2507.</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/a0fb1c63039d2f9d9c97234bdf44916abf752ff339b57cffaed39075842eddb5.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 12: Serving time per output token (TPOT) for Llama-3.3-70B-Instruct." />
+<figcaption aria-hidden="true">Figure 12: Serving time per output token
+(TPOT) for Llama-3.3-70B-Instruct.</figcaption>
+</figure>
+<p>The TPOT results (Figures 11-12) mirror the latency and throughput
+findings: FP8 either tracks or outperforms BF16 across all request
+rates, while TQ variants add substantial per-token overhead that grows
+with load. At burst on Llama-70B, FP8 is almost 2x faster than BF16,
+while TQ variants are 1.5x to 2.5x slower.</p>
+<figure class="my-6">
+<img
+src="assets/cb74a70c4fa0554b9edf65e95bb7f93a260929f41234e59736c416686cd23e0a.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 13: P99 TTFT for Qwen3-30B-A3B-Instruct-2507." />
+<figcaption aria-hidden="true">Figure 13: P99 TTFT for
+Qwen3-30B-A3B-Instruct-2507.</figcaption>
+</figure>
+<figure class="my-6">
+<img
+src="assets/af11de789613ff54c5fd13e5472c8101c0ca6f293d586b61bcf523f1171f79a0.png"
+class="rounded-lg max-w-full cursor-zoom-in"
+alt="Figure 14: P99 TTFT for Llama-3.3-70B-Instruct. Under burst load, BF16 TTFT explodes to ~17s due to memory saturation; TurboQuant variants stay under 3.5s and FP8 under 1.5s." />
+<figcaption aria-hidden="true">Figure 14: P99 TTFT for
+Llama-3.3-70B-Instruct. Under burst load, BF16 TTFT explodes to ~17s due
+to memory saturation; TurboQuant variants stay under 3.5s and FP8 under
+1.5s.</figcaption>
+</figure>
+<p>On Qwen3-30B (Figure 13), which has more memory headroom on 2xH100,
+FP8 performs identical to BF16 across all request rates. TurboQuant
+variants are consistently slower, with slowdowns going up to 2x at
+burst. On Llama-3.3-70B (Figure 14), running on 4xH100 with limited room
+for KV-cache, BF16 TTFT at burst explodes to ~17s as the system runs out
+of KV-cache memory and must queue incoming requests. All TurboQuant
+variants stay under 3.5s — a 5x improvement — because their compressed
+KV-cache allows more concurrent requests to be processed without
+queuing. At the same time, FP8 achieves the lowest TTFT at ~1.3s and
+consistently outperforms all TurboQuant variants.</p>
+<p><strong>Takeaway:</strong> TurboQuant consistently underperforms both
+BF16 and FP8 by reducing throughput and increasing per-token latency.
+However, in memory-constrained serving scenarios, the KV-cache
+compression prevents memory saturation and dramatically reduces TTFT
+under burst load relative to BF16. This is the core of TurboQuant's
+value proposition: it trades per-token speed for the ability to serve
+requests that would otherwise be queued. FP8, on the other hand,
+provides the best of both worlds: it matches or outperforms BF16
+throughput while providing negligible latency overhead and significantly
+better TTFT under burst load.</p>
+<h2 class="text-2xl font-bold mt-8 mb-3 scroll-mt-24"
+id="key-findings-and-recommendations">Key Findings and
+Recommendations</h2>
+<p>Based on the comprehensive evaluation across accuracy and performance
+benchmarks, we conclude with the following practical
+recommendations:</p>
+<p><strong>FP8 (<code
+class="sourceCode mandoc px-1.5 py-0.5 rounded-md bg-muted font-mono text-sm break-all">--kv-cache-dtype fp8</code>)
+remains the best default for KV-cache quantization.</strong> FP8
+provides 2x KV-cache capacity with no throughput cost, negligible
+accuracy loss, and sometimes even improved performance via quantized
+attention. It is the safest and most predictable choice for the vast
+majority of workloads, as also detailed in the <a
+href="https://vllm.ai/blog/fp8-kvcache"
+class="text-vllm-blue hover:underline" target="_blank"
+rel="noopener noreferrer">FP8 KV-cache blog post</a>.</p>
+<p><strong>TurboQuant k8v4 does not provide any significant advantage
+over FP8.</strong> This TQ variant only provides modest KV-cache savings
+(2.4x vs 2x), which are not worth the consistent negative impact on
+throughput and latency metrics.</p>
+<p><strong>TurboQuant 4bit-nc offers a compelling memory-for-throughput
+tradeoff.</strong> This variant provides up to 3.4x KV-cache capacity
+with modest accuracy degradation of 1-4 points on most benchmarks. It is
+particularly valuable for memory-constrained deployments where the TTFT
+improvement at burst load outweighs the negative impact on all other
+metrics. Thoroughly validate accuracy on the target workload before
+deploying.</p>
+<p><strong>Avoid TurboQuant k3v4-nc and 3bit-nc without thorough
+validation.</strong> These aggressive variants can cause drastic
+accuracy drops that reach up to 20 points on challenging math and coding
+benchmarks. In addition to accuracy, their consistent performance
+degradation due to complex dequantization steps renders them unsuitable
+for production deployments.</p>
+<p><strong>Stay with BF16 when GPU memory is not a bottleneck.</strong>
+If your workload uses short contexts, runs at low concurrency, or your
+hardware has ample memory, BF16 gives the best accuracy-performance
+trade-off without the risk of quantization artifacts.</p>
+</div>
+</article>
+</body>
+</html>

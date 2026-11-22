@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; media-src https:; base-uri 'none'; form-action 'none'"><style>body{max-width:1100px;margin:2em auto;padding:0 1.5em;font-size:17px;line-height:1.65}img{max-width:100%;height:auto}pre{overflow:auto;padding:1em;background:#f3f4f6;color:#111;white-space:pre}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #bbb;padding:.3em .6em}header{border:1px solid #aaa;padding:1em;background:#f8fafc;color:#111}mjx-container{display:inline-block}mjx-container[display="true"]{display:block;text-align:center;margin:1em 0}.katex-html{display:none}math{font-size:1.05em}a{overflow-wrap:anywhere}</style></head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FlashAttention-3: Fast and Accurate Attention with
+Asynchrony and Low-precision</h1>
+</header>
+<section
+id="flashattention-3-fast-and-accurate-attention-with-asynchrony-and-low-precision"
+class="header">
+<h1>FlashAttention-3: Fast and Accurate Attention with Asynchrony and
+Low-precision</h1>
+<p>来源：<a
+href="https://pytorch.org/blog/flashattention-3/">https://pytorch.org/blog/flashattention-3/</a></p>
+<p>下载／转存日期：2026-11-22。类型：技术博客或文档正文静态快照，不是独立论文PDF。正文代码仅供阅读，未执行。可取得的正文图片与图表另存本地；视频、互动Demo、外部链接以及下载失败的媒体仍需联网。网站运行脚本、登录态、跟踪与评论区未打包。</p>
+</section>
+<hr />
+<div class="post-content" data-hide-featured-media="1">
+<div class="content-inner">
+<p>Attention, as a core layer of the ubiquitous Transformer
+architecture, is a bottleneck for large language models and long-context
+applications. FlashAttention (and FlashAttention-2) pioneered an
+approach to speed up attention on GPUs by minimizing memory
+reads/writes, and is now used by most <a
+href="https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html">libraries</a> to
+accelerate Transformer training and inference. This has contributed to a
+massive increase in LLM context length in the last two years, from 2-4K
+(GPT-3, OPT) to 128K (GPT-4), or even 1M (<a
+href="https://huggingface.co/gradientai/Llama-3-8B-Instruct-Gradient-1048k"
+target="_blank" rel="noreferrer noopener">Llama 3</a>). However, despite
+its success, FlashAttention has yet to take advantage of new
+capabilities in modern hardware, with FlashAttention-2 achieving only
+35% utilization of theoretical max FLOPs on the H100 GPU. In this
+blogpost, we describe three main techniques to speed up attention on
+Hopper GPUs: exploiting asynchrony of the Tensor Cores and TMA to (1)
+overlap overall computation and data movement via warp-specialization
+and (2) interleave block-wise matmul and softmax operations, and (3)
+incoherent processing that leverages hardware support for FP8
+low-precision.</p>
+<p>We’re excited to release FlashAttention-3 that incorporates these
+techniques. It’s 1.5-2.0x faster than FlashAttention-2 with FP16, up to
+740 TFLOPS, i.e., 75% utilization of H100 theoretical max FLOPS. With
+FP8, FlashAttention-3 reaches close to 1.2 PFLOPS, with 2.6x smaller
+error than baseline FP8 attention.</p>
+<p>FlashAttention-3 is available at: <a
+href="https://github.com/Dao-AILab/flash-attention" target="_blank"
+rel="noreferrer noopener">https://github.com/Dao-AILab/flash-attention</a><br />
+<a href="https://tridao.me/publications/flash3/flash3.pdf"
+target="_blank" rel="noreferrer noopener">Paper</a></p>
+<h2 class="wp-block-heading" id="flashattention-recap">FlashAttention
+Recap<a
+href="https://pytorch.org/blog/flashattention-3/#flashattention-recap"></a></h2>
+<p><a href="../../Dao%20%E7%AD%89%20-%202022%20-%20FlashAttention%20Fast%20and%20Memory-Efficient%20Exact%20Attention%20with%20IO-Awareness.pdf" target="_blank"
+rel="noreferrer noopener">FlashAttention</a> is an algorithm that
+reorders the attention computation and leverages tiling and
+recomputation to significantly speed it up and reduce memory usage from
+quadratic to linear in sequence length. We use tiling to load blocks of
+inputs from HBM (GPU memory) to SRAM (fast cache), perform attention
+with respect to that block, and update the output in HBM. By not writing
+the large intermediate attention matrices to HBM, we reduce the amount
+of memory reads/writes, which brings 2-4x wallclock time speedup.</p>
+<p>Here we show a diagram of FlashAttention forward pass: with tiling
+and softmax rescaling, we operate by blocks and avoid having to
+read/write from HBM, while obtaining the correct output with no
+approximation.</p>
+<figure class="wp-block-image">
+<img src="assets/081a664c4537313d59b601edf7001bbe41d688758fc514a5939ffec5a2d5ec5c.png"
+class="wp-image-561" width="1600" height="809" alt="math equations" />
+</figure>
+<h2 class="wp-block-heading"
+id="new-hardware-features-on-hopper-gpus---wgmma-tma-fp8">New hardware
+features on Hopper GPUs – WGMMA, TMA, FP8<a
+href="https://pytorch.org/blog/flashattention-3/#new-hardware-features-on-hopper-gpus---wgmma-tma-fp8"></a></h2>
+<p>While FlashAttention-2 can achieve up to 70% theoretical max FLOPS on
+Ampere (A100) GPUs, it does not yet take advantage of new features on
+Hopper GPUs to maximize performance. We describe some of the new
+Hopper-specific features here, and why they are important.</p>
+<p>1. WGMMA (Warpgroup Matrix Multiply-Accumulate). This new feature
+makes use of the new Tensor Cores on Hopper, with much higher
+throughput<sup><a href="#notes">1</a></sup> than the older mma.sync
+instruction in Ampere (image from the <a
+href="https://resources.nvidia.com/en-us-tensor-core/gtc22-whitepaper-hopper?ncid=no-ncid"
+target="_blank" rel="noreferrer noopener">H100 white paper)</a>.</p>
+<figure class="wp-block-image">
+<img src="assets/61de17ecb38a83b0b18667e12170a44756ae5a3b3f0f8cb147a09cc8e897465e.png"
+class="wp-image-566" width="802" height="422"
+alt="image from the H100 white paper" />
+</figure>
+<p>2. TMA (Tensor Memory Accelerator). This is a special hardware unit
+that accelerates the transfer of data between global memory and shared
+memory, taking care of all index calculation and out-of-bound
+predication. This frees up registers, which is a valuable resource to
+increase tile size and efficiency.</p>
+<figure class="wp-block-image">
+<img src="assets/d555c69b237e2152367157ae253bd234bf5884058e5502c6dfdaf795659af621.png"
+class="wp-image-562" width="916" height="372" alt="block diagram" />
+</figure>
+<p>3. Low-precision with FP8. This doubles the Tensor Core throughput
+(e.g. 989 TFLOPS with FP16 and 1978 TFLOPS with FP8), but trades off
+accuracy by using fewer bits to represent floating point numbers.</p>
+<figure class="wp-block-image">
+<img src="assets/dff2e1a5293d449b5ae013592c56bfe86e3eb45862490dbe1566eb396671aecd.png"
+class="wp-image-569" width="1229" height="684" alt="6x throughput" />
+</figure>
+<p>FlashAttention-3 makes use of all of these new features of Hopper,
+using powerful abstractions from <a
+href="https://github.com/NVIDIA/cutlass" target="_blank"
+rel="noreferrer noopener">NVIDIA’s CUTLASS</a> library.<br />
+<br />
+By rewriting FlashAttention to use these new features, we can already
+significantly speed it up (e.g., from 350 TFLOPS in FlashAttention-2
+FP16 forward pass to around 540-570 TFLOPS). However, the asynchronous
+nature of the new instructions on Hopper (WGMMA and TMA) opens up
+additional algorithmic opportunities to overlap operations and thereby
+extract even greater performance. For this blogpost, we’ll explain two
+such techniques specific to attention. The generic technique of warp
+specialization, with separate producer and consumer warps doing TMA and
+WGMMA, is <a
+href="https://github.com/NVIDIA/cutlass/blob/main/media/docs/efficient_gemm.md#warp-specialization"
+target="_blank" rel="noreferrer noopener">well-covered elsewhere</a> in
+the context of GEMM and works the same here.</p>
+<h2 class="wp-block-heading"
+id="asynchrony-overlapping-gemm-and-softmax">Asynchrony: Overlapping
+GEMM and Softmax<a
+href="https://pytorch.org/blog/flashattention-3/#asynchrony-overlapping-gemm-and-softmax"></a></h2>
+<p>Why overlap?</p>
+<p>Attention has GEMMs (those matmuls between Q and K and between
+attention probability P and V) and softmax as its two main operations.
+Why do we need to overlap them? Isn’t most of the FLOPS in the GEMMs
+anyway? As long as the GEMMs are fast (e.g., computed using WGMMA
+instructions), shouldn’t the <a href="https://horace.io/brrr_intro.html"
+target="_blank" rel="noreferrer noopener">GPU be going brrrr</a>?</p>
+<p>The problem is that non-matmul operations are much slower than matmul
+operations on modern accelerators. Special functions such as exponential
+(for the softmax) have even lower throughput than floating point
+multiply-add; they are evaluated by the multi-function unit, a unit
+separate from floating point multiply-add or matrix multiply-add. As an
+example, the H100 GPU SXM5 has 989 TFLOPS of FP16 matrix multiply, but
+only 3.9 TFLOPS (256x less throughput) for special functions<sup><a
+href="#notes">2</a></sup>! For head dimension 128, there are 512x more
+matmul FLOPS than exponential, which means that exponential can take 50%
+of the time compared to matmul. The situation is even worse for FP8,
+where the matmul FLOPS are twice as fast yet exponential FLOPS stay the
+same speed. Ideally we want matmul and softmax to operate in parallel.
+While the Tensor Cores are busy with matmul, the multi-function units
+should be calculating exponential!</p>
+<h3 class="wp-block-heading"
+id="inter-warpgroup-overlapping-with-pingpong-scheduling">Inter-warpgroup
+overlapping with pingpong scheduling<a
+href="https://pytorch.org/blog/flashattention-3/#inter-warpgroup-overlapping-with-pingpong-scheduling"></a></h3>
+<p>The first and easiest way to overlap GEMM and softmax is to do
+nothing at all! The warp schedulers already try to schedule warps so
+that if some warps are blocked (e.g., waiting for GEMM results), other
+warps can run. That is, the warp schedulers do some of this overlapping
+for us, for free.</p>
+<p>However, we can improve on this by doing some of the scheduling
+manually. As an example, if we have 2 warpgroups (labeled 1 and 2 – each
+warpgroup is a group of 4 warps), we can use synchronization barriers
+(bar.sync) so that warpgroup 1 first does its GEMMs (e.g., GEMM1 of one
+iteration and GEMM0 of the next iteration), and then warpgroup 2 does
+its GEMMs while warpgroup 1 does its softmax, and so on. This “pingpong”
+schedule is illustrated in the figure below, where the same color
+denotes the same iteration.</p>
+<figure class="wp-block-image">
+<img src="assets/41e5da0070b275c460094471a58483c57b27edaa13d1f1e35e7ef717e5b36071.png"
+class="wp-image-563" width="1600" height="347" alt="block chart" />
+</figure>
+<p>This would allow us to perform the softmax in the shadow of the GEMMs
+of the other warpgroup. Of course, this figure is just a caricature; in
+practice the scheduling is not really this clean. Nevertheless, pingpong
+scheduling can improve FP16 attention forward pass from around 570
+TFLOPS to 620 TFLOPS (head dim 128, seqlen 8K).</p>
+<h3 class="wp-block-heading"
+id="intra-warpgroup-overlapping-of-gemm-and-softmax">Intra-warpgroup
+overlapping of GEMM and Softmax<a
+href="https://pytorch.org/blog/flashattention-3/#intra-warpgroup-overlapping-of-gemm-and-softmax"></a></h3>
+<p>Even within one warpgroup, we can have some part of softmax running
+while the GEMMs of that warpgroup is running. This is illustrated in
+this figure, where the same color denotes the same iteration.</p>
+<figure class="wp-block-image">
+<img src="assets/a1d205b2a39379a5017488933a5c11e5f58f4cd89902ae79875d45a48d08f89d.png"
+class="wp-image-560" width="652" height="140" alt="block chart" />
+</figure>
+<p>This pipelining increases throughput from around 620 TFLOPS to around
+640-660 TFLOPS for FP16 attention forward, at the cost of higher
+register pressure. We need more registers to hold both accumulators of
+the GEMMs, and the input/output of softmax. Overall, we find this
+technique to offer a favorable tradeoff.</p>
+<h2 class="wp-block-heading"
+id="low-precision-reduce-quantization-error-with-incoherent-processing">Low-precision:
+reduce quantization error with incoherent processing<a
+href="https://pytorch.org/blog/flashattention-3/#low-precision-reduce-quantization-error-with-incoherent-processing"></a></h2>
+<p>LLM activation can have <a href="https://arxiv.org/abs/2208.07339"
+target="_blank" rel="noreferrer noopener">outliers</a> with much larger
+magnitude than the rest of the features. These outliers make it
+difficult to quantize, producing much larger quantization errors. We
+leverage incoherent processing, a technique used in the quantization
+literature (e.g. from <a href="https://arxiv.org/abs/2307.13304"
+target="_blank" rel="noreferrer noopener">QuIP</a>) that multiplies the
+query and key with a random orthogonal matrix to “spread out” the
+outliers and reduce quantization error. In particular, we use the
+Hadamard transform (with random signs), which can be done per attention
+head in O(d log d) instead of O(d^2) time, where d is the head
+dimension. Since the Hadamard transform is memory-bandwidth bound, it
+can be fused with previous operations such as rotary embedding (also
+memory-bandwidth bound) “for free”.</p>
+<p>In our experiment where Q, K, V are generated from a standard normal
+distribution but 0.1% of the entries have large magnitudes (to simulate
+outliers), we found that incoherent processing can reduce the
+quantization error by 2.6x. We show numerical error comparison in the
+table below. Please see the paper for details.</p>
+<figure class="wp-block-image">
+<img src="assets/91269332ca60b3591955ff91689a04a23ce82ffc92ffe3d094251a626b660af0.png"
+class="wp-image-565" width="1344" height="222" alt="text diagram" />
+</figure>
+<h2 class="wp-block-heading" id="attention-benchmark">Attention
+benchmark<a
+href="https://pytorch.org/blog/flashattention-3/#attention-benchmark"></a></h2>
+<p>We show some results with FlashAttention-3, and compare it to
+FlashAttention-2, as well as the implementation in Triton and cuDNN
+(both of which already use new hardware features of Hopper GPUs).</p>
+<p>For FP16, we see about 1.6x-1.8x speedup over FlashAttention-2</p>
+<figure class="wp-block-image">
+<img src="assets/28ec830d1d1682d5ee00503a8b8c24af033d4906b3e60036750806b441ac85f5.png"
+class="wp-image-568" width="1459" height="1600" alt="speed charts" />
+</figure>
+<figure class="wp-block-image">
+<img src="assets/203bc2e55268bcbf23289347876b626c99ba4c5dff17a39d1764ac7ae46f613d.png"
+class="wp-image-564" width="1036" height="408" alt="speed charts" />
+</figure>
+<p>For FP8, we can reach close to 1.2 PFLOPS!</p>
+<figure class="wp-block-image">
+<img src="assets/6922d0ef7bb5cc6c59ab225e1d4485d4d2896dd7b2aa69cdc064b246a0484428.png"
+class="wp-image-567" width="1550" height="1790" alt="speed charts" />
+</figure>
+<h2 class="wp-block-heading" id="discussion">Discussion<a
+href="https://pytorch.org/blog/flashattention-3/#discussion"></a></h2>
+<p>This blogpost highlights some of the optimizations for FlashAttention
+available on Hopper GPUs. Other optimizations (e.g., variable length
+sequences, persistent kernel, and in-kernel transpose for FP8) are
+covered in the paper.</p>
+<p>We have seen that designing algorithms that take advantage of the
+hardware they run on can bring significant efficiency gains and unlock
+new model capabilities such as long context. We look forward to future
+work on optimization for LLM inference, as well as generalizing our
+techniques to other hardware architectures.</p>
+<p>We also look forward to FlashAttention-3 being integrated in a future
+release of PyTorch.</p>
+<h2 class="wp-block-heading" id="notes">Notes<a
+href="https://pytorch.org/blog/flashattention-3/#notes"></a></h2>
+<ol>
+<li>Without the wgmma instruction, the older mma.sync instruction can
+only reach about ⅔ the peak throughput of Hopper Tensor Cores:
+https://arxiv.org/abs/2402.13499v1 <a
+href="#new-hardware-features-on-hopper-gpus---wgmma-tma-fp8">↩︎</a></li>
+<li>The CUDA programming guide specifies that the throughput for special
+functions is 16 operations per streaming multiprocessor (SM) per clock
+cycle. We multiply 16 by 132 SMs and 1830 Mhz (clock speed used to
+calculate 989 TFLOPS of FP16 matmul) to get 3.9 TFLOPS <a
+href="#asynchrony-overlapping-gemm-and-softmax">↩︎</a></li>
+</ol>
+</div>
+</div>
+</body>
+</html>
