@@ -68,4 +68,4 @@ Interactive Language 是 [Language Table 官方仓库](https://github.com/google
 - **新增 20 份 PDF 的 `qpdf --check` 均返回 0。**
 - 已有 5 份中，4 份 `qpdf --check` 返回 0；原有 `pi0.pdf` 返回 3，原因是 linearization hint table 警告。它可由 `pdfinfo` 和 `pdftotext` 正常读取，本次未修复、重写或覆盖；具体警告保存在 JSON 清单中。
 - 新 PDF 归档后的 SHA-256 与下载文件一致；所有原有 PDF 的 SHA-256 保持不变。
-- 更新论文库 [README](../README.md) 和 [INDEX](../INDEX.md) 以加入本清单与新论文；未自动 commit 或 push。
+- 论文库入口见 [README](../README.md)，全部PDF见 [完整目录](../CATALOG.md)。

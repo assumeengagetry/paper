@@ -49,7 +49,7 @@
 
 - [YOLOv10](Object-Detection/2405.14458v2.pdf)、[YOLOv12](Object-Detection/2502.12524v1.pdf)。
 - [RT-DETR](Object-Detection/2304.08069v3.pdf)、[RT-DETRv2](Object-Detection/2407.17140v1.pdf)。
-- 同目录还保留首批下载的 YOLOv13、RT-DETRv3／v4、D-FINE、DEIM 和 DEIMv2；详见 [首批截图清单](Object-Detection/README.md)及 [完整索引](../INDEX.md)。
+- 同目录还保留首批下载的 YOLOv13、RT-DETRv3／v4、D-FINE、DEIM 和 DEIMv2；详见 [首批截图清单](Object-Detection/README.md)及 [完整PDF目录](../CATALOG.md)。
 
 ## 没有确认可下载的官方原论文
 

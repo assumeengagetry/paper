@@ -1,6 +1,6 @@
 # Paper Library
 
-这是按研究主题归档的本地论文、书籍和研究笔记库。当前完整 PDF 文件目录见 [CATALOG-20261122.md](CATALOG-20261122.md)，历史逐文件索引与笔记入口见 [INDEX.md](INDEX.md)，整理规则见 [AGENTS.md](AGENTS.md)。
+这是按研究主题归档的本地论文、书籍和研究笔记库。全部 PDF 的逐文件目录统一维护在 [CATALOG.md](CATALOG.md)，笔记与专题资料从本页进入，整理规则见 [AGENTS.md](AGENTS.md)。
 
 更新日期：2026-11-22。
 
@@ -26,9 +26,24 @@
 
 PDF 总数为 580，包含书籍、学位论文、公开技术报告及保留的同文出版版本／副本；不等同于 580 篇互异的已发表论文。
 
+## 笔记、项目说明与原文提取
+
+| 主题 | 入口 |
+| --- | --- |
+| LLM 课程 | [CS336](LLM-Systems/Evolation/cs336.md) |
+| GPU 与性能分析 | [GPU profiling](LLM-Systems/Performance-and-Profiling/hardware-profilling%28GPU%29.md) |
+| LLM 推理与并行 | [推理笔记](LLM-Systems/Performance-and-Profiling/llm_infer.md)、[工作负载分析](LLM-Systems/Performance-and-Profiling/workload-profilling4llm%20inference.md)、[并行笔记](LLM-Systems/Performance-and-Profiling/paralelled.md)、[工作笔记](LLM-Systems/Performance-and-Profiling/temp.md) |
+| 扩散与多模态 | [扩散笔记](Generative-Models/Diffusion/DM.md)、[多模态笔记](Generative-Models/MM/DM.md) |
+| VLA 与部署 | [VLA 笔记](Robotics-and-Embodied-AI/VLA-Inference/VLA.md)、[APXinf-robo](Robotics-and-Embodied-AI/VLA-Inference/APXinf-robo.md)、[Spec-VLA 说明](Robotics-and-Embodied-AI/VLA-Inference/Spec-VLA/README.md) |
+| 研究信息源 | [RSS 与信息源](Research-Landscapes/rss.md)、[香港 AI 调研](Research-Landscapes/Hong-Kong-AI/deep-research-report.md) |
+| 训练演示资料 | [DDP／FSDP 演示](ML-Systems-and-Hardware/Distributed-Training/20260924.pptx) |
+| 原文提取 | [可解释性与公平性](Explainable-and-Responsible-AI/)、[安全与鲁棒性](ML-Security-and-Robustness/) |
+
+`MinerU_markdown_*` 是对应 PDF 的全文提取，保留在同一主题目录中。全库目录只保留一份；有独立来源、版本或项目说明的专题清单继续保留。
+
 ## Attention 与推理系统社区长文（2026-11-22）
 
-合并两轮学习清单，保存 **47个博客／文档来源的正文、343个不同图片／图表内容**，并保留代码、表格与公式供离线阅读。另新增 **SageAttention、TurboAttention、FlashAttention-4、P-EAGLE四篇论文PDF**（37.76 MiB、72页），复用已有9篇相关论文；原有576份PDF及历史快照不改写。
+合并两轮学习清单，保存 **47个博客／文档来源的正文、343个不同图片／图表内容**，并保留代码、表格与公式供离线阅读。另新增 **SageAttention、TurboAttention、FlashAttention-4、P-EAGLE四篇论文PDF**（37.76 MiB、72页），复用已有9篇相关论文；原有576份PDF保留。
 
 从 **[离线HTML阅读目录](ATTENTION-Systems-20261122.html)** 或 [Markdown清单](ATTENTION-Systems-20261122.md) 进入；来源、版本、SHA-256与媒体记录见 [机器清单](ATTENTION-Systems-20261122.manifest.json)。正文与图片均已取得，视频、互动Demo和任意外部页面未打包；来源命令没有执行，历史教程不等于当前版本安装指南。
 
@@ -47,7 +62,7 @@ PDF 总数为 580，包含书籍、学位论文、公开技术报告及保留的
 - profiler 来源另复用／复制本地论文、补齐公开原论文，区分项目引用、具名数据集／模型映射及第三方依赖书目，不递归扩展外部论文的全部参考文献。
 - **仍有 13 条全文或原始出处尚未补齐的书目**，受订阅、403、源站不可达或原始来源不明等限制；已明确列出，不将摘要页或错误响应冒充 PDF。
 
-完整结果、范围与未取得全文的名单见 [整理报告](IMPORT-20261105.md)；全部 565 份 PDF 的逐文件入口见 [完整目录](CATALOG-20261105.md)，来源、版本和 SHA-256 见 [机器清单](IMPORT-20261105.manifest.json)，实际文件验证结果见 [VERIFY-20261105.json](VERIFY-20261105.json)。
+完整结果、范围与未取得全文的名单见 [整理报告](IMPORT-20261105.md)；该批归档当时共565份PDF，当前全库逐文件入口统一见 [完整目录](CATALOG.md)。来源、版本和 SHA-256 见 [机器清单](IMPORT-20261105.manifest.json)，该批实际文件验证结果见 [VERIFY-20261105.json](VERIFY-20261105.json)。
 
 原始 `storage.zip`、精确的 profiler 内部出处和无公开身份的待核实信息仅留本地，不进入 Git 提交。此前未提交的 20 份 VLA benchmark 论文及对应清单继续保留，属于本次提交范围。
 
@@ -119,4 +134,4 @@ STEP 的主贡献是扩散策略的 warm-start 少步推理，因此 PDF 放在 
 - `Language Ranker` 的两个既有 PDF 副本及各自 MinerU 提取文件均保留在原主题目录。
 - 本次下载的 PDF 通过 PDF 格式、页数和正文标题检查；来源与版本在上表中记录。
 
-整理后根目录作为导航入口。需要找文件时，从项目对应表或完整 [INDEX.md](INDEX.md) 进入。
+需要找论文时使用 [完整 PDF 目录](CATALOG.md)；笔记和项目资料从本页的主题入口进入。

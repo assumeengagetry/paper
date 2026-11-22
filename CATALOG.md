@@ -1,8 +1,10 @@
-# 完整 PDF 文件目录（2026-11-22）
+# 完整 PDF 文件目录
+
+更新日期：2026-11-22。
 
 **全库580份PDF**，按文件计，包含论文、预印本、书籍、学位论文及保留版本，不代表580篇互异正式论文。
 
-本轮Attention／推理系统资料见 [阅读清单](ATTENTION-Systems-20261122.md) 与 [离线网页目录](ATTENTION-Systems-20261122.html)。47份博客／文档HTML和343个图片内容不计入PDF数量。旧日期目录保留为历史快照。
+Attention／推理系统资料见 [阅读清单](ATTENTION-Systems-20261122.md) 与 [离线网页目录](ATTENTION-Systems-20261122.html)。47份博客／文档HTML和343个图片内容不计入PDF数量。全库逐文件目录统一在本文件维护；专题清单、来源与校验记录见 [README](README.md)。
 
 ## Audio-and-Speech/Automatic-Speech-Recognition
 
