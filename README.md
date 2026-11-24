@@ -12,7 +12,7 @@
 | [ML-Systems-and-Hardware](ML-Systems-and-Hardware/) | 分布式训练、GPU 编程、编译器与硬件性能 |
 | [Machine-Learning-Foundations](Machine-Learning-Foundations/) | 优化、量化、蒸馏、强化学习与概率采样 |
 | [Natural-Language-Processing](Natural-Language-Processing/) | 文本编码、检索、分类、抽取、推理与语言基准 |
-| [Computer-Vision](Computer-Vision/) | 目标检测、分割、视觉语言模型与高效视觉架构 |
+| [Computer-Vision](Computer-Vision/) | 目标检测、分割、视觉骨干与视觉语言模型 |
 | [Audio-and-Speech](Audio-and-Speech/) | 语音识别、对齐、音乐与音频模型 |
 | [Computer-Graphics](Computer-Graphics/) | 渲染、路径追踪与神经图形学 |
 | [Computer-Science-Foundations](Computer-Science-Foundations/) | 算法、数据结构、数据库、并发与数值计算 |
@@ -34,6 +34,7 @@
 | 推理性能分析 | [笔记与论文](LLM-Systems/Performance-and-Profiling/) |
 | 分布式训练 | [论文与演示资料](ML-Systems-and-Hardware/Distributed-Training/) |
 | Qwen 架构与官方文章 | [模型架构](LLM-Systems/Model-Architecture/) · [官方文章](LLM-Systems/Model-Architecture/Qwen-Official-Articles/) |
+| Qwen 专项论文 | [视觉](Computer-Vision/Vision-Language-Pretraining/) · [音频](Generative-Models/Speech-and-Audio/) · [Omni](Generative-Models/Multimodal-and-World-Models/) · [数学与过程奖励](Generative-Models/Language-Model-Reasoning/) · [代码](Generative-Models/Language-Model-Training-and-Alignment/) |
+| 架构基础方法 | [语言建模](Natural-Language-Processing/Question-and-Text-Generation/) · [归一化](Machine-Learning-Foundations/Optimization-and-Regularization/) · [视觉 Transformer](Computer-Vision/Vision-Transformers/) |
 | VLA 与世界动作模型 | [VLA 部署](Robotics-and-Embodied-AI/VLA-Inference/) · [世界动作模型](Robotics-and-Embodied-AI/World-Action-Models/) |
 | 目标检测与分割 | [目标检测](Computer-Vision/Object-Detection/) · [图像与视频分割](Computer-Vision/Image-and-Video-Segmentation/) |
-
