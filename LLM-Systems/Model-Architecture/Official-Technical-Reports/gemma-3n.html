@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Gemma 3n</title>
+<p>Source: <a href="https://gemma.ai/models/gemma-3n/">https://gemma.ai/models/gemma-3n/</a></p>
+<article>
+                
+                  
+
+  
+  <h1 id="gemma-3n-model-overview">Gemma 3n model overview<a href="#gemma-3n-model-overview">¶</a></h1>
+  
+
+
+
+
+
+
+<div>
+  <span>
+    <span>Models</span>
+    <a href="https://gemma.ai/models/gemma-3n/model-card/">Gemma 3n</a>
+  </span>
+  <span>
+    <a href="https://gemma.ai/models/gemma-3n.md.txt">
+      
+      <span>View as markdown</span>
+    </a>
+  </span>
+</div>
+  
+<div>
+  <a href="https://www.youtube.com/embed/eJFJRyXEHZ0">Original media</a>
+</div>
+
+<p>Gemma 3n is a generative AI model optimized for use in everyday devices, such as
+phones, laptops, and tablets. This model includes innovations in
+parameter-efficient processing, including Per-Layer Embedding (<div>PLE</div>) parameter
+caching and a MatFormer model architecture that provides the flexibility to
+reduce compute and memory requirements. These models feature audio input
+handling, as well as text and visual data.</p>
+<p>Gemma 3n includes the following key features:</p>
+<ul>
+<li><strong>Audio input</strong> : Process sound data for speech recognition, translation, and audio data analysis. <a href="https://gemma.ai/deployment/huggingface/#generate-text-from-audio-data">Audio input guide</a></li>
+<li><strong>Visual and text input</strong> : Multimodal capabilities let you handle vision, sound, and text to help you understand and analyze the world around you. <a href="https://gemma.ai/deployment/huggingface/#generate-text-from-image-data">Visual input guide</a></li>
+<li><strong>Vision encoder:</strong> High-performance MobileNet-V5 encoder substantially improves speed and accuracy of processing visual data. <a href="https://developers.googleblog.com/en/introducing-gemma-3n-developer-guide/#mobilenet-v5:-new-state-of-the-art-vision-encoder">MobileNet-V5 vision encoder overview</a></li>
+<li><strong><div>PLE</div> caching</strong> : Per-Layer Embedding (<div>PLE</div>) parameters contained in these models can be cached to fast, local storage to reduce model memory run costs. <a href="#ple-caching"><div>PLE</div> caching details</a></li>
+<li><strong>MatFormer architecture:</strong> Matryoshka Transformer architecture allows for selective activation of the models parameters per request to reduce compute cost and response times. <a href="#matformer-architecture">MatFormer architecture details</a></li>
+<li><strong>Conditional parameter loading:</strong> Bypass loading of vision and audio parameters in the model to reduce the total number of loaded parameters and save memory resources. <a href="#conditional-parameter-loading">Conditional parameter loading details</a></li>
+<li><strong>Wide language support</strong>: Wide linguistic capabilities, trained in over 140 languages.</li>
+<li><strong>32K token context</strong>: Substantial input context for analyzing data and handling processing tasks.</li>
+</ul>
+<div>
+<a href="https://www.kaggle.com/models/google/gemma-3n">
+  <div>Kaggle <span>↗</span></div>
+  <p>Get it on Kaggle</p>
+</a>
+<a href="https://huggingface.co/collections/google/gemma-3n-685065323f5984ef315c93f4">
+  <div>Hugging Face <span>↗</span></div>
+  <p>Get it on Hugging Face</p>
+</a>
+</div>
+
+<p>As with other Gemma models, Gemma 3n is provided with open weights and
+licensed for responsible <a href="https://gemma.ai/resources/terms">commercial use</a>, allowing you to tune
+and deploy it in your own projects and applications.</p>
+<div>
+<p>Tip</p>
+<p>If you are interested in building generative AI solutions for Android mobile applications, check out Gemini Nano. For more information, see the Android <a href="https://developer.android.com/ai/gemini-nano">Gemini Nano</a> developer docs.</p>
+</div>
+<h2 id="model-parameters-and-effective-parameters">Model parameters and effective parameters<a href="#model-parameters-and-effective-parameters">¶</a></h2>
+<p>Gemma 3n models are listed with parameter counts, such as <strong><code>E2B</code></strong> and
+<strong><code>E4B</code></strong> , that are <em>lower</em> than the total number of parameters contained in the
+models. The <strong><code>E</code></strong> prefix indicates these models can operate with a reduced set
+of Effective parameters. This reduced parameter operation can be achieved using
+the flexible parameter technology built into Gemma 3n models to help them run
+efficiently on lower resource devices.</p>
+<p>The parameters in Gemma 3n models are divided into 4 main groups: text, visual,
+audio, and per-layer embedding (<div>PLE</div>) parameters. With standard execution of the
+E2B model, over 5 billion parameters are loaded when executing the model.
+However, using parameter skipping and <div>PLE</div> caching techniques, this model can be
+operated with an effective memory load of just under 2 billion (1.91B)
+parameters, as illustrated in Figure 1.</p>
+<p><a href="https://gemma.ai/assets/gemma-3n/gemma-3n-parameters.png">Gemma 3n diagram of parameter usage</a></p>
+<p><strong>Figure 1.</strong> Gemma 3n E2B model parameters running in standard execution
+versus an effectively lower parameter load using <div>PLE</div> caching and parameter
+skipping techniques.</p>
+<p>Using these parameter offloading and selective activation techniques, you can
+run the model with a very lean set of parameters or activate additional
+parameters to handle other data types such as visual and audio. These features
+enable you to ramp up model functionality or ramp down capabilities based on
+device capabilities or task requirements. The following sections explain more
+about the parameter efficient techniques available in Gemma 3n models.</p>
+<h2 id="ple-caching"><div>PLE</div> caching<a href="#ple-caching">¶</a></h2>
+<p>Gemma 3n models include Per-Layer Embedding (<div>PLE</div>) parameters that are used
+during model execution to create data that enhances the performance of each
+model layer. The <div>PLE</div> data can be generated separately, outside the operating
+memory of the model, cached to fast storage, and then added to the model
+inference process as each layer runs. This approach allows <div>PLE</div> parameters to be
+kept out of the model memory space, reducing resource consumption while still
+improving model response quality.</p>
+<h2 id="matformer-architecture">MatFormer architecture<a href="#matformer-architecture">¶</a></h2>
+<p>Gemma 3n models use a Matryoshka Transformer or <em>MatFormer</em> model architecture
+that contains nested, smaller models within a single, larger model. The nested
+sub-models can be used for inferences without activating the parameters of the
+enclosing models when responding to requests. This ability to run just the
+smaller, core models within a MatFormer model can reduce compute cost, and
+response time, and energy footprint for the model. In the case of Gemma 3n, the
+E4B model contains the parameters of the E2B model. This architecture also
+lets you select parameters and assemble models in intermediate sizes
+between 2B and 4B. For more details on this approach, see the
+<a href="https://arxiv.org/pdf/2310.07707">MatFormer research paper</a>.
+Try using MatFormer techniques to reduce the size of a Gemma 3n model with the
+<a href="https://goo.gle/gemma3n-matformer-lab">MatFormer Lab</a>
+guide.</p>
+<h2 id="conditional-parameter-loading">Conditional parameter loading<a href="#conditional-parameter-loading">¶</a></h2>
+<p>Similar to <div>PLE</div> parameters, you can skip loading of some parameters into memory,
+such as audio or visual parameters, in the Gemma 3n model to reduce memory load.
+These parameters can be dynamically loaded at runtime if the device has the
+required resources. Overall, parameter skipping can further reduce the required
+operating memory for a Gemma 3n model, enabling execution on a wider range of
+devices and allowing developers to increase resource efficiency for less
+demanding tasks.</p>
+<p>Ready to start building?
+<a href="https://gemma.ai/get-started/">Get started</a>
+with Gemma models!</p>
+</article>
+            
+</html>

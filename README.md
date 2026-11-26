@@ -34,6 +34,7 @@
 | 推理性能分析 | [笔记与论文](LLM-Systems/Performance-and-Profiling/) |
 | 分布式训练 | [论文与演示资料](ML-Systems-and-Hardware/Distributed-Training/) |
 | Qwen 架构与官方文章 | [模型架构](LLM-Systems/Model-Architecture/) · [官方文章](LLM-Systems/Model-Architecture/Qwen-Official-Articles/) |
+| DeepSeek、Kimi、Llama、GLM、MiniMax、Gemma 与 Phi／MAI | [模型架构](LLM-Systems/Model-Architecture/) · [训练与对齐](Generative-Models/Language-Model-Training-and-Alignment/) · [推理与强化学习](Generative-Models/Language-Model-Reasoning/) |
 | Qwen 专项论文 | [视觉](Computer-Vision/Vision-Language-Pretraining/) · [音频](Generative-Models/Speech-and-Audio/) · [Omni](Generative-Models/Multimodal-and-World-Models/) · [数学与过程奖励](Generative-Models/Language-Model-Reasoning/) · [代码](Generative-Models/Language-Model-Training-and-Alignment/) |
 | 架构基础方法 | [语言建模](Natural-Language-Processing/Question-and-Text-Generation/) · [归一化](Machine-Learning-Foundations/Optimization-and-Regularization/) · [视觉 Transformer](Computer-Vision/Vision-Transformers/) |
 | VLA 与世界动作模型 | [VLA 部署](Robotics-and-Embodied-AI/VLA-Inference/) · [世界动作模型](Robotics-and-Embodied-AI/World-Action-Models/) |
